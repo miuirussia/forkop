@@ -38,8 +38,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential curl fakeroot file gawk git patch perl tar unzip util-linux xz-utils zstd
 
+      - name: Cache OpenWrt SDKs
+        uses: actions/cache@v4.3.0
+        with:
+          path: ${{ runner.temp }}/openwrt-sdk
+          key: ${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-openwrt-sdk-v1-${{ hashFiles('build.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-openwrt-sdk-v1-
+
       - name: Build
         env:
+          SDK_CACHE_DIR: ${{ runner.temp }}/openwrt-sdk
           INSTALL_COMMAND: ${{ inputs.install_command }}
           TAG: ${{ github.ref_name }}
         run: ./build.sh "$TAG" "$PWD/release"
