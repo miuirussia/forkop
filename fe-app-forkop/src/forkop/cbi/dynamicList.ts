@@ -161,6 +161,7 @@ const SettingsUIDynamicList = ui.DynamicList.extend({
   ) {
     if (flash && typeof this.options.createItem === 'function') {
       value = this.options.createItem(value);
+      if (!value) return;
       text = null;
     } else if (
       flash &&

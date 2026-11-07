@@ -1,15 +1,15 @@
 # RU translations for FORKOP package.
 # Copyright (C) 2026 THE FORKOP COPYRIGHT HOLDER
 # This file is distributed under the same license as the FORKOP package.
-# ushan0v, 2026.
+# Kirill Kuznetsov, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-31 14:20+0300\n"
-"PO-Revision-Date: 2026-10-31 14:20+0300\n"
-"Last-Translator: ushan0v\n"
+"POT-Creation-Date: 2026-11-07 21:20+0300\n"
+"PO-Revision-Date: 2026-11-07 21:20+0300\n"
+"Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
@@ -1298,6 +1298,12 @@ msgstr "Неверный сертификат PEM"
 msgid "Invalid PEM private key"
 msgstr "Неверный приватный ключ PEM"
 
+msgid "Invalid Phobos link"
+msgstr "Некорректная ссылка Phobos"
+
+msgid "Invalid Phobos obfuscation"
+msgstr "Некорректные параметры обфускации Phobos"
+
 msgid "Invalid pin-sha256"
 msgstr "Неверный pin-sha256"
 
@@ -1870,6 +1876,12 @@ msgstr "Ожидает запуска"
 
 msgid "Persistent keepalive"
 msgstr "Постоянный keepalive"
+
+msgid "Phobos obfuscation (JSON)"
+msgstr "Обфускация Phobos (JSON)"
+
+msgid "Phobos SOCKS5 is not supported"
+msgstr "Phobos SOCKS5 не поддерживается"
 
 msgid "Pick a domain"
 msgstr "Выбрать домен"
@@ -2674,6 +2686,9 @@ msgstr "Туннель"
 
 msgid "Tunnel addresses"
 msgstr "Адреса туннеля"
+
+msgid "Tunnel field is unavailable"
+msgstr "Поле туннелей недоступно"
 
 msgid "Tunnel name"
 msgstr "Имя туннеля"

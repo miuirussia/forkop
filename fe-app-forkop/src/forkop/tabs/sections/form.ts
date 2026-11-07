@@ -1,3 +1,6 @@
+import { parsePhobosLink } from '../../../helpers/parseWireGuardConfig';
+import { addDynamicListItem } from '../../cbi/listItems';
+import { createTunnelItem } from './tunnels/model';
 import { renderChildItemLabel } from '../../cbi/listItems';
 import { FORKOP_UCI_PACKAGE, RESERVED_RUNTIME_TAGS } from '../../../constants';
 import { validateOutboundJson } from '../../../validators/validateOutboundJson';
@@ -455,6 +458,47 @@ export function createSectionContent(section: CBISection) {
   o.onListChange = refreshLiveChoiceWidgets;
   o.afterMaterializeChildItems = orderChildItemsByPosition;
   outboundNameSourceOptions.set('tunnels', o);
+  const tunnelOption = o;
+  const createLink = links.createTypedItem!;
+  links.createTypedItem = function (sectionId: string, input: string) {
+    if (!/^phobos:\/\//iu.test(input.trim()))
+      return createLink.call(this, sectionId, input);
+    const parsed = parsePhobosLink(input);
+    const validation = validateConnectionLink(input);
+    if (!parsed.valid || validation !== true)
+      throw new TypeError(parsed.valid ? String(validation) : parsed.message);
+    const widget = tunnelOption.getUIElement(sectionId);
+    if (!widget) throw new TypeError(_('Tunnel field is unavailable'));
+    const id = nextSectionId('tunnel');
+    const endpoint = parsed.endpoint;
+    createTunnelItem(sectionId, id, {
+      kind: 'phobos',
+      name: nextLinkName(sectionId, links, input),
+      address: endpoint.address,
+      private_key: endpoint.private_key,
+      mtu: endpoint.mtu ? String(endpoint.mtu) : '',
+      phobos_obfuscation: JSON.stringify(endpoint.obfuscation),
+    });
+    endpoint.peers.forEach((peer) => {
+      const peerId = uci.add(
+        FORKOP_UCI_PACKAGE,
+        'tunnel_peer',
+        nextSectionId('tunnel_peer'),
+      );
+      uci.set(FORKOP_UCI_PACKAGE, peerId, 'tunnel', id);
+      Object.entries(peer).forEach(([key, value]) =>
+        uci.set(
+          FORKOP_UCI_PACKAGE,
+          peerId,
+          key,
+          Array.isArray(value) ? value : String(value),
+        ),
+      );
+    });
+    addDynamicListItem(widget, id);
+    refreshLiveChoiceWidgets(sectionId);
+    return '';
+  };
 
   o = section.taboption(
     'settings',

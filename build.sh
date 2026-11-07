@@ -44,7 +44,7 @@ BACKEND_DESCRIPTION="Rule-based traffic routing for OpenWrt"
 APP_DESCRIPTION="Web interface for Forkop"
 I18N_DESCRIPTION="Translation for luci-app-forkop - Русский (Russian)"
 MAINTAINER="ushan0v <ushan0v@users.noreply.github.com>"
-PROJECT_URL="https://github.com/ushan0v/forkop"
+PROJECT_URL="https://github.com/miuirussia/forkop"
 uc_constant() {
   sed -n "s/^[[:space:]]*\(const[[:space:]]\{1,\}\)\{0,1\}$2[[:space:]]*[:=][[:space:]]*\"\([^\"]*\)\".*/\2/p" "$ROOT_DIR/forkop/files/usr/lib/$1"
 }

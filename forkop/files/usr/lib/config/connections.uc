@@ -353,6 +353,9 @@ function tunnel_endpoint(tunnel) {
         push(endpoint.peers, item);
     }
 
+    if (kind == "phobos")
+        endpoint.obfuscation = common.parse_json(option(tunnel, "phobos_obfuscation", ""));
+
     // AmneziaWG takes the whole parameter set, plain WireGuard only what one side can add alone.
     if (kind == "amneziawg" || kind == "wireguard") {
         let parameters = amnezia.object(tunnel, kind == "amneziawg" ? amnezia.KEYS : amnezia.ONE_SIDED_KEYS);

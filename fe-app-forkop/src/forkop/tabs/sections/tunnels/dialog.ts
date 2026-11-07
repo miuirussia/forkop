@@ -1,3 +1,4 @@
+import { validPhobosObfuscation } from '../../../../helpers/parseWireGuardConfig';
 import {
   FORKOP_UCI_PACKAGE,
   TAILSCALE_CONTROL_URL,
@@ -378,6 +379,7 @@ function showTunnelImportModal(
 
 const TUNNEL_KINDS = [
   ['wireguard', 'WireGuard'],
+  ['phobos', 'Phobos'],
   ['amneziawg', 'AmneziaWG'],
   ['warp', 'Cloudflare WARP'],
   ['tailscale', 'Tailscale'],
@@ -455,6 +457,7 @@ export function showTunnelSettingsModal(
   );
   [
     'wireguard',
+    'phobos',
     'amneziawg',
     'warp',
     'tailscale',
@@ -604,6 +607,20 @@ export function showTunnelSettingsModal(
   });
   configureTextareaOption(endpointJsonOption);
 
+  const obfuscation = itemSection.option(
+    form.TextValue,
+    'phobos_obfuscation',
+    _('Phobos obfuscation (JSON)'),
+  );
+  obfuscation.depends('tunnel_type', 'phobos');
+  obfuscation.rows = 5;
+  obfuscation.validate = required((_itemId, value) =>
+    validPhobosObfuscation(parseOutboundJsonObject(value))
+      ? true
+      : _('Invalid Phobos obfuscation'),
+  );
+  configureTextareaOption(obfuscation);
+
   const openvpnOptions = addOpenVPNOptions(itemSection);
   const openconnectOptions = addOpenConnectOptions(itemSection);
 
@@ -614,6 +631,7 @@ export function showTunnelSettingsModal(
   );
   addressOption.rmempty = false;
   addressOption.depends('tunnel_type', 'wireguard');
+  addressOption.depends('tunnel_type', 'phobos');
   addressOption.depends('tunnel_type', 'amneziawg');
   addressOption.validate = requiredList((_itemId, value) =>
     validateWireGuardPrefix(value),
@@ -626,6 +644,7 @@ export function showTunnelSettingsModal(
   );
   privateKeyOption.password = true;
   privateKeyOption.depends('tunnel_type', 'wireguard');
+  privateKeyOption.depends('tunnel_type', 'phobos');
   privateKeyOption.depends('tunnel_type', 'amneziawg');
   privateKeyOption.validate = required((_itemId, value) =>
     validateWireGuardKey(value) ? true : message.invalidKey(),
@@ -639,6 +658,7 @@ export function showTunnelSettingsModal(
   listenPortOption.validate = anyPortField;
   listenPortOption.rmempty = true;
   listenPortOption.depends('tunnel_type', 'wireguard');
+  listenPortOption.depends('tunnel_type', 'phobos');
   listenPortOption.depends('tunnel_type', 'amneziawg');
 
   const mtuOption = itemSection.option(form.Value, 'mtu', 'MTU');
@@ -647,6 +667,7 @@ export function showTunnelSettingsModal(
   mtuOption.validate = wholeNumberField(1, 65535);
   mtuOption.rmempty = true;
   mtuOption.depends('tunnel_type', 'wireguard');
+  mtuOption.depends('tunnel_type', 'phobos');
   mtuOption.depends('tunnel_type', 'amneziawg');
 
   const peersOption = itemSection.option(
@@ -656,6 +677,7 @@ export function showTunnelSettingsModal(
   );
   peersOption.rmempty = false;
   peersOption.depends('tunnel_type', 'wireguard');
+  peersOption.depends('tunnel_type', 'phobos');
   peersOption.depends('tunnel_type', 'amneziawg');
   peersOption.addButtonLabel = _('+ Add peer');
   peersOption.ownerOption = 'tunnel';
@@ -889,6 +911,7 @@ export function showTunnelSettingsModal(
       const itemId = createTunnelItem(section_id, tunnelId, storage);
       if (
         settings.tunnel_type === 'wireguard' ||
+        settings.tunnel_type === 'phobos' ||
         settings.tunnel_type === 'amneziawg'
       ) {
         materializeTunnelPeers(tunnelId, itemIds, peersOption);

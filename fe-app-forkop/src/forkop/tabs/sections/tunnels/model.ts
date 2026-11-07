@@ -81,6 +81,7 @@ function tunnelPeerIds(tunnelId: string) {
 function tunnelKindLabel(kind: string, endpointType: string) {
   if (kind === 'openvpn-client') return 'OpenVPN';
   if (kind === 'openconnect') return 'OpenConnect';
+  if (kind === 'phobos') return 'Phobos';
   return kind === 'amneziawg'
     ? 'AmneziaWG'
     : kind === 'warp'
@@ -131,6 +132,7 @@ export function tunnelListItemLabel(sectionId: string, tunnelId: string) {
 // endpoint names its own detour.
 export const CASCADE_TUNNEL_KINDS = [
   'wireguard',
+  'phobos',
   'amneziawg',
   'warp',
   'openvpn-client',
@@ -149,6 +151,7 @@ const NATIVE_ENDPOINT_KINDS = ['openvpn-client', 'openconnect'];
 
 // What a tunnel's kind option names; anything else, and none, is WireGuard.
 const STORED_KINDS = [
+  'phobos',
   'openvpn-client',
   'openconnect',
   'json',
@@ -184,6 +187,7 @@ export function tunnelInitialSettings(
     tunnel_type: kind,
     amnezia_enabled: amneziaEnabled ? '1' : '0',
     address: normalizeOptionValues(tunnel.address),
+    phobos_obfuscation: `${tunnel.phobos_obfuscation || ''}`,
     private_key: `${tunnel.private_key || ''}`,
     listen_port: tunnel.listen_port ? `${tunnel.listen_port}` : '',
     mtu: tunnel.mtu ? `${tunnel.mtu}` : '',
@@ -223,6 +227,7 @@ function tunnelSettingsKeys() {
     'kind',
     'address',
     'private_key',
+    'phobos_obfuscation',
     'listen_port',
     'mtu',
     'warp_keepalive',
@@ -305,6 +310,8 @@ export function tunnelStorageSettings(settings: ChildSettings) {
     kind,
     name: kind === 'json' ? '' : `${settings.name || ''}`.trim(),
     address: normalizeOptionValues(settings.address),
+    phobos_obfuscation:
+      kind === 'phobos' ? `${settings.phobos_obfuscation || ''}`.trim() : '',
     private_key: `${settings.private_key || ''}`.trim(),
     listen_port: `${settings.listen_port || ''}`.trim(),
     mtu: `${settings.mtu || ''}`.trim(),
@@ -530,6 +537,8 @@ export function tunnelEndpointFromSettings(
     endpoint.mtu = Number(settings.mtu);
   }
 
+  if (kind === 'phobos')
+    endpoint.obfuscation = parseOutboundJsonObject(settings.phobos_obfuscation);
   if (kind === 'amneziawg') {
     endpoint.amnezia = tunnelAmneziaSettings(settings);
   } else if (oneSidedAmneziaEnabled(kind, settings)) {

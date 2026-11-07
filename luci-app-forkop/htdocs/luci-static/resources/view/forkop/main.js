@@ -2227,7 +2227,7 @@ function closeAllClashApiConnections() {
 }
 
 // src/helpers/isCopyableProxyLink.ts
-var COPYABLE_PROXY_URI_RE = /^(anytls|http2|http3|https?|naive\+https|naive\+quic|mieru|mierus|vless|vmess|trojan|ss|hysteria|hysteria2|hy2|tuic|socks|socks4|socks4a|socks5|tt):\/\//i;
+var COPYABLE_PROXY_URI_RE = /^(phobos|anytls|http2|http3|https?|naive\+https|naive\+quic|mieru|mierus|vless|vmess|trojan|ss|hysteria|hysteria2|hy2|tuic|socks|socks4|socks4a|socks5|tt):\/\//i;
 function isCopyableProxyLink(link) {
   return COPYABLE_PROXY_URI_RE.test((link || "").trim());
 }
@@ -17195,6 +17195,453 @@ function mountTabOption(section2, key, tab) {
   o.cfgvalue = () => mountTab(key, tab.render, tab.initController);
 }
 
+// src/validators/validateSubnet.ts
+function validateSubnet(value) {
+  const [ip, cidr, extra] = value.split("/");
+  if (!ip || extra !== void 0 || !isIPv4(ip) && !isIPv6(ip)) {
+    return message.invalidIpOrSubnet();
+  }
+  if ((ip === "0.0.0.0" || ip === "::") && cidr == null) {
+    return _("Address %s is not allowed").format(ip);
+  }
+  if (cidr !== void 0) {
+    const maxPrefix = isIPv6(ip) ? 128 : 32;
+    if (!/^(?:0|[1-9]\d*)$/.test(cidr) || Number(cidr) > maxPrefix) {
+      return message.prefixRange(0, maxPrefix);
+    }
+  }
+  return true;
+}
+
+// src/helpers/parseWireGuardConfig.ts
+var MAX_AMNEZIA_CONFIG_SIZE = 1024 * 1024;
+var DEFAULT_WIREGUARD_PORT = 51820;
+var LINK_SCHEMES = ["wireguard", "wg", "awg", "amneziawg"];
+var LINK_ALLOWED_IPS = "0.0.0.0/0, ::/0";
+var FIELD_ALIASES = {
+  privatekey: ["secretkey"],
+  address: ["addresses", "ip"],
+  publickey: ["peerpublickey", "pubkey"],
+  presharedkey: ["psk"],
+  allowedips: ["allowedip"],
+  persistentkeepalive: ["persistentkeepaliveinterval", "keepalive"]
+};
+var CANONICAL_FIELDS = Object.fromEntries(
+  Object.entries(FIELD_ALIASES).flatMap(
+    ([canonical, aliases]) => aliases.map((alias) => [alias, canonical])
+  )
+);
+var PEER_FIELDS = [
+  "publickey",
+  "presharedkey",
+  "allowedips",
+  "persistentkeepalive",
+  "endpoint",
+  "reserved"
+];
+function splitValues(values) {
+  return (values || []).flatMap((value) => value.split(",")).map((value) => value.trim()).filter(Boolean);
+}
+function normalizePrefixes(values) {
+  const result = [];
+  for (const value of values) {
+    const normalized = value.includes("/") ? value : isIPv4(value) ? `${value}/32` : isIPv6(value) ? `${value}/128` : value;
+    if (!normalized.includes("/") || validateSubnet(normalized) !== true)
+      return null;
+    result.push(normalized);
+  }
+  return result;
+}
+function canonicalField(key) {
+  const compact = key.trim().toLowerCase().replace(/[-_\s]/gu, "");
+  return CANONICAL_FIELDS[compact] || compact;
+}
+function addValue(values, key, value) {
+  const field2 = canonicalField(key);
+  if (!field2) return;
+  (values[field2] || (values[field2] = [])).push(value);
+}
+function firstValue(values, key) {
+  return values[key]?.[0]?.trim() || "";
+}
+function parsePeerEndpoint(value) {
+  const normalized = value.trim();
+  let address = "";
+  let port2 = DEFAULT_WIREGUARD_PORT;
+  if (normalized.startsWith("[")) {
+    const close = normalized.indexOf("]");
+    if (close < 1) return null;
+    address = normalized.slice(1, close);
+    if (normalized.length > close + 1) {
+      if (normalized[close + 1] !== ":") return null;
+      const parsed = parseUnsigned(normalized.slice(close + 2), 65535);
+      if (!parsed || parsed < 1) return null;
+      port2 = parsed;
+    }
+  } else {
+    const separator = normalized.lastIndexOf(":");
+    if (separator > 0 && normalized.indexOf(":") === separator) {
+      address = normalized.slice(0, separator);
+      const parsed = parseUnsigned(normalized.slice(separator + 1), 65535);
+      if (!parsed || parsed < 1) return null;
+      port2 = parsed;
+    } else {
+      address = normalized;
+    }
+  }
+  return address && !address.startsWith(":") ? { address, port: port2 } : null;
+}
+function readSections(input) {
+  const sections = [];
+  let current = null;
+  for (const rawLine of input.replace(/^\uFEFF/u, "").split(/\r?\n/u)) {
+    const line = rawLine.replace(/#.*$/u, "").trim();
+    if (!line || line.startsWith(";")) continue;
+    const header = /^\[([^\]]+)\]$/u.exec(line);
+    if (header) {
+      current = { name: header[1].trim().toLowerCase(), values: {} };
+      sections.push(current);
+      continue;
+    }
+    const separator = line.indexOf("=");
+    if (!current || separator < 1) return null;
+    const key = line.slice(0, separator).trim();
+    if (!key) return null;
+    addValue(current.values, key, line.slice(separator + 1).trim());
+  }
+  return sections;
+}
+function readConfigFile(input) {
+  const sections = readSections(input);
+  if (!sections) return { message: _("Invalid WireGuard configuration") };
+  const iface = sections.find((section2) => section2.name === "interface");
+  const peers = sections.filter((section2) => section2.name === "peer");
+  if (!iface || peers.length === 0)
+    return { message: _("No [Interface] or [Peer] section") };
+  return {
+    iface: iface.values,
+    peers: peers.map((section2) => section2.values)
+  };
+}
+function decodeLinkComponent(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+function readShareLink(input) {
+  const link = /^([A-Za-z][A-Za-z0-9+.-]*):\/\/(.*)$/su.exec(input);
+  if (!link || !LINK_SCHEMES.includes(link[1].toLowerCase())) return null;
+  let rest = link[2];
+  const fragment = rest.indexOf("#");
+  if (fragment >= 0) rest = rest.slice(0, fragment);
+  const search = rest.indexOf("?");
+  const query = search >= 0 ? rest.slice(search + 1) : "";
+  let authority = search >= 0 ? rest.slice(0, search) : rest;
+  const userinfo = authority.lastIndexOf("@");
+  const iface = {};
+  const peer = {};
+  if (userinfo >= 0) {
+    addValue(
+      iface,
+      "privatekey",
+      decodeLinkComponent(authority.slice(0, userinfo))
+    );
+    authority = authority.slice(userinfo + 1);
+  }
+  const path = authority.indexOf("/");
+  if (path >= 0) authority = authority.slice(0, path);
+  if (authority) addValue(peer, "endpoint", decodeLinkComponent(authority));
+  for (const pair of query.split("&")) {
+    if (!pair) continue;
+    const separator = pair.indexOf("=");
+    const key = canonicalField(
+      decodeLinkComponent(separator < 0 ? pair : pair.slice(0, separator))
+    );
+    const value = separator < 0 ? "" : decodeLinkComponent(pair.slice(separator + 1)).trim();
+    if (!key || !value) continue;
+    addValue(PEER_FIELDS.includes(key) ? peer : iface, key, value);
+  }
+  if (!peer.allowedips) addValue(peer, "allowedips", LINK_ALLOWED_IPS);
+  return { iface, peers: [peer] };
+}
+function rejectUnsupportedFields(source) {
+  for (const values of [source.iface, ...source.peers]) {
+    const reserved = splitValues(values.reserved);
+    if (reserved.some((byte) => parseUnsigned(byte, 255) !== 0))
+      return _("Reserved is not supported: add a Cloudflare WARP tunnel");
+  }
+  return "";
+}
+function parseAmnezia(iface) {
+  const amnezia = {};
+  const texts = {};
+  for (const { key, conf, kind } of AMNEZIA_PARAMETERS) {
+    const value = firstValue(iface, conf.toLowerCase());
+    if (!value) continue;
+    const text8 = amneziaTextFromConf(key, value);
+    if (text8 === null)
+      return { valid: false, message: _("Invalid AmneziaWG parameters") };
+    const validation = validateAmneziaValue(key, text8);
+    if (validation !== true)
+      return { valid: false, message: `${conf}: ${validation}` };
+    texts[key] = text8;
+    if (kind !== "flag" || text8 === "1")
+      amnezia[key] = amneziaJsonValue(key, text8);
+  }
+  const combination = validateAmneziaSet(texts);
+  if (combination !== true) return { valid: false, message: combination };
+  return {
+    valid: true,
+    amnezia: Object.keys(amnezia).length > 0 ? amnezia : void 0
+  };
+}
+function buildEndpoint(source) {
+  const unsupported = rejectUnsupportedFields(source);
+  if (unsupported) return { valid: false, message: unsupported };
+  const { iface } = source;
+  const addressValues = splitValues(iface.address);
+  const address = normalizePrefixes(addressValues);
+  const privateKey = firstValue(iface, "privatekey");
+  if (addressValues.length === 0 || !privateKey)
+    return { valid: false, message: _("No Address or PrivateKey") };
+  if (!validateWireGuardKey(privateKey))
+    return { valid: false, message: _("Invalid %s").format("PrivateKey") };
+  if (!address)
+    return { valid: false, message: _("Invalid %s").format("Address") };
+  const peers = [];
+  for (const values of source.peers) {
+    const publicKey = firstValue(values, "publickey");
+    const remote = parsePeerEndpoint(firstValue(values, "endpoint"));
+    if (!publicKey || !remote)
+      return {
+        valid: false,
+        message: _("[Peer] without PublicKey or Endpoint")
+      };
+    if (!validateWireGuardKey(publicKey))
+      return { valid: false, message: _("Invalid %s").format("PublicKey") };
+    const peer = {
+      address: remote.address,
+      port: remote.port,
+      public_key: publicKey,
+      allowed_ips: []
+    };
+    const preSharedKey = firstValue(values, "presharedkey");
+    if (preSharedKey && !validateWireGuardKey(preSharedKey))
+      return { valid: false, message: _("Invalid %s").format("PresharedKey") };
+    const allowedIps = normalizePrefixes(splitValues(values.allowedips));
+    if (!allowedIps || allowedIps.length === 0)
+      return {
+        valid: false,
+        message: allowedIps ? _("[Peer] without AllowedIPs") : _("Invalid %s").format("AllowedIPs")
+      };
+    const keepaliveValue = firstValue(values, "persistentkeepalive");
+    if (preSharedKey) peer.pre_shared_key = preSharedKey;
+    peer.allowed_ips = allowedIps;
+    if (keepaliveValue && keepaliveValue.toLowerCase() !== "off") {
+      const keepalive = parseRange(keepaliveValue, 4294967295);
+      if (keepalive === void 0)
+        return {
+          valid: false,
+          message: _("Invalid %s").format("PersistentKeepalive")
+        };
+      peer.persistent_keepalive_interval = keepalive;
+    }
+    peers.push(peer);
+  }
+  const endpoint = {
+    type: "wireguard",
+    address,
+    private_key: privateKey,
+    peers
+  };
+  const listenPortValue = firstValue(iface, "listenport");
+  const mtuValue = firstValue(iface, "mtu");
+  if (listenPortValue) {
+    const listenPort = parseUnsigned(listenPortValue, 65535);
+    if (listenPort === void 0 || listenPort === 0)
+      return { valid: false, message: _("Invalid %s").format("ListenPort") };
+    endpoint.listen_port = listenPort;
+  }
+  if (mtuValue) {
+    const mtu = parseUnsigned(mtuValue, 65535);
+    if (mtu === void 0 || mtu === 0)
+      return { valid: false, message: _("Invalid %s").format("MTU") };
+    endpoint.mtu = mtu;
+  }
+  const amnezia = parseAmnezia(iface);
+  if (!amnezia.valid) return { valid: false, message: amnezia.message };
+  if (amnezia.amnezia) endpoint.amnezia = amnezia.amnezia;
+  return { valid: true, endpoint };
+}
+function parseWireGuardConfig(input) {
+  const value = `${input || ""}`.trim();
+  const link = readShareLink(value);
+  if (link) return buildEndpoint(link);
+  const source = readConfigFile(value);
+  return "message" in source ? { valid: false, message: source.message } : buildEndpoint(source);
+}
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function decodeBase64Url(value) {
+  const compact = value.replace(/\\_/gu, "_").replace(/\s+/gu, "");
+  if (compact.length === 0 || compact.length > MAX_AMNEZIA_CONFIG_SIZE * 2 || !/^[A-Za-z0-9_-]+={0,2}$/u.test(compact))
+    throw new Error("invalid base64url");
+  const unpadded = compact.replace(/=+$/u, "");
+  if (unpadded.length % 4 === 1) throw new Error("invalid base64url length");
+  const binary = atob(
+    unpadded.replace(/-/gu, "+").replace(/_/gu, "/") + "=".repeat((4 - unpadded.length % 4) % 4)
+  );
+  if (binary.length > MAX_AMNEZIA_CONFIG_SIZE)
+    throw new Error("encoded config is too large");
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+async function uncompressQtData(data) {
+  if (data.length < 6) return data;
+  const expectedSize = new DataView(
+    data.buffer,
+    data.byteOffset,
+    data.byteLength
+  ).getUint32(0);
+  if (data[4] !== 120 || (data[4] << 8 | data[5]) % 31 !== 0 || expectedSize === 0 || expectedSize > MAX_AMNEZIA_CONFIG_SIZE)
+    return data;
+  const compressed = Uint8Array.from(data.subarray(4));
+  const reader = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
+  const output = new Uint8Array(expectedSize);
+  let offset = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (offset + value.length > output.length) {
+      await reader.cancel();
+      throw new Error("uncompressed config is too large");
+    }
+    output.set(value, offset);
+    offset += value.length;
+  }
+  if (offset !== expectedSize) throw new Error("invalid uncompressed size");
+  return output;
+}
+function extractAmneziaWireGuardConfig(value) {
+  if (!isRecord(value) || !Array.isArray(value.containers))
+    throw new Error("missing containers");
+  const containers = value.containers.filter(isRecord);
+  const defaultContainer = typeof value.defaultContainer === "string" ? value.defaultContainer : "";
+  const selected = containers.find(
+    (container) => container.container === defaultContainer && (isRecord(container.awg) || isRecord(container.wireguard))
+  ) || containers.find(
+    (container) => isRecord(container.awg) || isRecord(container.wireguard)
+  );
+  if (!selected) throw new Error("missing WireGuard container");
+  const protocol = isRecord(selected.awg) ? selected.awg : isRecord(selected.wireguard) ? selected.wireguard : null;
+  if (!protocol) throw new Error("missing WireGuard protocol");
+  const lastConfig = typeof protocol.last_config === "string" ? JSON.parse(protocol.last_config) : protocol.last_config;
+  if (!isRecord(lastConfig) || typeof lastConfig.config !== "string")
+    throw new Error("missing WireGuard config");
+  const dns1 = typeof value.dns1 === "string" ? value.dns1 : "";
+  const dns2 = typeof value.dns2 === "string" ? value.dns2 : "";
+  return {
+    config: lastConfig.config.split("$PRIMARY_DNS").join(dns1).split("$SECONDARY_DNS").join(dns2),
+    mtu: typeof lastConfig.mtu === "string" || typeof lastConfig.mtu === "number" ? lastConfig.mtu : void 0
+  };
+}
+function importAmneziaProfile(profile) {
+  const imported = extractAmneziaWireGuardConfig(profile);
+  const result = parseWireGuardConfig(imported.config);
+  if (result.valid && result.endpoint.mtu === void 0 && imported.mtu) {
+    const mtu = parseUnsigned(`${imported.mtu}`, 65535);
+    if (mtu && mtu > 0) result.endpoint.mtu = mtu;
+  }
+  return result;
+}
+async function parseWireGuardInput(input) {
+  const value = input.trim();
+  const isAmneziaLink = value.slice(0, 6).toLowerCase() === "vpn://";
+  if (!isAmneziaLink && !value.startsWith("{"))
+    return parseWireGuardConfig(value);
+  try {
+    if (!isAmneziaLink) return importAmneziaProfile(JSON.parse(value));
+    const packed = decodeBase64Url(value.slice("vpn://".length));
+    const decoded = await uncompressQtData(packed);
+    const text8 = new TextDecoder("utf-8", { fatal: true }).decode(decoded);
+    if (/^\s*\[Interface\](?:\r?\n|$)/u.test(text8))
+      return parseWireGuardConfig(text8);
+    return importAmneziaProfile(JSON.parse(text8));
+  } catch {
+    return {
+      valid: false,
+      message: _("Invalid or unsupported Amnezia VPN link")
+    };
+  }
+}
+var PHOBOS_LIMITS = {
+  max_dummy: 1024,
+  obfuscate_bytes: 2147483647,
+  media_pt: 127,
+  media_ssrc: 4294967295,
+  media_clock: 1e3
+};
+function validPhobosObfuscation(value) {
+  if (!isRecord(value) || typeof value.key !== "string") return false;
+  const size = new TextEncoder().encode(value.key).length;
+  return size >= 1 && size <= 255 && !value.key.includes("\0") && (value.masking === void 0 || ["STUN", "MEDIA", "AUTO", "NONE"].includes(String(value.masking))) && Object.entries(value).every(
+    ([key, item]) => key === "key" || key === "masking" || key in PHOBOS_LIMITS && typeof item === "number" && Number.isInteger(item) && item >= 0 && item <= PHOBOS_LIMITS[key]
+  );
+}
+function parsePhobosLink(input) {
+  const invalid = { valid: false, message: _("Invalid Phobos link") };
+  try {
+    const match = /^phobos:\/\/([A-Za-z0-9_-]+)(?:#.*)?$/iu.exec(input.trim());
+    if (!match) return invalid;
+    const text8 = new TextDecoder("utf-8", { fatal: true }).decode(decodeBase64Url(match[1])).replace(/^[ \t]*[A-Za-z0-9_-]+[ \t]*=[ \t]*none[ \t]*$/gmu, "");
+    const sections = readSections(text8);
+    const instances = sections?.filter(
+      (section2) => section2.name === "instance"
+    );
+    if (!sections || instances?.length !== 1) return invalid;
+    const instance = instances[0].values;
+    const mode = firstValue(instance, "mode").toLowerCase();
+    if (mode === "socks5")
+      return {
+        valid: false,
+        message: _("Phobos SOCKS5 is not supported")
+      };
+    if (mode && mode !== "wireguard") return invalid;
+    const role = firstValue(instance, "role").toLowerCase();
+    if (role && role !== "client") return invalid;
+    const target2 = firstValue(instance, "target");
+    if (!/^(?:\[[^\]]+\]|[^:\s]+):[0-9]+$/u.test(target2)) return invalid;
+    const source = readConfigFile(text8);
+    if ("message" in source || source.peers.length !== 1) return invalid;
+    source.peers[0].endpoint = [target2];
+    delete source.iface.listenport;
+    const parsed = buildEndpoint(source);
+    if (!parsed.valid || parsed.endpoint.amnezia) return invalid;
+    const obfuscation = {
+      key: firstValue(instance, "key")
+    };
+    const masking = firstValue(instance, "masking");
+    if (masking) obfuscation.masking = masking.toUpperCase();
+    for (const [key, max] of Object.entries(PHOBOS_LIMITS)) {
+      const value = firstValue(instance, key.replaceAll("_", ""));
+      if (value !== "") {
+        const number4 = parseUnsigned(value, max);
+        if (number4 === void 0) return invalid;
+        obfuscation[key] = number4;
+      }
+    }
+    if (!validPhobosObfuscation(obfuscation)) return invalid;
+    return {
+      valid: true,
+      endpoint: { ...parsed.endpoint, type: "phobos", obfuscation }
+    };
+  } catch {
+    return invalid;
+  }
+}
+
 // src/forkop/cbi/listItems.ts
 function itemValueInput(item) {
   const hidden = item ? item.querySelector('input[type="hidden"]') : null;
@@ -17297,28 +17744,6 @@ function validateUniqueDynamicListItemName(widget, itemNode, value) {
   return dynamicListItemLabels(widget).some(
     (label) => label !== currentLabel && `${label.textContent || ""}`.trim() === `${value || ""}`.trim()
   ) ? message.nameTaken() : true;
-}
-
-// src/validators/validateOutboundJson.ts
-function validateOutboundJson(value, usedTags = []) {
-  const normalized = `${value || ""}`.trim();
-  if (!normalized.length) {
-    return message.required();
-  }
-  let parsed;
-  try {
-    parsed = JSON.parse(normalized);
-  } catch {
-    return message.invalidJson();
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return message.invalidJson();
-  }
-  const tag = parsed.tag;
-  if (typeof tag !== "string" || !tag.trim()) {
-    return message.noTag();
-  }
-  return usedTags.some((usedTag) => `${usedTag || ""}`.trim() === tag.trim()) ? message.nameTaken() : true;
 }
 
 // src/forkop/cbi/itemSettings.ts
@@ -17648,731 +18073,267 @@ function parentSectionIdForItem(itemId) {
   return uci.get(FORKOP_UCI_PACKAGE, itemId, "section") || "";
 }
 
-// src/forkop/cbi/uci.ts
-function getUciSectionName(section2) {
-  return section2 && section2[".name"] ? section2[".name"] : "";
-}
-function getUciSectionLabel(section2) {
-  return section2 && section2.label || getUciSectionName(section2);
-}
-function plainObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-function getConfigListValues(section_id, key) {
-  return normalizeOptionValues(uci.get(FORKOP_UCI_PACKAGE, section_id, key));
-}
-function stringArraysEqual(left, right) {
-  const first = normalizeDynamicListItems(left);
-  const second = normalizeDynamicListItems(right);
-  return first.length === second.length && first.every((value, index) => value === second[index]);
-}
-function writeListOption(section_id, key, values) {
-  const normalized = normalizeOptionValues(values);
-  if (stringArraysEqual(getConfigListValues(section_id, key), normalized)) {
+// src/forkop/cbi/modal.ts
+function reportRefusedSave(error, dialog) {
+  if (dialog?.querySelector(".cbi-input-invalid")) {
     return;
   }
-  if (normalized.length) {
-    uci.set(FORKOP_UCI_PACKAGE, section_id, key, normalized);
-  } else {
-    uci.unset(FORKOP_UCI_PACKAGE, section_id, key);
-  }
+  const message2 = error instanceof Error ? error.message : `${error ?? ""}`;
+  showToast(message2.trim() || _("Settings not saved"), "error");
 }
-
-// src/forkop/cbi/choices.ts
-function keepUnavailableSectionChoice(option2, storedValue) {
-  const value = `${storedValue || ""}`.trim();
-  if (!value || (option2.keylist || []).includes(value)) {
-    option2.unavailableChoice = "";
-    return;
+function saveSectionModal(sectionRef, modalMap, ev) {
+  const mapNode = sectionRef.getActiveModalMap();
+  const activeMap = dom.findClassInstance(mapNode);
+  let saved = activeMap.save(void 0, true);
+  for (let map = activeMap.parent; map; map = map.parent) {
+    const parent = map;
+    saved = saved.then(() => parent.load()).then(() => parent.reset());
   }
-  const target2 = (uci.sections(FORKOP_UCI_PACKAGE, "section") || []).find(
-    (section2) => getUciSectionName(section2) === value
-  );
-  option2.unavailableChoice = value;
-  option2.value(
-    value,
-    _("%s (section is unavailable)").format(
-      target2 ? getUciSectionLabel(target2) : value
-    )
+  return saved.then(() => sectionRef.handleModalCancel(modalMap, ev, true)).then(
+    () => true,
+    (error) => {
+      reportRefusedSave(error, mapNode);
+      return false;
+    }
   );
 }
-function validateSectionChoice(option2, value, ownSection) {
-  const section2 = `${value || ""}`.trim();
-  if (!section2) {
-    return message.required();
-  }
-  if (section2 === ownSection) {
-    return message.sectionSelf();
-  }
-  return option2.unavailableChoice && section2 === option2.unavailableChoice ? message.sectionUnavailable() : true;
+function modalOptionFormValue(modalMap, section_id, optionName) {
+  const lookup = modalMap && typeof modalMap.lookupOption === "function" ? modalMap.lookupOption(optionName, section_id) : null;
+  return lookup ? lookup[0].formvalue(lookup[1]) : null;
 }
-function refreshOptionChoices(option2, choices) {
-  delete option2.keylist;
-  delete option2.vallist;
-  (choices || []).forEach((choice) => {
-    if (typeof choice === "object") {
-      option2.value(choice.value, choice.label);
-    } else {
-      option2.value(choice);
-    }
-  });
-}
-
-// src/validators/validateDomain.ts
-function asciiHostname(hostname) {
-  if (!hostname || /[\s@:/]/.test(hostname) || hostname.startsWith(".") || hostname.endsWith(".")) {
-    return null;
-  }
-  try {
-    return new URL(`http://${hostname}`).hostname;
-  } catch {
-    return null;
-  }
-}
-function validAsciiDomain(hostname, requireDot = true) {
-  if (!hostname || hostname.length > 253) {
-    return false;
-  }
-  const parts = hostname.split(".");
-  if (parts.some((part2) => !part2 || part2.length > 63)) {
-    return false;
-  }
-  if (parts.some((part2) => !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(part2))) {
-    return false;
-  }
-  if (!requireDot) {
-    return true;
-  }
-  if (parts.length < 2) {
-    return false;
-  }
-  const tld = parts[parts.length - 1];
-  return /^(?:[a-z]{2,}|xn--[a-z0-9-]{2,59})$/.test(tld);
-}
-function validateDomain(domain, allowDotTLD = false) {
-  const normalized = `${domain || ""}`.trim();
-  if (allowDotTLD) {
-    const dotTld = normalized.startsWith(".") ? normalized.slice(1) : "";
-    const ascii2 = asciiHostname(dotTld);
-    if (ascii2 && !ascii2.includes(".") && validAsciiDomain(ascii2, false)) {
-      return true;
-    }
-  }
-  const slashIndex = normalized.indexOf("/");
-  const hostname = slashIndex >= 0 ? normalized.slice(0, slashIndex) : normalized;
-  const path = slashIndex >= 0 ? normalized.slice(slashIndex) : "";
-  const ascii = asciiHostname(hostname);
-  return path && /\s/.test(path) || !ascii || !validAsciiDomain(ascii) ? message.invalidDomain() : true;
-}
-
-// src/validators/hostPort.ts
-function unbracketHost(host) {
-  if (host.startsWith("[") && host.endsWith("]")) {
-    return host.slice(1, -1);
-  }
-  return host;
-}
-function isValidHost(host) {
-  const normalizedHost = unbracketHost(host);
-  return isIPv4(normalizedHost) || isIPv6(normalizedHost) || validateDomain(normalizedHost) === true;
-}
-function isValidPort(port2) {
-  const normalized = String(port2 ?? "");
-  const value = Number(normalized);
-  return /^\d+$/.test(normalized) && value >= 1 && value <= 65535;
-}
-function parseHostPort(value) {
-  if (!value) {
-    return null;
-  }
-  if (value.startsWith("[")) {
-    const end = value.indexOf("]");
-    if (end <= 1 || value.slice(end + 1, end + 2) !== ":") {
-      return null;
-    }
-    const parsed2 = {
-      host: value.slice(1, end),
-      port: value.slice(end + 2)
-    };
-    return isValidHost(parsed2.host) ? parsed2 : null;
-  }
-  const firstColon = value.indexOf(":");
-  const lastColon = value.lastIndexOf(":");
-  if (firstColon < 0 || firstColon !== lastColon) {
-    return null;
-  }
-  const parsed = {
-    host: value.slice(0, firstColon),
-    port: value.slice(firstColon + 1)
-  };
-  return isValidHost(parsed.host) ? parsed : null;
-}
-
-// src/validators/validateDns.ts
-var DNS_SCHEMES = /* @__PURE__ */ new Set(["udp", "tcp", "tls", "https", "quic", "h3"]);
-function validateDNS(value, ipOnly = false) {
-  const normalized = `${value || ""}`.trim();
-  if (!normalized) {
-    return message.required();
-  }
-  const invalid = _("Invalid DNS server");
-  if (/[\s@?#]/.test(normalized)) {
-    return invalid;
-  }
-  const schemeMatch = normalized.match(/^([a-z][a-z0-9+.-]*):\/\//i);
-  const scheme = schemeMatch?.[1].toLowerCase() || "udp";
-  if (!DNS_SCHEMES.has(scheme)) {
-    return _("Protocol %s is not supported").format(`${scheme}://`);
-  }
-  const endpoint = schemeMatch ? normalized.slice(schemeMatch[0].length) : normalized;
-  const slash = endpoint.indexOf("/");
-  const authority = slash >= 0 ? endpoint.slice(0, slash) : endpoint;
-  const path = slash >= 0 ? endpoint.slice(slash) : "";
-  if (path && scheme !== "https" && scheme !== "h3") {
-    return _("A path only with https:// and h3://");
-  }
-  const parsedHostPort = parseHostPort(authority);
-  const host = parsedHostPort ? parsedHostPort.host : unbracketHost(authority);
-  if (parsedHostPort && !isValidPort(parsedHostPort.port)) {
-    return message.invalidPort();
-  }
-  if (validateIP(host) === true) {
-    return true;
-  }
-  if (ipOnly) {
-    return _("IP address only");
-  }
-  return validateDomain(host) === true ? true : invalid;
-}
-
-// src/forkop/cbi/dnsServers.ts
-var MULTIPLE_DNS_SENTINEL = "__forkop_multiple_dns__";
-function siblingValues(map, name, section_id) {
-  const lookup = map.lookupOption(name, section_id);
-  return lookup ? optionListValues(lookup[0], lookup[1]) : [];
-}
-function dnsServerPrefixes() {
-  return [
-    "udp://",
-    "tcp://",
-    "tls://",
-    "https://",
-    ...coreHas("quic") ? ["quic://", "h3://"] : []
-  ].join(", ");
-}
-var PUBLIC_RESOLVERS = [
-  { address: "77.88.8.8", name: "Yandex" },
-  { address: "1.1.1.1", name: "Cloudflare" },
-  { address: "8.8.8.8", name: "Google" },
-  { address: "9.9.9.9", name: "Quad9" },
-  { address: "94.140.14.14", name: "AdGuard", filtered: true }
-];
-function offerPublicResolvers(option2, options = {}) {
-  PUBLIC_RESOLVERS.forEach(({ address, name, filtered }) => {
-    if (options.bootstrap && filtered) {
-      return;
-    }
-    const servers2 = options.bootstrap ? [address] : [address, `https://${address}/dns-query`];
-    servers2.forEach((server2) => option2.value(server2, `${server2} (${name})`));
-  });
-}
-function configureDnsServerList(option2, options = {}) {
-  const check = requiredList(function(_section_id, value) {
-    const server2 = value.trim();
-    const validation = validateDNS(server2, options.ipOnly);
-    return validation === true ? validateCoreFeature(/^(quic|h3):\/\//i.test(server2) ? "quic" : "") : validation;
-  });
-  option2.rmempty = false;
-  option2.validate = function(section_id, value) {
-    return options.appliesTo && !options.appliesTo(this, section_id) ? true : check.call(this, section_id, value);
-  };
-}
-function configureDnsQueryMode(modeOption, dnsServerOptionName, options = {}) {
-  modeOption.value("parallel", _("Parallel"));
-  modeOption.value("sequential", _("Sequential"));
-  modeOption.default = "parallel";
-  modeOption.rmempty = false;
-  modeOption.retain = true;
-  modeOption.depends(
-    Object.assign({}, options.alsoDependsOn, {
-      [dnsServerOptionName]: MULTIPLE_DNS_SENTINEL
-    })
-  );
-  modeOption.checkDepends = function(section_id) {
-    const satisfied = Object.entries(options.alsoDependsOn || {}).every(
-      ([name, expected]) => {
-        const lookup = this.map.lookupOption(name, section_id);
-        return lookup ? lookup[0].formvalue(lookup[1]) === expected : false;
-      }
-    );
-    return satisfied && siblingValues(this.map, dnsServerOptionName, section_id).length > 1;
-  };
-}
-
-// src/forkop/cbi/grid.ts
-var GRID_SWITCH_COLUMN_WIDTH = "6rem";
-var GRID_KIND_COLUMN_WIDTH = "8rem";
-function getRuleEditButtonText() {
-  const label = _("Edit rule action");
-  return label === "Edit rule action" ? "Edit" : label;
-}
-function loadVisibleTableOptions(sectionRef) {
-  const tasks = [];
-  sectionRef.cfgsections().forEach((sectionId) => {
-    sectionRef.children.forEach((option2) => {
-      if (option2.disable || option2.modalonly) {
+var SINGLE_FIELD_MODAL_STYLE_ID = "fkp-single-field-modal-styles";
+function cleanFormSectionData(sectionData) {
+  const result = {};
+  Object.entries(sectionData || {}).forEach(
+    ([key, value]) => {
+      if (!key || key.charAt(0) === ".") {
         return;
       }
-      tasks.push(
-        Promise.resolve(option2.load.call(option2, sectionId)).then(
-          (value) => {
-            option2.cfgvalue(sectionId, value);
-          }
-        )
-      );
-    });
-  });
-  return Promise.all(tasks);
+      result[key] = Array.isArray(value) ? value.slice() : value;
+    }
+  );
+  return result;
 }
-
-// src/forkop/cbi/dynamicList.ts
-var CONNECTIONS_DYNLIST_STYLE_ID = "fkp-connections-dynlist-styles";
-function ensureConnectionsDynamicListStyles() {
-  if (document.getElementById(CONNECTIONS_DYNLIST_STYLE_ID)) {
+var SINGLE_FIELD_MODAL_CLASS = "fkp-single-field-modal";
+function ensureSingleFieldModalStyles() {
+  if (typeof document === "undefined" || !document.head || document.getElementById(SINGLE_FIELD_MODAL_STYLE_ID)) {
     return;
   }
-  document.head.appendChild(
-    textE(
-      "style",
-      { id: CONNECTIONS_DYNLIST_STYLE_ID },
-      `
-.fkp-connections-dynlist {
-  column-gap: 4px;
-  display: inline-grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-}
+  document.head.insertAdjacentHTML(
+    "beforeend",
+    `<style id="${SINGLE_FIELD_MODAL_STYLE_ID}">
+      .${SINGLE_FIELD_MODAL_CLASS} .cbi-value-title {
+        display: none;
+      }
 
-.fkp-connections-dynlist > .item {
-  grid-column: 1;
-  min-inline-size: 0;
-}
+      .${SINGLE_FIELD_MODAL_CLASS} .cbi-value-field {
+        width: 100%;
+        max-width: 100%;
+        flex: 1 1 auto;
+        float: none;
+        padding-left: 0;
+        margin-left: 0;
+      }
 
-.fkp-connections-dynlist > .fkp-dynlist-settings {
-  align-items: center;
-  align-self: start;
-  block-size: var(--fkp-dynlist-row-size, auto);
-  box-sizing: border-box;
-  display: inline-flex;
-  grid-column: 2;
-  inline-size: 2.5em !important;
-  justify-content: center;
-  line-height: 1;
-  margin: 0;
-  min-block-size: 0;
-  min-inline-size: 0;
-  padding: 0;
-  user-select: none;
-}
-
-.fkp-connections-dynlist > .fkp-dynlist-settings > svg {
-  block-size: 16px;
-  display: block;
-  inline-size: 16px;
-}
-
-.fkp-connections-dynlist > .add-item {
-  grid-column: 1 / -1;
-}
-
-.fkp-connections-dynlist > .add-item > .cbi-dropdown {
-  width: 100%;
-  max-width: none;
-}
-
-.fkp-button-add-dynlist.cbi-input-invalid {
-  box-shadow: none;
-}
-
-.fkp-interface-dynlist-label {
-  align-items: center;
-  display: inline-flex;
-  gap: 0.25em;
-  max-width: 100%;
-  vertical-align: middle;
-}
-
-.fkp-interface-dynlist-label > img {
-  flex: 0 0 auto;
-  height: 1.35em;
-  width: auto;
-}
-
-.fkp-interface-dynlist-label > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-body.modal-overlay-active > #modal_overlay > .modal.cbi-modal > .cbi-map.flash {
-  animation: none !important;
-}
-
-`
-    )
+      .${SINGLE_FIELD_MODAL_CLASS} .cbi-value {
+        margin-bottom: 0;
+      }
+    </style>`
   );
 }
-var SettingsUIDynamicList = ui.DynamicList.extend({
-  render() {
-    ensureConnectionsDynamicListStyles();
-    this.settingsButtonResizeObserver?.disconnect();
-    this.settingsButtonResizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver((entries) => {
-      entries.forEach((entry) => {
-        this.syncSettingsButtonSize(entry.target);
-      });
-    }) : null;
-    const node = ui.DynamicList.prototype.render.call(this);
-    node.classList.add("fkp-connections-dynlist");
-    node.addEventListener("cbi-dynlist-change", () => {
-      this.syncSettingsButtons(node);
-    });
-    node.addEventListener("touchstart", () => this.syncSettingsButtons(node));
-    node.addEventListener("touchmove", () => this.syncSettingsButtons(node));
-    return node;
-  },
-  syncSettingsButtonSize(item) {
-    const button = item && item.fkpDynamicListSettingsButton;
-    const height = item?.offsetHeight;
-    if (button && height > 0) {
-      button.style.setProperty("--fkp-dynlist-row-size", `${height}px`);
-    }
-  },
-  syncSettingsButtons(dl) {
-    Array.from(dl.children).forEach((item) => {
-      const button = item.fkpDynamicListSettingsButton;
-      if (item.classList.contains("item") && button && button.parentNode === dl && item.nextElementSibling !== button) {
-        item.after(button);
-      }
-    });
-  },
-  addItem(dl, value, text8, flash) {
-    if (flash && typeof this.options.createItem === "function") {
-      value = this.options.createItem(value);
-      text8 = null;
-    } else if (flash && typeof this.options.hasEquivalentValue === "function" && this.options.hasEquivalentValue(value, dl)) {
-      this.dispatchCbiDynlistChange(dl, value);
-      return;
-    }
-    const itemText = typeof this.options.itemLabel === "function" ? this.options.itemLabel(value, text8) : text8;
-    ui.DynamicList.prototype.addItem.call(this, dl, value, itemText, flash);
-    const item = findDynamicListItemByValue(dl, value);
-    const hasSettings = typeof this.options.hasSettings === "function" ? this.options.hasSettings(value) : true;
-    if (!item || item.fkpDynamicListSettingsButton || !hasSettings) {
-      return;
-    }
-    const settingsButton = textE(
-      "button",
-      {
-        type: "button",
-        class: "btn cbi-button cbi-button-neutral fkp-dynlist-settings",
-        title: _("Settings"),
-        "aria-label": _("Settings"),
-        disabled: this.options.disabled ? "" : null,
-        click: (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          if (this.options.disabled) {
-            return;
-          }
-          if (typeof this.options.settingsHandler === "function") {
-            this.options.settingsHandler(
-              dynamicListItemCurrentValue(item, value),
-              item,
-              this,
-              {}
-            );
-          }
-        }
-      },
-      renderSettingsIcon24()
-    );
-    item.fkpDynamicListSettingsButton = settingsButton;
-    item.after(settingsButton);
-    this.settingsButtonResizeObserver?.observe(item);
-    this.syncSettingsButtonSize(item);
-  },
-  removeItem(dl, item) {
-    const settingsButton = item && item.fkpDynamicListSettingsButton;
-    this.settingsButtonResizeObserver?.unobserve(item);
-    if (settingsButton && settingsButton.parentNode === dl) {
-      settingsButton.remove();
-    }
-    return ui.DynamicList.prototype.removeItem.call(this, dl, item);
-  },
-  handleClick(event) {
-    if (event.target.closest(".fkp-dynlist-settings")) {
-      return;
-    }
-    return ui.DynamicList.prototype.handleClick.call(this, event);
-  },
-  handleKeydown(event) {
-    const dl = event.currentTarget;
-    const item = event.target.closest(".item");
-    const isBackspace = event.key === "Backspace" || event.keyCode === 8;
-    const isDelete = event.key === "Delete" || event.keyCode === 46;
-    if (!this.options.disabled && item && item.parentNode === dl && (isBackspace || isDelete)) {
-      const items = Array.from(dl.children).filter(
-        (node) => node.classList.contains("item")
-      );
-      const index = items.indexOf(item);
-      const nextItem = items[index + (isBackspace ? -1 : 1)];
-      if (nextItem) {
-        nextItem.focus();
-      } else if (isDelete) {
-        dl.querySelector(".add-item > *")?.focus();
-      }
-      this.removeItem(dl, item);
-      event.preventDefault();
-      return;
-    }
-    return ui.DynamicList.prototype.handleKeydown.call(this, event);
+function renderStackedJsonSettingsModal(title, map, onSave, options = {}) {
+  const modal = document.querySelector("#modal_overlay > .modal.cbi-modal");
+  const activeMap = modal ? modal.querySelector(".cbi-map:not(.hidden)") : null;
+  const buttonRow = modal ? modal.querySelector("div.button-row") : null;
+  const heading = modal ? modal.querySelector("h4") : null;
+  if (!modal || !activeMap || !buttonRow || !heading) {
+    return Promise.resolve();
   }
-});
-var ButtonAddSettingsUIDynamicList = SettingsUIDynamicList.extend({
-  render() {
-    const node = SettingsUIDynamicList.prototype.render.call(this);
-    node.classList.add("fkp-button-add-dynlist");
-    const input = node.querySelector('.add-item > input[type="text"]');
-    input?.remove();
-    node.querySelector(".add-item")?.classList.toggle("hidden", this.options.addable === false);
-    updateButtonAddDynamicListLayout(node, this.options.addButtonLabel);
-    node.addEventListener("cbi-dynlist-change", () => {
-      updateButtonAddDynamicListLayout(node, this.options.addButtonLabel);
-    });
-    const control = node.querySelector(".add-item > .fkp-button-add-control");
-    const showValidity = (invalid) => control?.classList.toggle("cbi-input-invalid", invalid);
-    node.addEventListener("validation-failure", () => showValidity(true));
-    node.addEventListener("validation-success", () => showValidity(false));
-    showValidity(node.classList.contains("cbi-input-invalid"));
-    return node;
-  },
-  addButtonItem(_dl) {
-    if (typeof this.options.settingsHandler === "function") {
-      this.options.settingsHandler("", null, this, { adding: true });
+  return map.render().then((nodes) => {
+    if (options.singleField) {
+      ensureSingleFieldModalStyles();
+      nodes.classList.add(SINGLE_FIELD_MODAL_CLASS);
     }
-  },
-  handleClick(event) {
-    if (!this.options.disabled && event.target.closest(".add-item > .fkp-button-add-control")) {
-      event.preventDefault();
-      event.stopPropagation();
-      this.addButtonItem(event.currentTarget);
-      return;
-    }
-    return SettingsUIDynamicList.prototype.handleClick.call(this, event);
-  },
-  handleKeydown(event) {
-    if (!this.options.disabled && event.target.closest(
-      ".add-item > .fkp-button-add-control"
-    ) && (event.key === "Enter" || event.key === " ")) {
-      event.preventDefault();
-      event.stopPropagation();
-      this.addButtonItem(event.currentTarget);
-      return;
-    }
-    return ui.DynamicList.prototype.handleKeydown.call(this, event);
-  }
-});
-var SettingsDynamicList = form.DynamicList.extend({
-  // ------------------------------------------------ what one entry is called
-  //
-  // A saved entry is a child section id and shows what that section stores under
-  // childValueOption; a draft is its own text, which its dialog may have renamed. A list without
-  // childValueOption shows the section id itself.
-  inputValueForItem(ownerId, value) {
-    if (!this.childType || !this.childValueOption) {
-      return `${value || ""}`.trim();
-    }
-    const inputValue = childItemInputValue(
-      ownerId,
-      value,
-      this.childType,
-      this.childValueOption,
-      this.ownerOption
-    );
-    const staged = childPendingSettingsStore(this, ownerId)[inputValue];
-    const renamed = staged ? staged[this.childValueOption] : null;
-    return renamed ? `${renamed}` : inputValue;
-  },
-  stagedChildSettings(ownerId, value) {
-    const staged = childPendingSettingsStore(this, ownerId)[this.inputValueForItem(ownerId, value)];
-    return staged ? Object.assign({}, staged) : null;
-  },
-  clearStagedChildSettings(ownerId) {
-    clearChildPendingSettings(this, ownerId);
-  },
-  childItemOptions(ownerId) {
-    return {
-      typeName: this.childType,
-      valueOption: this.childValueOption,
-      ownerOption: this.ownerOption,
-      createId: this.createId,
-      defaults: this.childDefaults,
-      stagedSettings: (itemValue) => this.stagedChildSettings(ownerId, itemValue)
+    const titleNode = textE("span", {}, title ? ` \xBB ${title}` : "");
+    const originalButtonClass = buttonRow.getAttribute("class") || "";
+    const originalButtonNodes = Array.from(buttonRow.childNodes);
+    let closed = false;
+    let saveButton;
+    const restoreButtonRow = () => {
+      buttonRow.textContent = "";
+      originalButtonNodes.forEach((node) => buttonRow.appendChild(node));
+      buttonRow.setAttribute("class", originalButtonClass);
     };
-  },
-  // The typed entry becomes its section at once and the list holds the id, so two entries may
-  // hold the same text.
-  createTypedItem(section_id, inputValue) {
-    const ownerId = this.childOwner(section_id);
-    return createChildItem(ownerId, this.childItemOptions(ownerId), inputValue).value;
-  },
-  // A list whose entry must be well formed first, a subscription address, says so itself.
-  hasItemSettings(ownerId, value) {
-    return this.inputValueForItem(ownerId, value).length > 0;
-  },
-  childOwner(section_id) {
-    return typeof this.childOwnerId === "function" ? `${this.childOwnerId(section_id) || ""}`.trim() : section_id;
-  },
-  parentSection(section_id) {
-    return typeof this.parentSectionId === "function" ? `${this.parentSectionId(section_id) || ""}`.trim() : section_id;
-  },
-  load(section_id) {
-    if (this.childType) {
-      return getChildItemIds(
-        this.childOwner(section_id),
-        this.childType,
-        this.ownerOption
-      );
-    }
-    return form.DynamicList.prototype.load.call(this, section_id);
-  },
-  renderWidget(section_id, _option_index, cfgvalue) {
-    const value = cfgvalue != null ? cfgvalue : this.default;
-    const choices = this.transformChoices();
-    const WidgetClass = this.buttonAdd ? ButtonAddSettingsUIDynamicList : SettingsUIDynamicList;
-    const widget = new WidgetClass(L.toArray(value), choices, {
-      id: this.cbid(section_id),
-      sort: this.keylist,
-      allowduplicates: this.allowduplicates,
-      optional: this.optional || this.rmempty,
-      datatype: this.datatype,
-      placeholder: this.placeholder,
-      validate: L.bind(this.validate, this, section_id),
-      disabled: this.readonly != null ? this.readonly : this.map.readonly,
-      addButtonLabel: typeof this.addButtonLabel === "function" ? this.addButtonLabel(section_id) : this.addButtonLabel,
-      addable: typeof this.addable === "function" ? this.addable(section_id) : true,
-      settingsHandler: (itemValue, _item, widget2, context) => {
-        if (typeof this.renderItemSettingsModal === "function") {
-          const ownerId = this.childOwner(section_id);
-          this.renderItemSettingsModal(
-            ownerId,
-            `${itemValue}`,
-            this,
-            widget2,
-            _item,
-            Object.assign({}, context || {}, {
-              parentSectionId: this.parentSection(section_id),
-              ownerId
-            })
-          );
-        }
-      },
-      itemLabel: (itemValue, text8) => {
-        if (typeof this.renderListItemLabel === "function") {
-          return this.renderListItemLabel(
-            this.childOwner(section_id),
-            `${itemValue}`,
-            text8
-          );
-        }
-        return text8;
-      },
-      hasSettings: (itemValue) => this.hasItemSettings(this.childOwner(section_id), `${itemValue}`),
-      createItem: this.entriesAreSections && !this.buttonAdd ? (inputValue) => this.createTypedItem(section_id, inputValue) : null,
-      hasEquivalentValue: (itemValue, dl) => {
-        const inputValueForItem = (value2) => `${this.inputValueForItem(this.childOwner(section_id), `${value2 || ""}`) || ""}`.trim();
-        const normalized = inputValueForItem(itemValue);
-        return Boolean(
-          normalized && dynamicListItemValues(dl).some(
-            (existingValue) => inputValueForItem(existingValue) === normalized
-          )
-        );
+    const close = () => {
+      if (closed) {
+        return;
       }
-    });
-    const node = widget.render();
-    if (typeof this.onListChange === "function") {
-      node.addEventListener("cbi-dynlist-change", () => {
-        this.onListChange(section_id, dynamicListItemValues(node));
+      closed = true;
+      if (nodes.parentNode) {
+        nodes.parentNode.removeChild(nodes);
+      }
+      if (titleNode.parentNode) {
+        titleNode.parentNode.removeChild(titleNode);
+      }
+      activeMap.classList.remove("hidden");
+      restoreButtonRow();
+    };
+    const save = () => {
+      if (saveButton) {
+        saveButton.disabled = true;
+      }
+      return map.parse().then(
+        () => Promise.resolve(
+          onSave(cleanFormSectionData(map.data.get(map.config, "settings")))
+        )
+      ).then(close).catch((error) => {
+        reportRefusedSave(error, nodes);
+        if (saveButton) {
+          saveButton.disabled = false;
+        }
       });
-    }
-    return node;
-  },
-  // Written on every save: an entry added and taken out again leaves the list as loaded, and
-  // only the write deletes its section.
-  parse(section_id) {
-    this.forcewrite = this.entriesAreSections === true;
-    if (this.isActive(section_id) && typeof this.validateItemsOnSave === "function") {
-      const result = this.validateItemsOnSave(
-        this.childType ? this.childOwner(section_id) : section_id,
-        this.formvalue(section_id),
-        this,
-        section_id
-      );
-      if (result !== true) {
-        const title = this.stripTags(this.title).trim() || this.option;
-        return Promise.reject(new TypeError(`${title}: ${result}`));
-      }
-    }
-    return form.DynamicList.prototype.parse.call(this, section_id);
-  },
-  write(section_id, value) {
-    if (this.childType) {
-      const ownerId = this.childOwner(section_id);
-      const { itemIds, resolved } = materializeChildItems(
-        ownerId,
-        this.childItemOptions(ownerId),
-        value
-      );
-      adoptMaterializedChildItems(this, section_id, resolved);
-      cleanupRemovedChildItems(
-        ownerId,
-        this.childType,
-        itemIds,
-        this.ownerOption,
-        this.removeNestedChildItems
-      );
-      if (typeof this.afterMaterializeChildItems === "function") {
-        this.afterMaterializeChildItems(ownerId, itemIds);
-      }
-      uci.unset(FORKOP_UCI_PACKAGE, section_id, this.option);
-      this.clearStagedChildSettings(ownerId);
-      return;
-    }
-    return form.DynamicList.prototype.write.call(this, section_id, value);
-  },
-  remove(section_id) {
-    if (this.childType) {
-      if (this.isActive(section_id)) {
-        cleanupRemovedChildItems(
-          this.childOwner(section_id),
-          this.childType,
-          [],
-          this.ownerOption,
-          this.removeNestedChildItems
+    };
+    buttonRow.textContent = "";
+    buttonRow.append(
+      // Leaving a stacked dialog puts the parent back rather than closing anything.
+      textE(
+        "button",
+        {
+          class: "btn cbi-button",
+          click: close
+        },
+        _("Back")
+      ),
+      " ",
+      ...(() => {
+        saveButton = textE(
+          "button",
+          {
+            class: "btn cbi-button cbi-button-positive important",
+            click: save
+          },
+          options.saveLabel || _("Save")
         );
+        const action = options.secondaryAction;
+        return action ? [
+          textE(
+            "span",
+            {
+              style: "display: inline-flex; align-items: center; gap: 4px"
+            },
+            [
+              renderButton({
+                classNames: ["cbi-button", "cbi-button-neutral"],
+                icon: action.icon,
+                text: action.label,
+                onClick: () => action.run(save)
+              }),
+              saveButton
+            ]
+          )
+        ] : [saveButton];
+      })()
+    );
+    heading.appendChild(titleNode);
+    activeMap.classList.add("hidden");
+    activeMap.parentNode.insertBefore(nodes, activeMap.nextElementSibling);
+  });
+}
+function showChildItemSettingsModal(section_id, itemValue, option2, settings) {
+  const value = `${itemValue || ""}`.trim();
+  const existing = isExistingChildItem(
+    section_id,
+    value,
+    settings.typeName,
+    settings.ownerOption
+  );
+  const inputValue = childItemInputValue(
+    section_id,
+    value,
+    settings.typeName,
+    settings.valueOption,
+    settings.ownerOption
+  );
+  const defaults = typeof settings.defaults === "function" ? settings.defaults(inputValue, existing) : Object.assign({}, settings.defaults || {});
+  const initialSettings = existing ? readChildSettings(value, settings.keys, defaults) : Object.assign(
+    {},
+    // An item still being added has nothing to restore and takes fresh defaults.
+    inputValue ? pendingChildSettings(option2, section_id, inputValue, defaults) : defaults
+  );
+  const data = {
+    settings: Object.assign({}, initialSettings)
+  };
+  const map = new form.JSONMap(data);
+  const itemSection = map.section(form.NamedSection, "settings");
+  itemSection.anonymous = true;
+  itemSection.addremove = false;
+  settings.addOptions(itemSection, {
+    parentSectionId: () => section_id,
+    ownerId: () => value || section_id,
+    itemValue: () => inputValue,
+    listOption: option2,
+    validateName: settings.validateName
+  });
+  return renderStackedJsonSettingsModal(
+    settings.title(inputValue),
+    map,
+    (nextSettings) => {
+      if (existing) {
+        const diff = changedSettings(
+          initialSettings,
+          nextSettings,
+          settings.keys
+        );
+        if (hasChangedSettings(diff)) {
+          applyChildItemSettings(value, diff);
+        }
+        if (typeof settings.afterSave === "function") {
+          settings.afterSave(value, inputValue, nextSettings, existing);
+        }
+        return;
       }
-      uci.unset(FORKOP_UCI_PACKAGE, section_id, this.option);
-      return;
+      const nextInputValue = `${nextSettings[settings.valueOption ?? ""] || inputValue || ""}`.trim();
+      const store2 = childPendingSettingsStore(option2, section_id);
+      if (nextInputValue !== inputValue) {
+        delete store2[inputValue];
+        setDynamicListItemValue(settings.itemNode, nextInputValue);
+      }
+      store2[nextInputValue] = nextSettings;
+      if (typeof settings.afterSave === "function") {
+        settings.afterSave(value, nextInputValue, nextSettings, existing);
+      }
     }
-    return form.DynamicList.prototype.remove.call(this, section_id);
+  );
+}
+function setModalOptionValue(map, option2, value) {
+  map.data.set(map.config, "settings", option2.option, value);
+  const element3 = typeof option2.getUIElement === "function" ? option2.getUIElement("settings") : null;
+  if (element3 && typeof element3.setValue === "function") {
+    element3.setValue(value);
+    element3.triggerValidation();
   }
-});
-var ButtonAddSettingsDynamicList = SettingsDynamicList.extend({
-  buttonAdd: true
-});
+}
 
-// src/helpers/escapeHtml.ts
-function escapeHtml(value) {
-  return `${value}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+// src/validators/validateOutboundJson.ts
+function validateOutboundJson(value, usedTags = []) {
+  const normalized = `${value || ""}`.trim();
+  if (!normalized.length) {
+    return message.required();
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(normalized);
+  } catch {
+    return message.invalidJson();
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return message.invalidJson();
+  }
+  const tag = parsed.tag;
+  if (typeof tag !== "string" || !tag.trim()) {
+    return message.noTag();
+  }
+  return usedTags.some((usedTag) => `${usedTag || ""}`.trim() === tag.trim()) ? message.nameTaken() : true;
 }
 
 // src/forkop/cbi/annotations.ts
@@ -18400,6 +18361,11 @@ function finalizeAnnotations(annotationMap) {
     end: annotation.end,
     message: annotation.messages.join("; ")
   })).sort((left, right) => left.start - right.start || left.end - right.end);
+}
+
+// src/helpers/escapeHtml.ts
+function escapeHtml(value) {
+  return `${value}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // src/validators/validateSavedSize.ts
@@ -18706,247 +18672,6 @@ function configureTextareaOption(option2, analyzer) {
   };
 }
 
-// src/forkop/cbi/modal.ts
-function reportRefusedSave(error, dialog) {
-  if (dialog?.querySelector(".cbi-input-invalid")) {
-    return;
-  }
-  const message2 = error instanceof Error ? error.message : `${error ?? ""}`;
-  showToast(message2.trim() || _("Settings not saved"), "error");
-}
-function saveSectionModal(sectionRef, modalMap, ev) {
-  const mapNode = sectionRef.getActiveModalMap();
-  const activeMap = dom.findClassInstance(mapNode);
-  let saved = activeMap.save(void 0, true);
-  for (let map = activeMap.parent; map; map = map.parent) {
-    const parent = map;
-    saved = saved.then(() => parent.load()).then(() => parent.reset());
-  }
-  return saved.then(() => sectionRef.handleModalCancel(modalMap, ev, true)).then(
-    () => true,
-    (error) => {
-      reportRefusedSave(error, mapNode);
-      return false;
-    }
-  );
-}
-function modalOptionFormValue(modalMap, section_id, optionName) {
-  const lookup = modalMap && typeof modalMap.lookupOption === "function" ? modalMap.lookupOption(optionName, section_id) : null;
-  return lookup ? lookup[0].formvalue(lookup[1]) : null;
-}
-var SINGLE_FIELD_MODAL_STYLE_ID = "fkp-single-field-modal-styles";
-function cleanFormSectionData(sectionData) {
-  const result = {};
-  Object.entries(sectionData || {}).forEach(
-    ([key, value]) => {
-      if (!key || key.charAt(0) === ".") {
-        return;
-      }
-      result[key] = Array.isArray(value) ? value.slice() : value;
-    }
-  );
-  return result;
-}
-var SINGLE_FIELD_MODAL_CLASS = "fkp-single-field-modal";
-function ensureSingleFieldModalStyles() {
-  if (typeof document === "undefined" || !document.head || document.getElementById(SINGLE_FIELD_MODAL_STYLE_ID)) {
-    return;
-  }
-  document.head.insertAdjacentHTML(
-    "beforeend",
-    `<style id="${SINGLE_FIELD_MODAL_STYLE_ID}">
-      .${SINGLE_FIELD_MODAL_CLASS} .cbi-value-title {
-        display: none;
-      }
-
-      .${SINGLE_FIELD_MODAL_CLASS} .cbi-value-field {
-        width: 100%;
-        max-width: 100%;
-        flex: 1 1 auto;
-        float: none;
-        padding-left: 0;
-        margin-left: 0;
-      }
-
-      .${SINGLE_FIELD_MODAL_CLASS} .cbi-value {
-        margin-bottom: 0;
-      }
-    </style>`
-  );
-}
-function renderStackedJsonSettingsModal(title, map, onSave, options = {}) {
-  const modal = document.querySelector("#modal_overlay > .modal.cbi-modal");
-  const activeMap = modal ? modal.querySelector(".cbi-map:not(.hidden)") : null;
-  const buttonRow = modal ? modal.querySelector("div.button-row") : null;
-  const heading = modal ? modal.querySelector("h4") : null;
-  if (!modal || !activeMap || !buttonRow || !heading) {
-    return Promise.resolve();
-  }
-  return map.render().then((nodes) => {
-    if (options.singleField) {
-      ensureSingleFieldModalStyles();
-      nodes.classList.add(SINGLE_FIELD_MODAL_CLASS);
-    }
-    const titleNode = textE("span", {}, title ? ` \xBB ${title}` : "");
-    const originalButtonClass = buttonRow.getAttribute("class") || "";
-    const originalButtonNodes = Array.from(buttonRow.childNodes);
-    let closed = false;
-    let saveButton;
-    const restoreButtonRow = () => {
-      buttonRow.textContent = "";
-      originalButtonNodes.forEach((node) => buttonRow.appendChild(node));
-      buttonRow.setAttribute("class", originalButtonClass);
-    };
-    const close = () => {
-      if (closed) {
-        return;
-      }
-      closed = true;
-      if (nodes.parentNode) {
-        nodes.parentNode.removeChild(nodes);
-      }
-      if (titleNode.parentNode) {
-        titleNode.parentNode.removeChild(titleNode);
-      }
-      activeMap.classList.remove("hidden");
-      restoreButtonRow();
-    };
-    const save = () => {
-      if (saveButton) {
-        saveButton.disabled = true;
-      }
-      return map.parse().then(
-        () => Promise.resolve(
-          onSave(cleanFormSectionData(map.data.get(map.config, "settings")))
-        )
-      ).then(close).catch((error) => {
-        reportRefusedSave(error, nodes);
-        if (saveButton) {
-          saveButton.disabled = false;
-        }
-      });
-    };
-    buttonRow.textContent = "";
-    buttonRow.append(
-      // Leaving a stacked dialog puts the parent back rather than closing anything.
-      textE(
-        "button",
-        {
-          class: "btn cbi-button",
-          click: close
-        },
-        _("Back")
-      ),
-      " ",
-      ...(() => {
-        saveButton = textE(
-          "button",
-          {
-            class: "btn cbi-button cbi-button-positive important",
-            click: save
-          },
-          options.saveLabel || _("Save")
-        );
-        const action = options.secondaryAction;
-        return action ? [
-          textE(
-            "span",
-            {
-              style: "display: inline-flex; align-items: center; gap: 4px"
-            },
-            [
-              renderButton({
-                classNames: ["cbi-button", "cbi-button-neutral"],
-                icon: action.icon,
-                text: action.label,
-                onClick: () => action.run(save)
-              }),
-              saveButton
-            ]
-          )
-        ] : [saveButton];
-      })()
-    );
-    heading.appendChild(titleNode);
-    activeMap.classList.add("hidden");
-    activeMap.parentNode.insertBefore(nodes, activeMap.nextElementSibling);
-  });
-}
-function showChildItemSettingsModal(section_id, itemValue, option2, settings) {
-  const value = `${itemValue || ""}`.trim();
-  const existing = isExistingChildItem(
-    section_id,
-    value,
-    settings.typeName,
-    settings.ownerOption
-  );
-  const inputValue = childItemInputValue(
-    section_id,
-    value,
-    settings.typeName,
-    settings.valueOption,
-    settings.ownerOption
-  );
-  const defaults = typeof settings.defaults === "function" ? settings.defaults(inputValue, existing) : Object.assign({}, settings.defaults || {});
-  const initialSettings = existing ? readChildSettings(value, settings.keys, defaults) : Object.assign(
-    {},
-    // An item still being added has nothing to restore and takes fresh defaults.
-    inputValue ? pendingChildSettings(option2, section_id, inputValue, defaults) : defaults
-  );
-  const data = {
-    settings: Object.assign({}, initialSettings)
-  };
-  const map = new form.JSONMap(data);
-  const itemSection = map.section(form.NamedSection, "settings");
-  itemSection.anonymous = true;
-  itemSection.addremove = false;
-  settings.addOptions(itemSection, {
-    parentSectionId: () => section_id,
-    ownerId: () => value || section_id,
-    itemValue: () => inputValue,
-    listOption: option2,
-    validateName: settings.validateName
-  });
-  return renderStackedJsonSettingsModal(
-    settings.title(inputValue),
-    map,
-    (nextSettings) => {
-      if (existing) {
-        const diff = changedSettings(
-          initialSettings,
-          nextSettings,
-          settings.keys
-        );
-        if (hasChangedSettings(diff)) {
-          applyChildItemSettings(value, diff);
-        }
-        if (typeof settings.afterSave === "function") {
-          settings.afterSave(value, inputValue, nextSettings, existing);
-        }
-        return;
-      }
-      const nextInputValue = `${nextSettings[settings.valueOption ?? ""] || inputValue || ""}`.trim();
-      const store2 = childPendingSettingsStore(option2, section_id);
-      if (nextInputValue !== inputValue) {
-        delete store2[inputValue];
-        setDynamicListItemValue(settings.itemNode, nextInputValue);
-      }
-      store2[nextInputValue] = nextSettings;
-      if (typeof settings.afterSave === "function") {
-        settings.afterSave(value, nextInputValue, nextSettings, existing);
-      }
-    }
-  );
-}
-function setModalOptionValue(map, option2, value) {
-  map.data.set(map.config, "settings", option2.option, value);
-  const element3 = typeof option2.getUIElement === "function" ? option2.getUIElement("settings") : null;
-  if (element3 && typeof element3.setValue === "function") {
-    element3.setValue(value);
-    element3.triggerValidation();
-  }
-}
-
 // src/helpers/getProxyUrlName.ts
 function getProxyUrlName(url) {
   const link = `${url ?? ""}`;
@@ -19016,12 +18741,172 @@ function nextNumberedName(prefix, taken, separator = " #") {
   return `${marker}${highest + 1}`;
 }
 
+// src/forkop/cbi/uci.ts
+function getUciSectionName(section2) {
+  return section2 && section2[".name"] ? section2[".name"] : "";
+}
+function getUciSectionLabel(section2) {
+  return section2 && section2.label || getUciSectionName(section2);
+}
+function plainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function getConfigListValues(section_id, key) {
+  return normalizeOptionValues(uci.get(FORKOP_UCI_PACKAGE, section_id, key));
+}
+function stringArraysEqual(left, right) {
+  const first = normalizeDynamicListItems(left);
+  const second = normalizeDynamicListItems(right);
+  return first.length === second.length && first.every((value, index) => value === second[index]);
+}
+function writeListOption(section_id, key, values) {
+  const normalized = normalizeOptionValues(values);
+  if (stringArraysEqual(getConfigListValues(section_id, key), normalized)) {
+    return;
+  }
+  if (normalized.length) {
+    uci.set(FORKOP_UCI_PACKAGE, section_id, key, normalized);
+  } else {
+    uci.unset(FORKOP_UCI_PACKAGE, section_id, key);
+  }
+}
+
+// src/forkop/cbi/choices.ts
+function keepUnavailableSectionChoice(option2, storedValue) {
+  const value = `${storedValue || ""}`.trim();
+  if (!value || (option2.keylist || []).includes(value)) {
+    option2.unavailableChoice = "";
+    return;
+  }
+  const target2 = (uci.sections(FORKOP_UCI_PACKAGE, "section") || []).find(
+    (section2) => getUciSectionName(section2) === value
+  );
+  option2.unavailableChoice = value;
+  option2.value(
+    value,
+    _("%s (section is unavailable)").format(
+      target2 ? getUciSectionLabel(target2) : value
+    )
+  );
+}
+function validateSectionChoice(option2, value, ownSection) {
+  const section2 = `${value || ""}`.trim();
+  if (!section2) {
+    return message.required();
+  }
+  if (section2 === ownSection) {
+    return message.sectionSelf();
+  }
+  return option2.unavailableChoice && section2 === option2.unavailableChoice ? message.sectionUnavailable() : true;
+}
+function refreshOptionChoices(option2, choices) {
+  delete option2.keylist;
+  delete option2.vallist;
+  (choices || []).forEach((choice) => {
+    if (typeof choice === "object") {
+      option2.value(choice.value, choice.label);
+    } else {
+      option2.value(choice);
+    }
+  });
+}
+
 // src/validators/validatePath.ts
 function validatePath(value) {
   if (!value) {
     return message.required();
   }
   return /^\/[a-zA-Z0-9_\-/.]+$/.test(value) ? true : message.invalidPath();
+}
+
+// src/validators/validateDomain.ts
+function asciiHostname(hostname) {
+  if (!hostname || /[\s@:/]/.test(hostname) || hostname.startsWith(".") || hostname.endsWith(".")) {
+    return null;
+  }
+  try {
+    return new URL(`http://${hostname}`).hostname;
+  } catch {
+    return null;
+  }
+}
+function validAsciiDomain(hostname, requireDot = true) {
+  if (!hostname || hostname.length > 253) {
+    return false;
+  }
+  const parts = hostname.split(".");
+  if (parts.some((part2) => !part2 || part2.length > 63)) {
+    return false;
+  }
+  if (parts.some((part2) => !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(part2))) {
+    return false;
+  }
+  if (!requireDot) {
+    return true;
+  }
+  if (parts.length < 2) {
+    return false;
+  }
+  const tld = parts[parts.length - 1];
+  return /^(?:[a-z]{2,}|xn--[a-z0-9-]{2,59})$/.test(tld);
+}
+function validateDomain(domain, allowDotTLD = false) {
+  const normalized = `${domain || ""}`.trim();
+  if (allowDotTLD) {
+    const dotTld = normalized.startsWith(".") ? normalized.slice(1) : "";
+    const ascii2 = asciiHostname(dotTld);
+    if (ascii2 && !ascii2.includes(".") && validAsciiDomain(ascii2, false)) {
+      return true;
+    }
+  }
+  const slashIndex = normalized.indexOf("/");
+  const hostname = slashIndex >= 0 ? normalized.slice(0, slashIndex) : normalized;
+  const path = slashIndex >= 0 ? normalized.slice(slashIndex) : "";
+  const ascii = asciiHostname(hostname);
+  return path && /\s/.test(path) || !ascii || !validAsciiDomain(ascii) ? message.invalidDomain() : true;
+}
+
+// src/validators/hostPort.ts
+function unbracketHost(host) {
+  if (host.startsWith("[") && host.endsWith("]")) {
+    return host.slice(1, -1);
+  }
+  return host;
+}
+function isValidHost(host) {
+  const normalizedHost = unbracketHost(host);
+  return isIPv4(normalizedHost) || isIPv6(normalizedHost) || validateDomain(normalizedHost) === true;
+}
+function isValidPort(port2) {
+  const normalized = String(port2 ?? "");
+  const value = Number(normalized);
+  return /^\d+$/.test(normalized) && value >= 1 && value <= 65535;
+}
+function parseHostPort(value) {
+  if (!value) {
+    return null;
+  }
+  if (value.startsWith("[")) {
+    const end = value.indexOf("]");
+    if (end <= 1 || value.slice(end + 1, end + 2) !== ":") {
+      return null;
+    }
+    const parsed2 = {
+      host: value.slice(1, end),
+      port: value.slice(end + 2)
+    };
+    return isValidHost(parsed2.host) ? parsed2 : null;
+  }
+  const firstColon = value.indexOf(":");
+  const lastColon = value.lastIndexOf(":");
+  if (firstColon < 0 || firstColon !== lastColon) {
+    return null;
+  }
+  const parsed = {
+    host: value.slice(0, firstColon),
+    port: value.slice(firstColon + 1)
+  };
+  return isValidHost(parsed.host) ? parsed : null;
 }
 
 // src/validators/validateUrl.ts
@@ -19337,6 +19222,447 @@ function validateSubscriptionUrlEntry(_section_id, value) {
   }
   const validation = isRemoteSubscriptionSource(parsed.url) ? validateUrl(`${parsed.url}`) : validatePath(`${parsed.url}`);
   return validation === true ? true : message.urlOrPath();
+}
+
+// src/forkop/tabs/sections/outboundNames.ts
+var providerServerNames = null;
+var providerServerNamesAt = 0;
+var providerServerNamesInflight = null;
+var PROVIDER_SERVER_NAMES_RETRY_MS = 5e3;
+function forgetOutboundNameChoices() {
+  providerServerNames = null;
+  providerServerNamesAt = 0;
+}
+var outboundNameSourceOptions = /* @__PURE__ */ new Map();
+var liveChoiceRefreshers = /* @__PURE__ */ new Map();
+function providerServerNameMap(value) {
+  const result = /* @__PURE__ */ new Map();
+  Object.entries(plainObject(plainObject(value).providers)).forEach(
+    ([providerTag, provider]) => {
+      const { proxies, filterCandidates } = plainObject(provider);
+      const runtimePrefix = `${providerTag}/`;
+      const names = [];
+      (Array.isArray(proxies) ? proxies : []).forEach((proxy) => {
+        proxy = plainObject(proxy);
+        const type = `${proxy.type || ""}`.toLowerCase();
+        if (["selector", "urltest", "fallback"].includes(type)) {
+          return;
+        }
+        let name = `${proxy.name || ""}`.trim();
+        if (name.startsWith(runtimePrefix)) {
+          name = name.slice(runtimePrefix.length);
+        }
+        if (name) {
+          names.push(name);
+        }
+      });
+      result.set(providerTag, {
+        imported: names,
+        filterCandidates: (Array.isArray(filterCandidates) ? filterCandidates : []).map((name) => `${name || ""}`.trim()).filter(Boolean)
+      });
+    }
+  );
+  return result;
+}
+function loadProviderServerNames() {
+  if (providerServerNamesInflight) {
+    return providerServerNamesInflight;
+  }
+  providerServerNamesInflight = getClashApiProxyProviders().then(
+    (response) => response.success ? providerServerNameMap(response.data) : /* @__PURE__ */ new Map()
+  ).catch(() => /* @__PURE__ */ new Map()).then((names) => {
+    providerServerNames = names;
+    providerServerNamesAt = Date.now();
+    refreshAllLiveChoiceWidgets();
+  }).finally(() => {
+    providerServerNamesInflight = null;
+  });
+  return providerServerNamesInflight;
+}
+function subscriptionProviderTag(section_id, itemId) {
+  const loaded = uci.state.values[FORKOP_UCI_PACKAGE] || {};
+  if (!loaded[itemId] || !isExistingChildItem(section_id, itemId, "subscription_url")) {
+    return "";
+  }
+  const tag = `${loaded[itemId].tag || ""}`.trim();
+  const label = `${loaded[section_id]?.label || section_id}`.trim();
+  return tag ? `${label}/${tag}` : "";
+}
+function subscriptionServerNames(section_id, itemIds, kind) {
+  const providerTags = itemIds.map((itemId) => subscriptionProviderTag(section_id, itemId)).filter(Boolean);
+  if (providerTags.some((tag) => !providerServerNames?.get(tag)?.[kind].length) && Date.now() - providerServerNamesAt >= PROVIDER_SERVER_NAMES_RETRY_MS) {
+    void loadProviderServerNames();
+  }
+  return providerTags.flatMap(
+    (tag) => providerServerNames?.get(tag)?.[kind] || []
+  );
+}
+function configureLiveDynamicListChoices(option2, getChoices, getRefreshSectionId = (section_id) => section_id) {
+  option2.renderWidget = function(section_id, _option_index, cfgvalue) {
+    const refreshSectionId = `${getRefreshSectionId(section_id) || section_id}`.trim();
+    const values = L.toArray(cfgvalue != null ? cfgvalue : this.default);
+    const choices = getChoices(section_id);
+    const labels = {};
+    choices.forEach((choice) => {
+      labels[choice.value] = choice.label;
+    });
+    refreshOptionChoices(this, choices);
+    let choiceSignature = JSON.stringify(
+      choices.map((choice) => [choice.value, choice.label])
+    );
+    const widget = new ui.DynamicList(values, labels, {
+      id: this.cbid(section_id),
+      sort: this.keylist,
+      allowduplicates: this.allowduplicates,
+      optional: this.optional || this.rmempty,
+      datatype: this.datatype,
+      placeholder: this.placeholder,
+      validate: L.bind(this.validate, this, section_id),
+      disabled: this.readonly != null ? this.readonly : this.map.readonly
+    });
+    const node = widget.render();
+    const refreshChoices = () => {
+      if (!node.isConnected) {
+        return false;
+      }
+      const currentChoices = getChoices(section_id);
+      const currentLabels = {};
+      currentChoices.forEach((choice) => {
+        currentLabels[choice.value] = choice.label;
+      });
+      const currentSignature = JSON.stringify(
+        currentChoices.map((choice) => [choice.value, choice.label])
+      );
+      if (currentSignature === choiceSignature) {
+        return;
+      }
+      choiceSignature = currentSignature;
+      refreshOptionChoices(this, currentChoices);
+      widget.choices = currentLabels;
+      widget.clearChoices();
+      widget.addChoices(
+        currentChoices.map((choice) => choice.value),
+        currentLabels
+      );
+      return true;
+    };
+    const refreshBeforeOpening = (event) => {
+      if (event.target && event.target.closest(".add-item")) {
+        refreshChoices();
+      }
+    };
+    node.addEventListener("mousedown", refreshBeforeOpening, true);
+    node.addEventListener("focusin", refreshBeforeOpening, true);
+    if (!liveChoiceRefreshers.has(refreshSectionId)) {
+      liveChoiceRefreshers.set(refreshSectionId, /* @__PURE__ */ new Set());
+    }
+    liveChoiceRefreshers.get(refreshSectionId).add(refreshChoices);
+    return node;
+  };
+}
+function outboundNameChoiceItems(names) {
+  return Array.from(
+    new Set(names.map((name) => `${name || ""}`.trim()).filter(Boolean)),
+    (value) => ({ value, label: value })
+  );
+}
+function currentOutboundNameChoices(section_id) {
+  return outboundNameChoiceItems([
+    ...currentDraftOutboundNames(section_id),
+    ...subscriptionServerNames(
+      section_id,
+      currentSourceOptionValues(section_id, "subscription_url"),
+      "imported"
+    )
+  ]);
+}
+function currentSubscriptionOutboundNameChoices(section_id, itemId) {
+  return outboundNameChoiceItems(
+    subscriptionServerNames(section_id, [itemId], "filterCandidates")
+  );
+}
+function currentSourceOptionValues(section_id, optionName) {
+  const liveValues = currentLiveDynamicListValues(section_id, optionName);
+  if (liveValues != null) {
+    return liveValues;
+  }
+  const option2 = outboundNameSourceOptions.get(optionName);
+  if (option2 && typeof option2.formvalue === "function") {
+    try {
+      const value = option2.formvalue(section_id);
+      if (value != null) {
+        return normalizeDynamicListItems(value);
+      }
+    } catch (_error) {
+    }
+  }
+  return option2?.childType ? getChildItemIds(section_id, option2.childType) : getConfigListValues(section_id, optionName);
+}
+function currentLiveDynamicListValues(section_id, optionName) {
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const option2 = outboundNameSourceOptions.get(optionName);
+  const trackedWidget = option2?.liveDynamicListNodes?.get(section_id);
+  let widget;
+  if (trackedWidget) {
+    if (trackedWidget.isConnected === false) {
+      return null;
+    }
+    widget = trackedWidget;
+  } else {
+    widget = document.getElementById(
+      `cbid.${FORKOP_UCI_PACKAGE}.${section_id}.${optionName}`
+    );
+  }
+  if (!widget) {
+    return null;
+  }
+  const values = Array.from(
+    widget.querySelectorAll('.item > input[type="hidden"]')
+  ).map((input) => `${input.value || ""}`.trim()).filter(Boolean);
+  const pendingInput = widget.querySelector(
+    '.add-item > input[type="text"]'
+  );
+  const pendingValue = `${pendingInput && pendingInput.value || ""}`.trim();
+  if (pendingValue && !pendingInput.classList.contains("cbi-input-invalid") && !values.includes(pendingValue)) {
+    values.push(pendingValue);
+  }
+  return values;
+}
+var GROUP_OUTBOUND_TYPES = [
+  "selector",
+  "urltest",
+  "fallback",
+  "dns",
+  "block"
+];
+function currentGroupNames(section_id, optionName, typeName) {
+  const listOption = outboundNameSourceOptions.get(optionName);
+  const store2 = listOption ? childPendingSettingsStore(listOption, section_id) : {};
+  return currentSourceOptionValues(section_id, optionName).map((value) => {
+    const itemValue = `${value || ""}`.trim();
+    return itemValue ? `${store2[itemValue]?.name || childItemInputValue(section_id, itemValue, typeName, "name") || itemValue}`.trim() : "";
+  }).filter(Boolean);
+}
+function sectionChildNames(section_id) {
+  const result = [];
+  const add = (kind, name, member = true, value = "") => {
+    const normalized = `${name || ""}`.trim();
+    if (normalized) {
+      result.push({ kind, name: normalized, member, value });
+    }
+  };
+  currentSourceOptionValues(section_id, "connection_link").forEach(
+    (value, index) => add(
+      "link",
+      (isExistingChildItem(section_id, value, "connection_link") ? uci.get(FORKOP_UCI_PACKAGE, value, "name") : "") || getProxyUrlName(value) || `Node #${index + 1}`
+    )
+  );
+  currentSourceOptionValues(section_id, "interfaces").forEach(
+    (itemId) => {
+      const interfaceName = childItemInputValue(
+        section_id,
+        itemId,
+        "section_interface",
+        "name"
+      ).trim();
+      const option2 = outboundNameSourceOptions.get("interfaces");
+      const staged = childPendingSettingsStore(option2, section_id)[interfaceName];
+      add(
+        "interface",
+        staged?.display_name || (isExistingChildItem(section_id, itemId, "section_interface") ? uci.get(FORKOP_UCI_PACKAGE, itemId, "display_name") : "") || interfaceName,
+        true,
+        interfaceName
+      );
+    }
+  );
+  currentSourceOptionValues(section_id, "tunnels").forEach(
+    (value) => add("tunnel", tunnelDisplayName(section_id, `${value ?? ""}`))
+  );
+  currentSourceOptionValues(section_id, "outbound_jsons").forEach(
+    (value, index) => {
+      const outbound = parseOutboundJsonObject(value);
+      const type = `${outbound?.type || ""}`.trim().toLowerCase();
+      add(
+        "json",
+        outboundJsonDisplayTag(value) || `JSON outbound #${index + 1}`,
+        !GROUP_OUTBOUND_TYPES.includes(type)
+      );
+    }
+  );
+  currentGroupNames(section_id, "urltest", "urltest").forEach(
+    (name) => add("urltest", name, false)
+  );
+  currentGroupNames(section_id, "fallback_group", "fallback_group").forEach(
+    (name) => add("fallback", name, false)
+  );
+  return result;
+}
+function nextSectionChildName(section_id, prefix) {
+  return nextNumberedName(
+    prefix,
+    sectionChildNames(section_id).map((child) => child.name)
+  );
+}
+function currentDraftOutboundNames(section_id) {
+  return sectionChildNames(section_id).filter((child) => child.member).map((child) => child.name);
+}
+function validateSectionChildName(section_id, kind, value, own) {
+  const name = `${value || ""}`.trim();
+  if (name.includes("/")) {
+    return message.slashInName();
+  }
+  return sectionChildNames(section_id).some(
+    (child) => child.name === name && (child.kind !== kind || own !== void 0 && child.value !== own)
+  ) ? message.nameTaken() : true;
+}
+function validateSectionChildListName(section_id, kind, widget, itemNode, value) {
+  const unique = validateUniqueDynamicListItemName(widget, itemNode, value);
+  return unique === true ? validateSectionChildName(section_id, kind, value) : unique;
+}
+function currentUrlTestNameChoices(section_id) {
+  return Array.from(
+    new Set(currentGroupNames(section_id, "urltest", "urltest"))
+  ).map((name) => ({ value: name, label: name }));
+}
+function addUrlTestMemberOption(itemSection, parentSectionForItem, modes) {
+  const option2 = itemSection.option(
+    form.DynamicList,
+    "include_groups",
+    _("Add URLTest"),
+    _("The group joins as the single node it has selected")
+  );
+  modes.map((mode) => mode.value).filter((mode) => mode !== "direct").forEach((mode) => option2.depends("server_filter_mode", mode));
+  option2.rmempty = true;
+  option2.placeholder = _("-- Select --");
+  option2.load = function(itemId) {
+    const values = normalizeOptionValues(
+      optionMapValue(this, itemId, "include_groups")
+    );
+    refreshOptionChoices(
+      this,
+      currentUrlTestNameChoices(parentSectionForItem(itemId))
+    );
+    return values;
+  };
+  configureLiveDynamicListChoices(
+    option2,
+    (itemId) => currentUrlTestNameChoices(parentSectionForItem(itemId)),
+    parentSectionForItem
+  );
+  return option2;
+}
+function refreshLiveChoiceWidgets(section_id) {
+  const refreshers = liveChoiceRefreshers.get(section_id);
+  if (!refreshers) {
+    return;
+  }
+  refreshers.forEach((refresh) => {
+    if (refresh() === false) {
+      refreshers.delete(refresh);
+    }
+  });
+  if (refreshers.size === 0) {
+    liveChoiceRefreshers.delete(section_id);
+  }
+}
+function refreshAllLiveChoiceWidgets() {
+  Array.from(liveChoiceRefreshers.keys()).forEach(refreshLiveChoiceWidgets);
+}
+
+// src/forkop/tabs/sections/outboundJson.ts
+function parseOutboundJsonObject(value) {
+  try {
+    const parsed = JSON.parse(`${value || ""}`);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch (_error) {
+    return null;
+  }
+}
+function outboundJsonDisplayTag(value) {
+  const parsed = parseOutboundJsonObject(value);
+  const tag = parsed && typeof parsed.tag === "string" ? parsed.tag.trim() : "";
+  return tag || "";
+}
+function outboundJsonListItemLabel(value) {
+  return textE(
+    "span",
+    { class: "fkp-dynlist-label" },
+    outboundJsonDisplayTag(value) || _("JSON outbound")
+  );
+}
+var JSON_OUTBOUND_PLACEHOLDER = [
+  "{",
+  '  "type": "socks",',
+  '  "tag": "my-outbound",',
+  '  "server": "127.0.0.1",',
+  '  "server_port": 1080',
+  "}"
+].join("\n");
+function showOutboundJsonSettingsModal(section_id, itemValue, _option, widget, itemNode, context = {}) {
+  const data = {
+    settings: {
+      outbound_json: `${itemValue || ""}`
+    }
+  };
+  const map = new form.JSONMap(data);
+  const itemSection = map.section(form.NamedSection, "settings");
+  itemSection.anonymous = true;
+  itemSection.addremove = false;
+  const jsonOption = itemSection.option(
+    form.TextValue,
+    "outbound_json",
+    _("JSON outbound")
+  );
+  jsonOption.placeholder = JSON_OUTBOUND_PLACEHOLDER;
+  jsonOption.rows = 12;
+  jsonOption.wrap = "soft";
+  jsonOption.textarea = true;
+  jsonOption.modalonly = true;
+  jsonOption.validate = function(_itemId, value) {
+    const usedTags = widget && widget.node ? Array.from(widget.node.querySelectorAll(".item")).filter((item) => item !== itemNode).map(
+      (item) => outboundJsonDisplayTag(dynamicListItemCurrentValue(item, ""))
+    ).filter(Boolean) : [];
+    const validation = validateOutboundJson(`${value || ""}`, usedTags);
+    return validation === true ? validateSectionChildName(
+      section_id,
+      "json",
+      outboundJsonDisplayTag(value)
+    ) : validation;
+  };
+  configureTextareaOption(jsonOption);
+  const tag = context.adding ? "" : outboundJsonDisplayTag(itemValue);
+  return renderStackedJsonSettingsModal(
+    tag ? _("JSON outbound: %s").format(tag) : _("JSON outbound"),
+    map,
+    (settings) => {
+      const value = `${settings.outbound_json || ""}`.trim();
+      if (context.adding) {
+        addDynamicListItem(widget, value);
+        return;
+      }
+      setDynamicListItemValue(itemNode, value);
+      updateDynamicListItemLabel(itemNode, outboundJsonDisplayTag(value));
+      if (widget && widget.node) {
+        widget.dispatchCbiDynlistChange(widget.node, value);
+      }
+    },
+    { singleField: true }
+  );
+}
+function validateOutboundJsonItemsBeforeSave(_section_id, values) {
+  const items = Array.isArray(values) ? values : values ? [values] : [];
+  const tags = [];
+  for (const value of items) {
+    const validation = validateOutboundJson(`${value || ""}`, tags);
+    if (validation !== true) {
+      return message.item(outboundJsonDisplayTag(value), validation);
+    }
+    const tag = outboundJsonDisplayTag(value);
+    tags.push(tag);
+  }
+  return true;
 }
 
 // src/forkop/tabs/sections/constants.ts
@@ -20185,7 +20511,7 @@ function finishTls(state) {
     if (password) endpoint.password = password;
   }
 }
-function buildEndpoint(input, files) {
+function buildEndpoint2(input, files) {
   const directives = readDirectives(`${input || ""}`.split(/\r?\n/));
   const state = {
     files: Object.fromEntries(
@@ -20233,31 +20559,13 @@ function buildEndpoint(input, files) {
 }
 function parseOpenVPNConfig(input, files = {}) {
   try {
-    return { valid: true, ...buildEndpoint(input, files) };
+    return { valid: true, ...buildEndpoint2(input, files) };
   } catch (error) {
     if (error instanceof ImportError) {
       return { valid: false, message: error.message };
     }
     throw error;
   }
-}
-
-// src/validators/validateSubnet.ts
-function validateSubnet(value) {
-  const [ip, cidr, extra] = value.split("/");
-  if (!ip || extra !== void 0 || !isIPv4(ip) && !isIPv6(ip)) {
-    return message.invalidIpOrSubnet();
-  }
-  if ((ip === "0.0.0.0" || ip === "::") && cidr == null) {
-    return _("Address %s is not allowed").format(ip);
-  }
-  if (cidr !== void 0) {
-    const maxPrefix = isIPv6(ip) ? 128 : 32;
-    if (!/^(?:0|[1-9]\d*)$/.test(cidr) || Number(cidr) > maxPrefix) {
-      return message.prefixRange(0, maxPrefix);
-    }
-  }
-  return true;
 }
 
 // src/forkop/tabs/sections/tunnels/openvpn.ts
@@ -21274,7 +21582,7 @@ function configOption(line) {
   if (!match || !(match[1] in OPTION_ARGUMENTS)) return void 0;
   return { name: match[1], value: `${match[2] ?? ""}` };
 }
-function readConfigFile(state, input) {
+function readConfigFile2(state, input) {
   input.split(/\r?\n/).forEach((line) => {
     const option2 = configOption(line);
     if (option2 === void 0) {
@@ -21629,7 +21937,7 @@ function finishToken(state) {
     secret: state.tokenMode === "totp" ? totpSecret(state.tokenSecret) : state.tokenSecret
   };
 }
-function buildEndpoint2(input, files) {
+function buildEndpoint3(input, files) {
   const state = draft(files);
   const kind = format(input);
   switch (kind) {
@@ -21637,7 +21945,7 @@ function buildEndpoint2(input, files) {
       readCommandLine(state, input);
       break;
     case "config":
-      readConfigFile(state, input);
+      readConfigFile2(state, input);
       break;
     case "networkmanager":
       readNetworkManager(state, input);
@@ -21678,7 +21986,7 @@ function buildEndpoint2(input, files) {
 }
 function parseOpenConnectConfig(input, files = {}) {
   try {
-    return { valid: true, ...buildEndpoint2(`${input || ""}`, files) };
+    return { valid: true, ...buildEndpoint3(`${input || ""}`, files) };
   } catch (error) {
     if (error instanceof ImportError2) {
       return { valid: false, message: error.message };
@@ -22036,6 +22344,77 @@ function validateOpenConnectSettings(settings) {
   return true;
 }
 
+// src/forkop/tabs/sections/coreSupport.ts
+var CONNECTION_URI_TYPES = [
+  ["vless", "vless"],
+  ["vmess", "vmess"],
+  ["shadowsocks", "shadowsocks"],
+  ["trojan", "trojan"],
+  ["socks", "socks"],
+  ["http", "http"],
+  ["tuic", "tuic"],
+  ["hysteria", "hysteria2"],
+  ["naiveproxy", "naive"],
+  ["mieru", "mieru"],
+  ["anytls", "anytls"],
+  ["trusttunnel", "trusttunnel"]
+];
+function connectionUriDescription() {
+  return _("Supported URIs: %s").format(
+    CONNECTION_URI_TYPES.filter(
+      ([, type]) => coreSupportsType(type, ["outbound"])
+    ).map(([name]) => name).concat(coreHas("wireguard") ? ["phobos"] : []).join(", ")
+  );
+}
+function validateConnectionUriCore(link) {
+  return validateCoreFeature(
+    linkCoreFeatures(link).find((feature) => !coreHas(feature)) || ""
+  );
+}
+function tunnelKindCoreFeature(kind) {
+  return kind === "json" ? "" : coreFeatureOfType(kind, ["endpoint"]);
+}
+function tunnelKindAvailable(kind) {
+  if (kind === "json") {
+    return coreHasAnyEndpoint();
+  }
+  const feature = tunnelKindCoreFeature(kind);
+  return !feature || coreHas(feature);
+}
+function tunnelCoreFeature(kind, endpointJson) {
+  if (kind !== "json") {
+    return tunnelKindCoreFeature(kind);
+  }
+  const type = parseOutboundJsonObject(endpointJson)?.type;
+  return typeof type === "string" ? coreFeatureOfType(type.trim().toLowerCase(), ["endpoint"]) : "";
+}
+function sectionMissingCoreFeatures(sectionId) {
+  const missing = /* @__PURE__ */ new Set();
+  (uci.sections(FORKOP_UCI_PACKAGE, "tunnel") || []).filter((tunnel) => tunnel.section === sectionId).forEach((tunnel) => {
+    const feature = tunnelCoreFeature(
+      `${tunnel.kind || "wireguard"}`.toLowerCase(),
+      tunnel.endpoint_json
+    );
+    if (feature && !coreHas(feature)) {
+      missing.add(feature);
+    }
+  });
+  (uci.sections(FORKOP_UCI_PACKAGE, "connection_link") || []).filter((link) => link.section === sectionId).forEach(
+    (link) => linkCoreFeatures(`${link.uri || ""}`).filter((feature) => !coreHas(feature)).forEach((feature) => missing.add(feature))
+  );
+  return [...missing];
+}
+function coreFilterTypeChoices(choices, selected) {
+  return choices.filter(
+    (choice) => coreSupportsType(choice.value) || selected.includes(choice.value)
+  ).map(
+    (choice) => coreSupportsType(choice.value) ? choice : {
+      value: choice.value,
+      label: `${choice.label} (${missingCoreFeatureNote(coreFeatureOfType(choice.value))})`
+    }
+  );
+}
+
 // src/forkop/tabs/sections/tunnels/model.ts
 function defaultWireGuardPeerSettings() {
   return {
@@ -22065,6 +22444,7 @@ function tunnelPeerIds(tunnelId) {
 function tunnelKindLabel(kind, endpointType) {
   if (kind === "openvpn-client") return "OpenVPN";
   if (kind === "openconnect") return "OpenConnect";
+  if (kind === "phobos") return "Phobos";
   return kind === "amneziawg" ? "AmneziaWG" : kind === "warp" ? "WARP" : kind === "tailscale" ? "Tailscale" : kind === "json" ? endpointType || _("JSON endpoint") : "WireGuard";
 }
 function removeTunnelPeers(tunnelId) {
@@ -22095,6 +22475,7 @@ function tunnelListItemLabel(sectionId, tunnelId) {
 }
 var CASCADE_TUNNEL_KINDS = [
   "wireguard",
+  "phobos",
   "amneziawg",
   "warp",
   "openvpn-client",
@@ -22107,6 +22488,7 @@ var SERVER_DNS_TUNNEL_KINDS = [
 ];
 var NATIVE_ENDPOINT_KINDS = ["openvpn-client", "openconnect"];
 var STORED_KINDS = [
+  "phobos",
   "openvpn-client",
   "openconnect",
   "json",
@@ -22129,6 +22511,7 @@ function tunnelInitialSettings(value, sectionId) {
     tunnel_type: kind,
     amnezia_enabled: amneziaEnabled ? "1" : "0",
     address: normalizeOptionValues(tunnel.address),
+    phobos_obfuscation: `${tunnel.phobos_obfuscation || ""}`,
     private_key: `${tunnel.private_key || ""}`,
     listen_port: tunnel.listen_port ? `${tunnel.listen_port}` : "",
     mtu: tunnel.mtu ? `${tunnel.mtu}` : "",
@@ -22165,6 +22548,7 @@ function tunnelSettingsKeys() {
     "kind",
     "address",
     "private_key",
+    "phobos_obfuscation",
     "listen_port",
     "mtu",
     "warp_keepalive",
@@ -22216,6 +22600,7 @@ function tunnelStorageSettings(settings) {
     kind,
     name: kind === "json" ? "" : `${settings.name || ""}`.trim(),
     address: normalizeOptionValues(settings.address),
+    phobos_obfuscation: kind === "phobos" ? `${settings.phobos_obfuscation || ""}`.trim() : "",
     private_key: `${settings.private_key || ""}`.trim(),
     listen_port: `${settings.listen_port || ""}`.trim(),
     mtu: `${settings.mtu || ""}`.trim(),
@@ -22387,6 +22772,8 @@ function tunnelEndpointFromSettings(settings, tunnelId, peerOption) {
   if (`${settings.mtu || ""}`.trim()) {
     endpoint.mtu = Number(settings.mtu);
   }
+  if (kind === "phobos")
+    endpoint.obfuscation = parseOutboundJsonObject(settings.phobos_obfuscation);
   if (kind === "amneziawg") {
     endpoint.amnezia = tunnelAmneziaSettings(settings);
   } else if (oneSidedAmneziaEnabled(kind, settings)) {
@@ -22480,93 +22867,449 @@ function wireGuardPeerDisplayNameFromObject(peer) {
   return address && Number.isInteger(port2) ? `${address}:${port2}` : address || _("WireGuard peer");
 }
 
-// src/forkop/tabs/sections/outboundNames.ts
-var providerServerNames = null;
-var providerServerNamesAt = 0;
-var providerServerNamesInflight = null;
-var PROVIDER_SERVER_NAMES_RETRY_MS = 5e3;
-function forgetOutboundNameChoices() {
-  providerServerNames = null;
-  providerServerNamesAt = 0;
+// src/validators/validateDns.ts
+var DNS_SCHEMES = /* @__PURE__ */ new Set(["udp", "tcp", "tls", "https", "quic", "h3"]);
+function validateDNS(value, ipOnly = false) {
+  const normalized = `${value || ""}`.trim();
+  if (!normalized) {
+    return message.required();
+  }
+  const invalid = _("Invalid DNS server");
+  if (/[\s@?#]/.test(normalized)) {
+    return invalid;
+  }
+  const schemeMatch = normalized.match(/^([a-z][a-z0-9+.-]*):\/\//i);
+  const scheme = schemeMatch?.[1].toLowerCase() || "udp";
+  if (!DNS_SCHEMES.has(scheme)) {
+    return _("Protocol %s is not supported").format(`${scheme}://`);
+  }
+  const endpoint = schemeMatch ? normalized.slice(schemeMatch[0].length) : normalized;
+  const slash = endpoint.indexOf("/");
+  const authority = slash >= 0 ? endpoint.slice(0, slash) : endpoint;
+  const path = slash >= 0 ? endpoint.slice(slash) : "";
+  if (path && scheme !== "https" && scheme !== "h3") {
+    return _("A path only with https:// and h3://");
+  }
+  const parsedHostPort = parseHostPort(authority);
+  const host = parsedHostPort ? parsedHostPort.host : unbracketHost(authority);
+  if (parsedHostPort && !isValidPort(parsedHostPort.port)) {
+    return message.invalidPort();
+  }
+  if (validateIP(host) === true) {
+    return true;
+  }
+  if (ipOnly) {
+    return _("IP address only");
+  }
+  return validateDomain(host) === true ? true : invalid;
 }
-var outboundNameSourceOptions = /* @__PURE__ */ new Map();
-var liveChoiceRefreshers = /* @__PURE__ */ new Map();
-function providerServerNameMap(value) {
-  const result = /* @__PURE__ */ new Map();
-  Object.entries(plainObject(plainObject(value).providers)).forEach(
-    ([providerTag, provider]) => {
-      const { proxies, filterCandidates } = plainObject(provider);
-      const runtimePrefix = `${providerTag}/`;
-      const names = [];
-      (Array.isArray(proxies) ? proxies : []).forEach((proxy) => {
-        proxy = plainObject(proxy);
-        const type = `${proxy.type || ""}`.toLowerCase();
-        if (["selector", "urltest", "fallback"].includes(type)) {
-          return;
-        }
-        let name = `${proxy.name || ""}`.trim();
-        if (name.startsWith(runtimePrefix)) {
-          name = name.slice(runtimePrefix.length);
-        }
-        if (name) {
-          names.push(name);
-        }
-      });
-      result.set(providerTag, {
-        imported: names,
-        filterCandidates: (Array.isArray(filterCandidates) ? filterCandidates : []).map((name) => `${name || ""}`.trim()).filter(Boolean)
-      });
+
+// src/forkop/cbi/dnsServers.ts
+var MULTIPLE_DNS_SENTINEL = "__forkop_multiple_dns__";
+function siblingValues(map, name, section_id) {
+  const lookup = map.lookupOption(name, section_id);
+  return lookup ? optionListValues(lookup[0], lookup[1]) : [];
+}
+function dnsServerPrefixes() {
+  return [
+    "udp://",
+    "tcp://",
+    "tls://",
+    "https://",
+    ...coreHas("quic") ? ["quic://", "h3://"] : []
+  ].join(", ");
+}
+var PUBLIC_RESOLVERS = [
+  { address: "77.88.8.8", name: "Yandex" },
+  { address: "1.1.1.1", name: "Cloudflare" },
+  { address: "8.8.8.8", name: "Google" },
+  { address: "9.9.9.9", name: "Quad9" },
+  { address: "94.140.14.14", name: "AdGuard", filtered: true }
+];
+function offerPublicResolvers(option2, options = {}) {
+  PUBLIC_RESOLVERS.forEach(({ address, name, filtered }) => {
+    if (options.bootstrap && filtered) {
+      return;
     }
-  );
-  return result;
-}
-function loadProviderServerNames() {
-  if (providerServerNamesInflight) {
-    return providerServerNamesInflight;
-  }
-  providerServerNamesInflight = getClashApiProxyProviders().then(
-    (response) => response.success ? providerServerNameMap(response.data) : /* @__PURE__ */ new Map()
-  ).catch(() => /* @__PURE__ */ new Map()).then((names) => {
-    providerServerNames = names;
-    providerServerNamesAt = Date.now();
-    refreshAllLiveChoiceWidgets();
-  }).finally(() => {
-    providerServerNamesInflight = null;
+    const servers2 = options.bootstrap ? [address] : [address, `https://${address}/dns-query`];
+    servers2.forEach((server2) => option2.value(server2, `${server2} (${name})`));
   });
-  return providerServerNamesInflight;
 }
-function subscriptionProviderTag(section_id, itemId) {
-  const loaded = uci.state.values[FORKOP_UCI_PACKAGE] || {};
-  if (!loaded[itemId] || !isExistingChildItem(section_id, itemId, "subscription_url")) {
-    return "";
-  }
-  const tag = `${loaded[itemId].tag || ""}`.trim();
-  const label = `${loaded[section_id]?.label || section_id}`.trim();
-  return tag ? `${label}/${tag}` : "";
+function configureDnsServerList(option2, options = {}) {
+  const check = requiredList(function(_section_id, value) {
+    const server2 = value.trim();
+    const validation = validateDNS(server2, options.ipOnly);
+    return validation === true ? validateCoreFeature(/^(quic|h3):\/\//i.test(server2) ? "quic" : "") : validation;
+  });
+  option2.rmempty = false;
+  option2.validate = function(section_id, value) {
+    return options.appliesTo && !options.appliesTo(this, section_id) ? true : check.call(this, section_id, value);
+  };
 }
-function subscriptionServerNames(section_id, itemIds, kind) {
-  const providerTags = itemIds.map((itemId) => subscriptionProviderTag(section_id, itemId)).filter(Boolean);
-  if (providerTags.some((tag) => !providerServerNames?.get(tag)?.[kind].length) && Date.now() - providerServerNamesAt >= PROVIDER_SERVER_NAMES_RETRY_MS) {
-    void loadProviderServerNames();
+function configureDnsQueryMode(modeOption, dnsServerOptionName, options = {}) {
+  modeOption.value("parallel", _("Parallel"));
+  modeOption.value("sequential", _("Sequential"));
+  modeOption.default = "parallel";
+  modeOption.rmempty = false;
+  modeOption.retain = true;
+  modeOption.depends(
+    Object.assign({}, options.alsoDependsOn, {
+      [dnsServerOptionName]: MULTIPLE_DNS_SENTINEL
+    })
+  );
+  modeOption.checkDepends = function(section_id) {
+    const satisfied = Object.entries(options.alsoDependsOn || {}).every(
+      ([name, expected]) => {
+        const lookup = this.map.lookupOption(name, section_id);
+        return lookup ? lookup[0].formvalue(lookup[1]) === expected : false;
+      }
+    );
+    return satisfied && siblingValues(this.map, dnsServerOptionName, section_id).length > 1;
+  };
+}
+
+// src/forkop/cbi/grid.ts
+var GRID_SWITCH_COLUMN_WIDTH = "6rem";
+var GRID_KIND_COLUMN_WIDTH = "8rem";
+function getRuleEditButtonText() {
+  const label = _("Edit rule action");
+  return label === "Edit rule action" ? "Edit" : label;
+}
+function loadVisibleTableOptions(sectionRef) {
+  const tasks = [];
+  sectionRef.cfgsections().forEach((sectionId) => {
+    sectionRef.children.forEach((option2) => {
+      if (option2.disable || option2.modalonly) {
+        return;
+      }
+      tasks.push(
+        Promise.resolve(option2.load.call(option2, sectionId)).then(
+          (value) => {
+            option2.cfgvalue(sectionId, value);
+          }
+        )
+      );
+    });
+  });
+  return Promise.all(tasks);
+}
+
+// src/forkop/cbi/dynamicList.ts
+var CONNECTIONS_DYNLIST_STYLE_ID = "fkp-connections-dynlist-styles";
+function ensureConnectionsDynamicListStyles() {
+  if (document.getElementById(CONNECTIONS_DYNLIST_STYLE_ID)) {
+    return;
   }
-  return providerTags.flatMap(
-    (tag) => providerServerNames?.get(tag)?.[kind] || []
+  document.head.appendChild(
+    textE(
+      "style",
+      { id: CONNECTIONS_DYNLIST_STYLE_ID },
+      `
+.fkp-connections-dynlist {
+  column-gap: 4px;
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.fkp-connections-dynlist > .item {
+  grid-column: 1;
+  min-inline-size: 0;
+}
+
+.fkp-connections-dynlist > .fkp-dynlist-settings {
+  align-items: center;
+  align-self: start;
+  block-size: var(--fkp-dynlist-row-size, auto);
+  box-sizing: border-box;
+  display: inline-flex;
+  grid-column: 2;
+  inline-size: 2.5em !important;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
+  min-block-size: 0;
+  min-inline-size: 0;
+  padding: 0;
+  user-select: none;
+}
+
+.fkp-connections-dynlist > .fkp-dynlist-settings > svg {
+  block-size: 16px;
+  display: block;
+  inline-size: 16px;
+}
+
+.fkp-connections-dynlist > .add-item {
+  grid-column: 1 / -1;
+}
+
+.fkp-connections-dynlist > .add-item > .cbi-dropdown {
+  width: 100%;
+  max-width: none;
+}
+
+.fkp-button-add-dynlist.cbi-input-invalid {
+  box-shadow: none;
+}
+
+.fkp-interface-dynlist-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.25em;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.fkp-interface-dynlist-label > img {
+  flex: 0 0 auto;
+  height: 1.35em;
+  width: auto;
+}
+
+.fkp-interface-dynlist-label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.modal-overlay-active > #modal_overlay > .modal.cbi-modal > .cbi-map.flash {
+  animation: none !important;
+}
+
+`
+    )
   );
 }
-function configureLiveDynamicListChoices(option2, getChoices, getRefreshSectionId = (section_id) => section_id) {
-  option2.renderWidget = function(section_id, _option_index, cfgvalue) {
-    const refreshSectionId = `${getRefreshSectionId(section_id) || section_id}`.trim();
-    const values = L.toArray(cfgvalue != null ? cfgvalue : this.default);
-    const choices = getChoices(section_id);
-    const labels = {};
-    choices.forEach((choice) => {
-      labels[choice.value] = choice.label;
+var SettingsUIDynamicList = ui.DynamicList.extend({
+  render() {
+    ensureConnectionsDynamicListStyles();
+    this.settingsButtonResizeObserver?.disconnect();
+    this.settingsButtonResizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver((entries) => {
+      entries.forEach((entry) => {
+        this.syncSettingsButtonSize(entry.target);
+      });
+    }) : null;
+    const node = ui.DynamicList.prototype.render.call(this);
+    node.classList.add("fkp-connections-dynlist");
+    node.addEventListener("cbi-dynlist-change", () => {
+      this.syncSettingsButtons(node);
     });
-    refreshOptionChoices(this, choices);
-    let choiceSignature = JSON.stringify(
-      choices.map((choice) => [choice.value, choice.label])
+    node.addEventListener("touchstart", () => this.syncSettingsButtons(node));
+    node.addEventListener("touchmove", () => this.syncSettingsButtons(node));
+    return node;
+  },
+  syncSettingsButtonSize(item) {
+    const button = item && item.fkpDynamicListSettingsButton;
+    const height = item?.offsetHeight;
+    if (button && height > 0) {
+      button.style.setProperty("--fkp-dynlist-row-size", `${height}px`);
+    }
+  },
+  syncSettingsButtons(dl) {
+    Array.from(dl.children).forEach((item) => {
+      const button = item.fkpDynamicListSettingsButton;
+      if (item.classList.contains("item") && button && button.parentNode === dl && item.nextElementSibling !== button) {
+        item.after(button);
+      }
+    });
+  },
+  addItem(dl, value, text8, flash) {
+    if (flash && typeof this.options.createItem === "function") {
+      value = this.options.createItem(value);
+      if (!value) return;
+      text8 = null;
+    } else if (flash && typeof this.options.hasEquivalentValue === "function" && this.options.hasEquivalentValue(value, dl)) {
+      this.dispatchCbiDynlistChange(dl, value);
+      return;
+    }
+    const itemText = typeof this.options.itemLabel === "function" ? this.options.itemLabel(value, text8) : text8;
+    ui.DynamicList.prototype.addItem.call(this, dl, value, itemText, flash);
+    const item = findDynamicListItemByValue(dl, value);
+    const hasSettings = typeof this.options.hasSettings === "function" ? this.options.hasSettings(value) : true;
+    if (!item || item.fkpDynamicListSettingsButton || !hasSettings) {
+      return;
+    }
+    const settingsButton = textE(
+      "button",
+      {
+        type: "button",
+        class: "btn cbi-button cbi-button-neutral fkp-dynlist-settings",
+        title: _("Settings"),
+        "aria-label": _("Settings"),
+        disabled: this.options.disabled ? "" : null,
+        click: (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (this.options.disabled) {
+            return;
+          }
+          if (typeof this.options.settingsHandler === "function") {
+            this.options.settingsHandler(
+              dynamicListItemCurrentValue(item, value),
+              item,
+              this,
+              {}
+            );
+          }
+        }
+      },
+      renderSettingsIcon24()
     );
-    const widget = new ui.DynamicList(values, labels, {
+    item.fkpDynamicListSettingsButton = settingsButton;
+    item.after(settingsButton);
+    this.settingsButtonResizeObserver?.observe(item);
+    this.syncSettingsButtonSize(item);
+  },
+  removeItem(dl, item) {
+    const settingsButton = item && item.fkpDynamicListSettingsButton;
+    this.settingsButtonResizeObserver?.unobserve(item);
+    if (settingsButton && settingsButton.parentNode === dl) {
+      settingsButton.remove();
+    }
+    return ui.DynamicList.prototype.removeItem.call(this, dl, item);
+  },
+  handleClick(event) {
+    if (event.target.closest(".fkp-dynlist-settings")) {
+      return;
+    }
+    return ui.DynamicList.prototype.handleClick.call(this, event);
+  },
+  handleKeydown(event) {
+    const dl = event.currentTarget;
+    const item = event.target.closest(".item");
+    const isBackspace = event.key === "Backspace" || event.keyCode === 8;
+    const isDelete = event.key === "Delete" || event.keyCode === 46;
+    if (!this.options.disabled && item && item.parentNode === dl && (isBackspace || isDelete)) {
+      const items = Array.from(dl.children).filter(
+        (node) => node.classList.contains("item")
+      );
+      const index = items.indexOf(item);
+      const nextItem = items[index + (isBackspace ? -1 : 1)];
+      if (nextItem) {
+        nextItem.focus();
+      } else if (isDelete) {
+        dl.querySelector(".add-item > *")?.focus();
+      }
+      this.removeItem(dl, item);
+      event.preventDefault();
+      return;
+    }
+    return ui.DynamicList.prototype.handleKeydown.call(this, event);
+  }
+});
+var ButtonAddSettingsUIDynamicList = SettingsUIDynamicList.extend({
+  render() {
+    const node = SettingsUIDynamicList.prototype.render.call(this);
+    node.classList.add("fkp-button-add-dynlist");
+    const input = node.querySelector('.add-item > input[type="text"]');
+    input?.remove();
+    node.querySelector(".add-item")?.classList.toggle("hidden", this.options.addable === false);
+    updateButtonAddDynamicListLayout(node, this.options.addButtonLabel);
+    node.addEventListener("cbi-dynlist-change", () => {
+      updateButtonAddDynamicListLayout(node, this.options.addButtonLabel);
+    });
+    const control = node.querySelector(".add-item > .fkp-button-add-control");
+    const showValidity = (invalid) => control?.classList.toggle("cbi-input-invalid", invalid);
+    node.addEventListener("validation-failure", () => showValidity(true));
+    node.addEventListener("validation-success", () => showValidity(false));
+    showValidity(node.classList.contains("cbi-input-invalid"));
+    return node;
+  },
+  addButtonItem(_dl) {
+    if (typeof this.options.settingsHandler === "function") {
+      this.options.settingsHandler("", null, this, { adding: true });
+    }
+  },
+  handleClick(event) {
+    if (!this.options.disabled && event.target.closest(".add-item > .fkp-button-add-control")) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.addButtonItem(event.currentTarget);
+      return;
+    }
+    return SettingsUIDynamicList.prototype.handleClick.call(this, event);
+  },
+  handleKeydown(event) {
+    if (!this.options.disabled && event.target.closest(
+      ".add-item > .fkp-button-add-control"
+    ) && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.addButtonItem(event.currentTarget);
+      return;
+    }
+    return ui.DynamicList.prototype.handleKeydown.call(this, event);
+  }
+});
+var SettingsDynamicList = form.DynamicList.extend({
+  // ------------------------------------------------ what one entry is called
+  //
+  // A saved entry is a child section id and shows what that section stores under
+  // childValueOption; a draft is its own text, which its dialog may have renamed. A list without
+  // childValueOption shows the section id itself.
+  inputValueForItem(ownerId, value) {
+    if (!this.childType || !this.childValueOption) {
+      return `${value || ""}`.trim();
+    }
+    const inputValue = childItemInputValue(
+      ownerId,
+      value,
+      this.childType,
+      this.childValueOption,
+      this.ownerOption
+    );
+    const staged = childPendingSettingsStore(this, ownerId)[inputValue];
+    const renamed = staged ? staged[this.childValueOption] : null;
+    return renamed ? `${renamed}` : inputValue;
+  },
+  stagedChildSettings(ownerId, value) {
+    const staged = childPendingSettingsStore(this, ownerId)[this.inputValueForItem(ownerId, value)];
+    return staged ? Object.assign({}, staged) : null;
+  },
+  clearStagedChildSettings(ownerId) {
+    clearChildPendingSettings(this, ownerId);
+  },
+  childItemOptions(ownerId) {
+    return {
+      typeName: this.childType,
+      valueOption: this.childValueOption,
+      ownerOption: this.ownerOption,
+      createId: this.createId,
+      defaults: this.childDefaults,
+      stagedSettings: (itemValue) => this.stagedChildSettings(ownerId, itemValue)
+    };
+  },
+  // The typed entry becomes its section at once and the list holds the id, so two entries may
+  // hold the same text.
+  createTypedItem(section_id, inputValue) {
+    const ownerId = this.childOwner(section_id);
+    return createChildItem(ownerId, this.childItemOptions(ownerId), inputValue).value;
+  },
+  // A list whose entry must be well formed first, a subscription address, says so itself.
+  hasItemSettings(ownerId, value) {
+    return this.inputValueForItem(ownerId, value).length > 0;
+  },
+  childOwner(section_id) {
+    return typeof this.childOwnerId === "function" ? `${this.childOwnerId(section_id) || ""}`.trim() : section_id;
+  },
+  parentSection(section_id) {
+    return typeof this.parentSectionId === "function" ? `${this.parentSectionId(section_id) || ""}`.trim() : section_id;
+  },
+  load(section_id) {
+    if (this.childType) {
+      return getChildItemIds(
+        this.childOwner(section_id),
+        this.childType,
+        this.ownerOption
+      );
+    }
+    return form.DynamicList.prototype.load.call(this, section_id);
+  },
+  renderWidget(section_id, _option_index, cfgvalue) {
+    const value = cfgvalue != null ? cfgvalue : this.default;
+    const choices = this.transformChoices();
+    const WidgetClass = this.buttonAdd ? ButtonAddSettingsUIDynamicList : SettingsUIDynamicList;
+    const widget = new WidgetClass(L.toArray(value), choices, {
       id: this.cbid(section_id),
       sort: this.keylist,
       allowduplicates: this.allowduplicates,
@@ -22574,423 +23317,118 @@ function configureLiveDynamicListChoices(option2, getChoices, getRefreshSectionI
       datatype: this.datatype,
       placeholder: this.placeholder,
       validate: L.bind(this.validate, this, section_id),
-      disabled: this.readonly != null ? this.readonly : this.map.readonly
+      disabled: this.readonly != null ? this.readonly : this.map.readonly,
+      addButtonLabel: typeof this.addButtonLabel === "function" ? this.addButtonLabel(section_id) : this.addButtonLabel,
+      addable: typeof this.addable === "function" ? this.addable(section_id) : true,
+      settingsHandler: (itemValue, _item, widget2, context) => {
+        if (typeof this.renderItemSettingsModal === "function") {
+          const ownerId = this.childOwner(section_id);
+          this.renderItemSettingsModal(
+            ownerId,
+            `${itemValue}`,
+            this,
+            widget2,
+            _item,
+            Object.assign({}, context || {}, {
+              parentSectionId: this.parentSection(section_id),
+              ownerId
+            })
+          );
+        }
+      },
+      itemLabel: (itemValue, text8) => {
+        if (typeof this.renderListItemLabel === "function") {
+          return this.renderListItemLabel(
+            this.childOwner(section_id),
+            `${itemValue}`,
+            text8
+          );
+        }
+        return text8;
+      },
+      hasSettings: (itemValue) => this.hasItemSettings(this.childOwner(section_id), `${itemValue}`),
+      createItem: this.entriesAreSections && !this.buttonAdd ? (inputValue) => this.createTypedItem(section_id, inputValue) : null,
+      hasEquivalentValue: (itemValue, dl) => {
+        const inputValueForItem = (value2) => `${this.inputValueForItem(this.childOwner(section_id), `${value2 || ""}`) || ""}`.trim();
+        const normalized = inputValueForItem(itemValue);
+        return Boolean(
+          normalized && dynamicListItemValues(dl).some(
+            (existingValue) => inputValueForItem(existingValue) === normalized
+          )
+        );
+      }
     });
     const node = widget.render();
-    const refreshChoices = () => {
-      if (!node.isConnected) {
-        return false;
-      }
-      const currentChoices = getChoices(section_id);
-      const currentLabels = {};
-      currentChoices.forEach((choice) => {
-        currentLabels[choice.value] = choice.label;
+    if (typeof this.onListChange === "function") {
+      node.addEventListener("cbi-dynlist-change", () => {
+        this.onListChange(section_id, dynamicListItemValues(node));
       });
-      const currentSignature = JSON.stringify(
-        currentChoices.map((choice) => [choice.value, choice.label])
-      );
-      if (currentSignature === choiceSignature) {
-        return;
-      }
-      choiceSignature = currentSignature;
-      refreshOptionChoices(this, currentChoices);
-      widget.choices = currentLabels;
-      widget.clearChoices();
-      widget.addChoices(
-        currentChoices.map((choice) => choice.value),
-        currentLabels
-      );
-      return true;
-    };
-    const refreshBeforeOpening = (event) => {
-      if (event.target && event.target.closest(".add-item")) {
-        refreshChoices();
-      }
-    };
-    node.addEventListener("mousedown", refreshBeforeOpening, true);
-    node.addEventListener("focusin", refreshBeforeOpening, true);
-    if (!liveChoiceRefreshers.has(refreshSectionId)) {
-      liveChoiceRefreshers.set(refreshSectionId, /* @__PURE__ */ new Set());
     }
-    liveChoiceRefreshers.get(refreshSectionId).add(refreshChoices);
     return node;
-  };
-}
-function outboundNameChoiceItems(names) {
-  return Array.from(
-    new Set(names.map((name) => `${name || ""}`.trim()).filter(Boolean)),
-    (value) => ({ value, label: value })
-  );
-}
-function currentOutboundNameChoices(section_id) {
-  return outboundNameChoiceItems([
-    ...currentDraftOutboundNames(section_id),
-    ...subscriptionServerNames(
-      section_id,
-      currentSourceOptionValues(section_id, "subscription_url"),
-      "imported"
-    )
-  ]);
-}
-function currentSubscriptionOutboundNameChoices(section_id, itemId) {
-  return outboundNameChoiceItems(
-    subscriptionServerNames(section_id, [itemId], "filterCandidates")
-  );
-}
-function currentSourceOptionValues(section_id, optionName) {
-  const liveValues = currentLiveDynamicListValues(section_id, optionName);
-  if (liveValues != null) {
-    return liveValues;
-  }
-  const option2 = outboundNameSourceOptions.get(optionName);
-  if (option2 && typeof option2.formvalue === "function") {
-    try {
-      const value = option2.formvalue(section_id);
-      if (value != null) {
-        return normalizeDynamicListItems(value);
-      }
-    } catch (_error) {
-    }
-  }
-  return option2?.childType ? getChildItemIds(section_id, option2.childType) : getConfigListValues(section_id, optionName);
-}
-function currentLiveDynamicListValues(section_id, optionName) {
-  if (typeof document === "undefined") {
-    return null;
-  }
-  const option2 = outboundNameSourceOptions.get(optionName);
-  const trackedWidget = option2?.liveDynamicListNodes?.get(section_id);
-  let widget;
-  if (trackedWidget) {
-    if (trackedWidget.isConnected === false) {
-      return null;
-    }
-    widget = trackedWidget;
-  } else {
-    widget = document.getElementById(
-      `cbid.${FORKOP_UCI_PACKAGE}.${section_id}.${optionName}`
-    );
-  }
-  if (!widget) {
-    return null;
-  }
-  const values = Array.from(
-    widget.querySelectorAll('.item > input[type="hidden"]')
-  ).map((input) => `${input.value || ""}`.trim()).filter(Boolean);
-  const pendingInput = widget.querySelector(
-    '.add-item > input[type="text"]'
-  );
-  const pendingValue = `${pendingInput && pendingInput.value || ""}`.trim();
-  if (pendingValue && !pendingInput.classList.contains("cbi-input-invalid") && !values.includes(pendingValue)) {
-    values.push(pendingValue);
-  }
-  return values;
-}
-var GROUP_OUTBOUND_TYPES = [
-  "selector",
-  "urltest",
-  "fallback",
-  "dns",
-  "block"
-];
-function currentGroupNames(section_id, optionName, typeName) {
-  const listOption = outboundNameSourceOptions.get(optionName);
-  const store2 = listOption ? childPendingSettingsStore(listOption, section_id) : {};
-  return currentSourceOptionValues(section_id, optionName).map((value) => {
-    const itemValue = `${value || ""}`.trim();
-    return itemValue ? `${store2[itemValue]?.name || childItemInputValue(section_id, itemValue, typeName, "name") || itemValue}`.trim() : "";
-  }).filter(Boolean);
-}
-function sectionChildNames(section_id) {
-  const result = [];
-  const add = (kind, name, member = true, value = "") => {
-    const normalized = `${name || ""}`.trim();
-    if (normalized) {
-      result.push({ kind, name: normalized, member, value });
-    }
-  };
-  currentSourceOptionValues(section_id, "connection_link").forEach(
-    (value, index) => add(
-      "link",
-      (isExistingChildItem(section_id, value, "connection_link") ? uci.get(FORKOP_UCI_PACKAGE, value, "name") : "") || getProxyUrlName(value) || `Node #${index + 1}`
-    )
-  );
-  currentSourceOptionValues(section_id, "interfaces").forEach(
-    (itemId) => {
-      const interfaceName = childItemInputValue(
-        section_id,
-        itemId,
-        "section_interface",
-        "name"
-      ).trim();
-      const option2 = outboundNameSourceOptions.get("interfaces");
-      const staged = childPendingSettingsStore(option2, section_id)[interfaceName];
-      add(
-        "interface",
-        staged?.display_name || (isExistingChildItem(section_id, itemId, "section_interface") ? uci.get(FORKOP_UCI_PACKAGE, itemId, "display_name") : "") || interfaceName,
-        true,
-        interfaceName
+  },
+  // Written on every save: an entry added and taken out again leaves the list as loaded, and
+  // only the write deletes its section.
+  parse(section_id) {
+    this.forcewrite = this.entriesAreSections === true;
+    if (this.isActive(section_id) && typeof this.validateItemsOnSave === "function") {
+      const result = this.validateItemsOnSave(
+        this.childType ? this.childOwner(section_id) : section_id,
+        this.formvalue(section_id),
+        this,
+        section_id
       );
+      if (result !== true) {
+        const title = this.stripTags(this.title).trim() || this.option;
+        return Promise.reject(new TypeError(`${title}: ${result}`));
+      }
     }
-  );
-  currentSourceOptionValues(section_id, "tunnels").forEach(
-    (value) => add("tunnel", tunnelDisplayName(section_id, `${value ?? ""}`))
-  );
-  currentSourceOptionValues(section_id, "outbound_jsons").forEach(
-    (value, index) => {
-      const outbound = parseOutboundJsonObject(value);
-      const type = `${outbound?.type || ""}`.trim().toLowerCase();
-      add(
-        "json",
-        outboundJsonDisplayTag(value) || `JSON outbound #${index + 1}`,
-        !GROUP_OUTBOUND_TYPES.includes(type)
+    return form.DynamicList.prototype.parse.call(this, section_id);
+  },
+  write(section_id, value) {
+    if (this.childType) {
+      const ownerId = this.childOwner(section_id);
+      const { itemIds, resolved } = materializeChildItems(
+        ownerId,
+        this.childItemOptions(ownerId),
+        value
       );
-    }
-  );
-  currentGroupNames(section_id, "urltest", "urltest").forEach(
-    (name) => add("urltest", name, false)
-  );
-  currentGroupNames(section_id, "fallback_group", "fallback_group").forEach(
-    (name) => add("fallback", name, false)
-  );
-  return result;
-}
-function nextSectionChildName(section_id, prefix) {
-  return nextNumberedName(
-    prefix,
-    sectionChildNames(section_id).map((child) => child.name)
-  );
-}
-function currentDraftOutboundNames(section_id) {
-  return sectionChildNames(section_id).filter((child) => child.member).map((child) => child.name);
-}
-function validateSectionChildName(section_id, kind, value, own) {
-  const name = `${value || ""}`.trim();
-  if (name.includes("/")) {
-    return message.slashInName();
-  }
-  return sectionChildNames(section_id).some(
-    (child) => child.name === name && (child.kind !== kind || own !== void 0 && child.value !== own)
-  ) ? message.nameTaken() : true;
-}
-function validateSectionChildListName(section_id, kind, widget, itemNode, value) {
-  const unique = validateUniqueDynamicListItemName(widget, itemNode, value);
-  return unique === true ? validateSectionChildName(section_id, kind, value) : unique;
-}
-function currentUrlTestNameChoices(section_id) {
-  return Array.from(
-    new Set(currentGroupNames(section_id, "urltest", "urltest"))
-  ).map((name) => ({ value: name, label: name }));
-}
-function addUrlTestMemberOption(itemSection, parentSectionForItem, modes) {
-  const option2 = itemSection.option(
-    form.DynamicList,
-    "include_groups",
-    _("Add URLTest"),
-    _("The group joins as the single node it has selected")
-  );
-  modes.map((mode) => mode.value).filter((mode) => mode !== "direct").forEach((mode) => option2.depends("server_filter_mode", mode));
-  option2.rmempty = true;
-  option2.placeholder = _("-- Select --");
-  option2.load = function(itemId) {
-    const values = normalizeOptionValues(
-      optionMapValue(this, itemId, "include_groups")
-    );
-    refreshOptionChoices(
-      this,
-      currentUrlTestNameChoices(parentSectionForItem(itemId))
-    );
-    return values;
-  };
-  configureLiveDynamicListChoices(
-    option2,
-    (itemId) => currentUrlTestNameChoices(parentSectionForItem(itemId)),
-    parentSectionForItem
-  );
-  return option2;
-}
-function refreshLiveChoiceWidgets(section_id) {
-  const refreshers = liveChoiceRefreshers.get(section_id);
-  if (!refreshers) {
-    return;
-  }
-  refreshers.forEach((refresh) => {
-    if (refresh() === false) {
-      refreshers.delete(refresh);
-    }
-  });
-  if (refreshers.size === 0) {
-    liveChoiceRefreshers.delete(section_id);
-  }
-}
-function refreshAllLiveChoiceWidgets() {
-  Array.from(liveChoiceRefreshers.keys()).forEach(refreshLiveChoiceWidgets);
-}
-
-// src/forkop/tabs/sections/outboundJson.ts
-function parseOutboundJsonObject(value) {
-  try {
-    const parsed = JSON.parse(`${value || ""}`);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
-  } catch (_error) {
-    return null;
-  }
-}
-function outboundJsonDisplayTag(value) {
-  const parsed = parseOutboundJsonObject(value);
-  const tag = parsed && typeof parsed.tag === "string" ? parsed.tag.trim() : "";
-  return tag || "";
-}
-function outboundJsonListItemLabel(value) {
-  return textE(
-    "span",
-    { class: "fkp-dynlist-label" },
-    outboundJsonDisplayTag(value) || _("JSON outbound")
-  );
-}
-var JSON_OUTBOUND_PLACEHOLDER = [
-  "{",
-  '  "type": "socks",',
-  '  "tag": "my-outbound",',
-  '  "server": "127.0.0.1",',
-  '  "server_port": 1080',
-  "}"
-].join("\n");
-function showOutboundJsonSettingsModal(section_id, itemValue, _option, widget, itemNode, context = {}) {
-  const data = {
-    settings: {
-      outbound_json: `${itemValue || ""}`
-    }
-  };
-  const map = new form.JSONMap(data);
-  const itemSection = map.section(form.NamedSection, "settings");
-  itemSection.anonymous = true;
-  itemSection.addremove = false;
-  const jsonOption = itemSection.option(
-    form.TextValue,
-    "outbound_json",
-    _("JSON outbound")
-  );
-  jsonOption.placeholder = JSON_OUTBOUND_PLACEHOLDER;
-  jsonOption.rows = 12;
-  jsonOption.wrap = "soft";
-  jsonOption.textarea = true;
-  jsonOption.modalonly = true;
-  jsonOption.validate = function(_itemId, value) {
-    const usedTags = widget && widget.node ? Array.from(widget.node.querySelectorAll(".item")).filter((item) => item !== itemNode).map(
-      (item) => outboundJsonDisplayTag(dynamicListItemCurrentValue(item, ""))
-    ).filter(Boolean) : [];
-    const validation = validateOutboundJson(`${value || ""}`, usedTags);
-    return validation === true ? validateSectionChildName(
-      section_id,
-      "json",
-      outboundJsonDisplayTag(value)
-    ) : validation;
-  };
-  configureTextareaOption(jsonOption);
-  const tag = context.adding ? "" : outboundJsonDisplayTag(itemValue);
-  return renderStackedJsonSettingsModal(
-    tag ? _("JSON outbound: %s").format(tag) : _("JSON outbound"),
-    map,
-    (settings) => {
-      const value = `${settings.outbound_json || ""}`.trim();
-      if (context.adding) {
-        addDynamicListItem(widget, value);
-        return;
+      adoptMaterializedChildItems(this, section_id, resolved);
+      cleanupRemovedChildItems(
+        ownerId,
+        this.childType,
+        itemIds,
+        this.ownerOption,
+        this.removeNestedChildItems
+      );
+      if (typeof this.afterMaterializeChildItems === "function") {
+        this.afterMaterializeChildItems(ownerId, itemIds);
       }
-      setDynamicListItemValue(itemNode, value);
-      updateDynamicListItemLabel(itemNode, outboundJsonDisplayTag(value));
-      if (widget && widget.node) {
-        widget.dispatchCbiDynlistChange(widget.node, value);
+      uci.unset(FORKOP_UCI_PACKAGE, section_id, this.option);
+      this.clearStagedChildSettings(ownerId);
+      return;
+    }
+    return form.DynamicList.prototype.write.call(this, section_id, value);
+  },
+  remove(section_id) {
+    if (this.childType) {
+      if (this.isActive(section_id)) {
+        cleanupRemovedChildItems(
+          this.childOwner(section_id),
+          this.childType,
+          [],
+          this.ownerOption,
+          this.removeNestedChildItems
+        );
       }
-    },
-    { singleField: true }
-  );
-}
-function validateOutboundJsonItemsBeforeSave(_section_id, values) {
-  const items = Array.isArray(values) ? values : values ? [values] : [];
-  const tags = [];
-  for (const value of items) {
-    const validation = validateOutboundJson(`${value || ""}`, tags);
-    if (validation !== true) {
-      return message.item(outboundJsonDisplayTag(value), validation);
+      uci.unset(FORKOP_UCI_PACKAGE, section_id, this.option);
+      return;
     }
-    const tag = outboundJsonDisplayTag(value);
-    tags.push(tag);
+    return form.DynamicList.prototype.remove.call(this, section_id);
   }
-  return true;
-}
-
-// src/forkop/tabs/sections/coreSupport.ts
-var CONNECTION_URI_TYPES = [
-  ["vless", "vless"],
-  ["vmess", "vmess"],
-  ["shadowsocks", "shadowsocks"],
-  ["trojan", "trojan"],
-  ["socks", "socks"],
-  ["http", "http"],
-  ["tuic", "tuic"],
-  ["hysteria", "hysteria2"],
-  ["naiveproxy", "naive"],
-  ["mieru", "mieru"],
-  ["anytls", "anytls"],
-  ["trusttunnel", "trusttunnel"]
-];
-function connectionUriDescription() {
-  return _("Supported URIs: %s").format(
-    CONNECTION_URI_TYPES.filter(
-      ([, type]) => coreSupportsType(type, ["outbound"])
-    ).map(([name]) => name).join(", ")
-  );
-}
-function validateConnectionUriCore(link) {
-  return validateCoreFeature(
-    linkCoreFeatures(link).find((feature) => !coreHas(feature)) || ""
-  );
-}
-function tunnelKindCoreFeature(kind) {
-  return kind === "json" ? "" : coreFeatureOfType(kind, ["endpoint"]);
-}
-function tunnelKindAvailable(kind) {
-  if (kind === "json") {
-    return coreHasAnyEndpoint();
-  }
-  const feature = tunnelKindCoreFeature(kind);
-  return !feature || coreHas(feature);
-}
-function tunnelCoreFeature(kind, endpointJson) {
-  if (kind !== "json") {
-    return tunnelKindCoreFeature(kind);
-  }
-  const type = parseOutboundJsonObject(endpointJson)?.type;
-  return typeof type === "string" ? coreFeatureOfType(type.trim().toLowerCase(), ["endpoint"]) : "";
-}
-function sectionMissingCoreFeatures(sectionId) {
-  const missing = /* @__PURE__ */ new Set();
-  (uci.sections(FORKOP_UCI_PACKAGE, "tunnel") || []).filter((tunnel) => tunnel.section === sectionId).forEach((tunnel) => {
-    const feature = tunnelCoreFeature(
-      `${tunnel.kind || "wireguard"}`.toLowerCase(),
-      tunnel.endpoint_json
-    );
-    if (feature && !coreHas(feature)) {
-      missing.add(feature);
-    }
-  });
-  (uci.sections(FORKOP_UCI_PACKAGE, "connection_link") || []).filter((link) => link.section === sectionId).forEach(
-    (link) => linkCoreFeatures(`${link.uri || ""}`).filter((feature) => !coreHas(feature)).forEach((feature) => missing.add(feature))
-  );
-  return [...missing];
-}
-function coreFilterTypeChoices(choices, selected) {
-  return choices.filter(
-    (choice) => coreSupportsType(choice.value) || selected.includes(choice.value)
-  ).map(
-    (choice) => coreSupportsType(choice.value) ? choice : {
-      value: choice.value,
-      label: `${choice.label} (${missingCoreFeatureNote(coreFeatureOfType(choice.value))})`
-    }
-  );
-}
+});
+var ButtonAddSettingsDynamicList = SettingsDynamicList.extend({
+  buttonAdd: true
+});
 
 // src/forkop/tabs/sections/actions.ts
 function getRuleConfiguredAction(section_id) {
@@ -23247,6 +23685,7 @@ function groupTypeChoices() {
     ...providerTypeChoices(),
     ...[
       ["wireguard", "WireGuard"],
+      ["phobos", "Phobos"],
       ["amneziawg", "AmneziaWG"],
       ["warp", "WARP"],
       ["tailscale", "Tailscale"],
@@ -24210,6 +24649,10 @@ function validateConnectionLink(value) {
   if (!link) {
     return true;
   }
+  if (/^phobos:\/\//iu.test(link)) {
+    const parsed = parsePhobosLink(link);
+    return parsed.valid ? validateCoreFeature("wireguard") : parsed.message;
+  }
   const validation = validateProxyUrl(link);
   return validation === true ? validateConnectionUriCore(link) : validation;
 }
@@ -24231,7 +24674,8 @@ function nextLinkName(sectionId, option2, link) {
     ...linkNames,
     ...sectionChildNames(sectionId).filter((child) => child.kind !== "link").map((child) => child.name)
   ]);
-  const own = getProxyUrlName(link).trim().replaceAll("/", "\uFF0F");
+  const fragment = getProxyUrlName(link).trim().replaceAll("/", "\uFF0F");
+  const own = /^phobos:\/\//iu.test(link) && fragment === "none" ? "" : fragment;
   if (own && !taken.has(own)) {
     return own;
   }
@@ -24740,370 +25184,6 @@ function showSubscriptionUrlSettingsModal(sectionId, itemValue, option2, _widget
       }
     })
   );
-}
-
-// src/helpers/parseWireGuardConfig.ts
-var MAX_AMNEZIA_CONFIG_SIZE = 1024 * 1024;
-var DEFAULT_WIREGUARD_PORT = 51820;
-var LINK_SCHEMES = ["wireguard", "wg", "awg", "amneziawg"];
-var LINK_ALLOWED_IPS = "0.0.0.0/0, ::/0";
-var FIELD_ALIASES = {
-  privatekey: ["secretkey"],
-  address: ["addresses", "ip"],
-  publickey: ["peerpublickey", "pubkey"],
-  presharedkey: ["psk"],
-  allowedips: ["allowedip"],
-  persistentkeepalive: ["persistentkeepaliveinterval", "keepalive"]
-};
-var CANONICAL_FIELDS = Object.fromEntries(
-  Object.entries(FIELD_ALIASES).flatMap(
-    ([canonical, aliases]) => aliases.map((alias) => [alias, canonical])
-  )
-);
-var PEER_FIELDS = [
-  "publickey",
-  "presharedkey",
-  "allowedips",
-  "persistentkeepalive",
-  "endpoint",
-  "reserved"
-];
-function splitValues(values) {
-  return (values || []).flatMap((value) => value.split(",")).map((value) => value.trim()).filter(Boolean);
-}
-function normalizePrefixes(values) {
-  const result = [];
-  for (const value of values) {
-    const normalized = value.includes("/") ? value : isIPv4(value) ? `${value}/32` : isIPv6(value) ? `${value}/128` : value;
-    if (!normalized.includes("/") || validateSubnet(normalized) !== true)
-      return null;
-    result.push(normalized);
-  }
-  return result;
-}
-function canonicalField(key) {
-  const compact = key.trim().toLowerCase().replace(/[-_\s]/gu, "");
-  return CANONICAL_FIELDS[compact] || compact;
-}
-function addValue(values, key, value) {
-  const field2 = canonicalField(key);
-  if (!field2) return;
-  (values[field2] || (values[field2] = [])).push(value);
-}
-function firstValue(values, key) {
-  return values[key]?.[0]?.trim() || "";
-}
-function parsePeerEndpoint(value) {
-  const normalized = value.trim();
-  let address = "";
-  let port2 = DEFAULT_WIREGUARD_PORT;
-  if (normalized.startsWith("[")) {
-    const close = normalized.indexOf("]");
-    if (close < 1) return null;
-    address = normalized.slice(1, close);
-    if (normalized.length > close + 1) {
-      if (normalized[close + 1] !== ":") return null;
-      const parsed = parseUnsigned(normalized.slice(close + 2), 65535);
-      if (!parsed || parsed < 1) return null;
-      port2 = parsed;
-    }
-  } else {
-    const separator = normalized.lastIndexOf(":");
-    if (separator > 0 && normalized.indexOf(":") === separator) {
-      address = normalized.slice(0, separator);
-      const parsed = parseUnsigned(normalized.slice(separator + 1), 65535);
-      if (!parsed || parsed < 1) return null;
-      port2 = parsed;
-    } else {
-      address = normalized;
-    }
-  }
-  return address && !address.startsWith(":") ? { address, port: port2 } : null;
-}
-function readSections(input) {
-  const sections = [];
-  let current = null;
-  for (const rawLine of input.replace(/^\uFEFF/u, "").split(/\r?\n/u)) {
-    const line = rawLine.replace(/#.*$/u, "").trim();
-    if (!line || line.startsWith(";")) continue;
-    const header = /^\[([^\]]+)\]$/u.exec(line);
-    if (header) {
-      current = { name: header[1].trim().toLowerCase(), values: {} };
-      sections.push(current);
-      continue;
-    }
-    const separator = line.indexOf("=");
-    if (!current || separator < 1) return null;
-    const key = line.slice(0, separator).trim();
-    if (!key) return null;
-    addValue(current.values, key, line.slice(separator + 1).trim());
-  }
-  return sections;
-}
-function readConfigFile2(input) {
-  const sections = readSections(input);
-  if (!sections) return { message: _("Invalid WireGuard configuration") };
-  const iface = sections.find((section2) => section2.name === "interface");
-  const peers = sections.filter((section2) => section2.name === "peer");
-  if (!iface || peers.length === 0)
-    return { message: _("No [Interface] or [Peer] section") };
-  return {
-    iface: iface.values,
-    peers: peers.map((section2) => section2.values)
-  };
-}
-function decodeLinkComponent(value) {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-function readShareLink(input) {
-  const link = /^([A-Za-z][A-Za-z0-9+.-]*):\/\/(.*)$/su.exec(input);
-  if (!link || !LINK_SCHEMES.includes(link[1].toLowerCase())) return null;
-  let rest = link[2];
-  const fragment = rest.indexOf("#");
-  if (fragment >= 0) rest = rest.slice(0, fragment);
-  const search = rest.indexOf("?");
-  const query = search >= 0 ? rest.slice(search + 1) : "";
-  let authority = search >= 0 ? rest.slice(0, search) : rest;
-  const userinfo = authority.lastIndexOf("@");
-  const iface = {};
-  const peer = {};
-  if (userinfo >= 0) {
-    addValue(
-      iface,
-      "privatekey",
-      decodeLinkComponent(authority.slice(0, userinfo))
-    );
-    authority = authority.slice(userinfo + 1);
-  }
-  const path = authority.indexOf("/");
-  if (path >= 0) authority = authority.slice(0, path);
-  if (authority) addValue(peer, "endpoint", decodeLinkComponent(authority));
-  for (const pair of query.split("&")) {
-    if (!pair) continue;
-    const separator = pair.indexOf("=");
-    const key = canonicalField(
-      decodeLinkComponent(separator < 0 ? pair : pair.slice(0, separator))
-    );
-    const value = separator < 0 ? "" : decodeLinkComponent(pair.slice(separator + 1)).trim();
-    if (!key || !value) continue;
-    addValue(PEER_FIELDS.includes(key) ? peer : iface, key, value);
-  }
-  if (!peer.allowedips) addValue(peer, "allowedips", LINK_ALLOWED_IPS);
-  return { iface, peers: [peer] };
-}
-function rejectUnsupportedFields(source) {
-  for (const values of [source.iface, ...source.peers]) {
-    const reserved = splitValues(values.reserved);
-    if (reserved.some((byte) => parseUnsigned(byte, 255) !== 0))
-      return _("Reserved is not supported: add a Cloudflare WARP tunnel");
-  }
-  return "";
-}
-function parseAmnezia(iface) {
-  const amnezia = {};
-  const texts = {};
-  for (const { key, conf, kind } of AMNEZIA_PARAMETERS) {
-    const value = firstValue(iface, conf.toLowerCase());
-    if (!value) continue;
-    const text8 = amneziaTextFromConf(key, value);
-    if (text8 === null)
-      return { valid: false, message: _("Invalid AmneziaWG parameters") };
-    const validation = validateAmneziaValue(key, text8);
-    if (validation !== true)
-      return { valid: false, message: `${conf}: ${validation}` };
-    texts[key] = text8;
-    if (kind !== "flag" || text8 === "1")
-      amnezia[key] = amneziaJsonValue(key, text8);
-  }
-  const combination = validateAmneziaSet(texts);
-  if (combination !== true) return { valid: false, message: combination };
-  return {
-    valid: true,
-    amnezia: Object.keys(amnezia).length > 0 ? amnezia : void 0
-  };
-}
-function buildEndpoint3(source) {
-  const unsupported = rejectUnsupportedFields(source);
-  if (unsupported) return { valid: false, message: unsupported };
-  const { iface } = source;
-  const addressValues = splitValues(iface.address);
-  const address = normalizePrefixes(addressValues);
-  const privateKey = firstValue(iface, "privatekey");
-  if (addressValues.length === 0 || !privateKey)
-    return { valid: false, message: _("No Address or PrivateKey") };
-  if (!validateWireGuardKey(privateKey))
-    return { valid: false, message: _("Invalid %s").format("PrivateKey") };
-  if (!address)
-    return { valid: false, message: _("Invalid %s").format("Address") };
-  const peers = [];
-  for (const values of source.peers) {
-    const publicKey = firstValue(values, "publickey");
-    const remote = parsePeerEndpoint(firstValue(values, "endpoint"));
-    if (!publicKey || !remote)
-      return {
-        valid: false,
-        message: _("[Peer] without PublicKey or Endpoint")
-      };
-    if (!validateWireGuardKey(publicKey))
-      return { valid: false, message: _("Invalid %s").format("PublicKey") };
-    const peer = {
-      address: remote.address,
-      port: remote.port,
-      public_key: publicKey,
-      allowed_ips: []
-    };
-    const preSharedKey = firstValue(values, "presharedkey");
-    if (preSharedKey && !validateWireGuardKey(preSharedKey))
-      return { valid: false, message: _("Invalid %s").format("PresharedKey") };
-    const allowedIps = normalizePrefixes(splitValues(values.allowedips));
-    if (!allowedIps || allowedIps.length === 0)
-      return {
-        valid: false,
-        message: allowedIps ? _("[Peer] without AllowedIPs") : _("Invalid %s").format("AllowedIPs")
-      };
-    const keepaliveValue = firstValue(values, "persistentkeepalive");
-    if (preSharedKey) peer.pre_shared_key = preSharedKey;
-    peer.allowed_ips = allowedIps;
-    if (keepaliveValue && keepaliveValue.toLowerCase() !== "off") {
-      const keepalive = parseRange(keepaliveValue, 4294967295);
-      if (keepalive === void 0)
-        return {
-          valid: false,
-          message: _("Invalid %s").format("PersistentKeepalive")
-        };
-      peer.persistent_keepalive_interval = keepalive;
-    }
-    peers.push(peer);
-  }
-  const endpoint = {
-    type: "wireguard",
-    address,
-    private_key: privateKey,
-    peers
-  };
-  const listenPortValue = firstValue(iface, "listenport");
-  const mtuValue = firstValue(iface, "mtu");
-  if (listenPortValue) {
-    const listenPort = parseUnsigned(listenPortValue, 65535);
-    if (listenPort === void 0 || listenPort === 0)
-      return { valid: false, message: _("Invalid %s").format("ListenPort") };
-    endpoint.listen_port = listenPort;
-  }
-  if (mtuValue) {
-    const mtu = parseUnsigned(mtuValue, 65535);
-    if (mtu === void 0 || mtu === 0)
-      return { valid: false, message: _("Invalid %s").format("MTU") };
-    endpoint.mtu = mtu;
-  }
-  const amnezia = parseAmnezia(iface);
-  if (!amnezia.valid) return { valid: false, message: amnezia.message };
-  if (amnezia.amnezia) endpoint.amnezia = amnezia.amnezia;
-  return { valid: true, endpoint };
-}
-function parseWireGuardConfig(input) {
-  const value = `${input || ""}`.trim();
-  const link = readShareLink(value);
-  if (link) return buildEndpoint3(link);
-  const source = readConfigFile2(value);
-  return "message" in source ? { valid: false, message: source.message } : buildEndpoint3(source);
-}
-function isRecord(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-function decodeBase64Url(value) {
-  const compact = value.replace(/\\_/gu, "_").replace(/\s+/gu, "");
-  if (compact.length === 0 || compact.length > MAX_AMNEZIA_CONFIG_SIZE * 2 || !/^[A-Za-z0-9_-]+={0,2}$/u.test(compact))
-    throw new Error("invalid base64url");
-  const unpadded = compact.replace(/=+$/u, "");
-  if (unpadded.length % 4 === 1) throw new Error("invalid base64url length");
-  const binary = atob(
-    unpadded.replace(/-/gu, "+").replace(/_/gu, "/") + "=".repeat((4 - unpadded.length % 4) % 4)
-  );
-  if (binary.length > MAX_AMNEZIA_CONFIG_SIZE)
-    throw new Error("encoded config is too large");
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-}
-async function uncompressQtData(data) {
-  if (data.length < 6) return data;
-  const expectedSize = new DataView(
-    data.buffer,
-    data.byteOffset,
-    data.byteLength
-  ).getUint32(0);
-  if (data[4] !== 120 || (data[4] << 8 | data[5]) % 31 !== 0 || expectedSize === 0 || expectedSize > MAX_AMNEZIA_CONFIG_SIZE)
-    return data;
-  const compressed = Uint8Array.from(data.subarray(4));
-  const reader = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate")).getReader();
-  const output = new Uint8Array(expectedSize);
-  let offset = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (offset + value.length > output.length) {
-      await reader.cancel();
-      throw new Error("uncompressed config is too large");
-    }
-    output.set(value, offset);
-    offset += value.length;
-  }
-  if (offset !== expectedSize) throw new Error("invalid uncompressed size");
-  return output;
-}
-function extractAmneziaWireGuardConfig(value) {
-  if (!isRecord(value) || !Array.isArray(value.containers))
-    throw new Error("missing containers");
-  const containers = value.containers.filter(isRecord);
-  const defaultContainer = typeof value.defaultContainer === "string" ? value.defaultContainer : "";
-  const selected = containers.find(
-    (container) => container.container === defaultContainer && (isRecord(container.awg) || isRecord(container.wireguard))
-  ) || containers.find(
-    (container) => isRecord(container.awg) || isRecord(container.wireguard)
-  );
-  if (!selected) throw new Error("missing WireGuard container");
-  const protocol = isRecord(selected.awg) ? selected.awg : isRecord(selected.wireguard) ? selected.wireguard : null;
-  if (!protocol) throw new Error("missing WireGuard protocol");
-  const lastConfig = typeof protocol.last_config === "string" ? JSON.parse(protocol.last_config) : protocol.last_config;
-  if (!isRecord(lastConfig) || typeof lastConfig.config !== "string")
-    throw new Error("missing WireGuard config");
-  const dns1 = typeof value.dns1 === "string" ? value.dns1 : "";
-  const dns2 = typeof value.dns2 === "string" ? value.dns2 : "";
-  return {
-    config: lastConfig.config.split("$PRIMARY_DNS").join(dns1).split("$SECONDARY_DNS").join(dns2),
-    mtu: typeof lastConfig.mtu === "string" || typeof lastConfig.mtu === "number" ? lastConfig.mtu : void 0
-  };
-}
-function importAmneziaProfile(profile) {
-  const imported = extractAmneziaWireGuardConfig(profile);
-  const result = parseWireGuardConfig(imported.config);
-  if (result.valid && result.endpoint.mtu === void 0 && imported.mtu) {
-    const mtu = parseUnsigned(`${imported.mtu}`, 65535);
-    if (mtu && mtu > 0) result.endpoint.mtu = mtu;
-  }
-  return result;
-}
-async function parseWireGuardInput(input) {
-  const value = input.trim();
-  const isAmneziaLink = value.slice(0, 6).toLowerCase() === "vpn://";
-  if (!isAmneziaLink && !value.startsWith("{"))
-    return parseWireGuardConfig(value);
-  try {
-    if (!isAmneziaLink) return importAmneziaProfile(JSON.parse(value));
-    const packed = decodeBase64Url(value.slice("vpn://".length));
-    const decoded = await uncompressQtData(packed);
-    const text8 = new TextDecoder("utf-8", { fatal: true }).decode(decoded);
-    if (/^\s*\[Interface\](?:\r?\n|$)/u.test(text8))
-      return parseWireGuardConfig(text8);
-    return importAmneziaProfile(JSON.parse(text8));
-  } catch {
-    return {
-      valid: false,
-      message: _("Invalid or unsupported Amnezia VPN link")
-    };
-  }
 }
 
 // src/validators/validateTailscaleHostname.ts
@@ -26458,6 +26538,8 @@ function validateTunnelSettings(settings, tunnelId, peerOption) {
   if (endpoint.type === "tailscale") {
     return endpoint.auth_key && validateTailscaleHostname(endpoint.hostname) === true && validateUrl(endpoint.control_url || "") === true && (`${settings.tailscale_detour_enabled || ""}` !== "1" || endpoint.detour) ? true : message.fixSettings();
   }
+  if (kind === "phobos" && !validPhobosObfuscation(endpoint.obfuscation))
+    return _("Invalid Phobos obfuscation");
   const amnezia = amneziaProblem(kind, settings);
   if (amnezia !== true) {
     return amnezia;
@@ -26790,6 +26872,7 @@ function showTunnelImportModal(parentMap, fields, openvpn, openconnect) {
 }
 var TUNNEL_KINDS = [
   ["wireguard", "WireGuard"],
+  ["phobos", "Phobos"],
   ["amneziawg", "AmneziaWG"],
   ["warp", "Cloudflare WARP"],
   ["tailscale", "Tailscale"],
@@ -26846,6 +26929,7 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
   );
   [
     "wireguard",
+    "phobos",
     "amneziawg",
     "warp",
     "tailscale",
@@ -26973,6 +27057,17 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
     return typeof endpoint.tag === "string" && endpoint.tag.trim() ? validateSectionChildName(section_id, "tunnel", endpoint.tag) : message.noTag();
   });
   configureTextareaOption(endpointJsonOption);
+  const obfuscation = itemSection.option(
+    form.TextValue,
+    "phobos_obfuscation",
+    _("Phobos obfuscation (JSON)")
+  );
+  obfuscation.depends("tunnel_type", "phobos");
+  obfuscation.rows = 5;
+  obfuscation.validate = required(
+    (_itemId, value) => validPhobosObfuscation(parseOutboundJsonObject(value)) ? true : _("Invalid Phobos obfuscation")
+  );
+  configureTextareaOption(obfuscation);
   const openvpnOptions = addOpenVPNOptions(itemSection);
   const openconnectOptions = addOpenConnectOptions(itemSection);
   const addressOption = itemSection.option(
@@ -26982,6 +27077,7 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
   );
   addressOption.rmempty = false;
   addressOption.depends("tunnel_type", "wireguard");
+  addressOption.depends("tunnel_type", "phobos");
   addressOption.depends("tunnel_type", "amneziawg");
   addressOption.validate = requiredList(
     (_itemId, value) => validateWireGuardPrefix(value)
@@ -26993,6 +27089,7 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
   );
   privateKeyOption.password = true;
   privateKeyOption.depends("tunnel_type", "wireguard");
+  privateKeyOption.depends("tunnel_type", "phobos");
   privateKeyOption.depends("tunnel_type", "amneziawg");
   privateKeyOption.validate = required(
     (_itemId, value) => validateWireGuardKey(value) ? true : message.invalidKey()
@@ -27005,12 +27102,14 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
   listenPortOption.validate = anyPortField;
   listenPortOption.rmempty = true;
   listenPortOption.depends("tunnel_type", "wireguard");
+  listenPortOption.depends("tunnel_type", "phobos");
   listenPortOption.depends("tunnel_type", "amneziawg");
   const mtuOption = itemSection.option(form.Value, "mtu", "MTU");
   mtuOption.placeholder = "1408";
   mtuOption.validate = wholeNumberField(1, 65535);
   mtuOption.rmempty = true;
   mtuOption.depends("tunnel_type", "wireguard");
+  mtuOption.depends("tunnel_type", "phobos");
   mtuOption.depends("tunnel_type", "amneziawg");
   const peersOption = itemSection.option(
     ButtonAddSettingsDynamicList,
@@ -27019,6 +27118,7 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
   );
   peersOption.rmempty = false;
   peersOption.depends("tunnel_type", "wireguard");
+  peersOption.depends("tunnel_type", "phobos");
   peersOption.depends("tunnel_type", "amneziawg");
   peersOption.addButtonLabel = _("+ Add peer");
   peersOption.ownerOption = "tunnel";
@@ -27217,7 +27317,7 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
       const storage = tunnelStorageSettings(settings);
       const itemIds = L.toArray(settings.peer_ids).filter(Boolean);
       const itemId = createTunnelItem(section_id, tunnelId, storage);
-      if (settings.tunnel_type === "wireguard" || settings.tunnel_type === "amneziawg") {
+      if (settings.tunnel_type === "wireguard" || settings.tunnel_type === "phobos" || settings.tunnel_type === "amneziawg") {
         materializeTunnelPeers(tunnelId, itemIds, peersOption);
       } else {
         materializeTunnelPeers(tunnelId, [], peersOption);
@@ -27672,6 +27772,47 @@ function createSectionContent(section2) {
   o.onListChange = refreshLiveChoiceWidgets;
   o.afterMaterializeChildItems = orderChildItemsByPosition;
   outboundNameSourceOptions.set("tunnels", o);
+  const tunnelOption = o;
+  const createLink = links.createTypedItem;
+  links.createTypedItem = function(sectionId, input) {
+    if (!/^phobos:\/\//iu.test(input.trim()))
+      return createLink.call(this, sectionId, input);
+    const parsed = parsePhobosLink(input);
+    const validation = validateConnectionLink(input);
+    if (!parsed.valid || validation !== true)
+      throw new TypeError(parsed.valid ? String(validation) : parsed.message);
+    const widget = tunnelOption.getUIElement(sectionId);
+    if (!widget) throw new TypeError(_("Tunnel field is unavailable"));
+    const id = nextSectionId("tunnel");
+    const endpoint = parsed.endpoint;
+    createTunnelItem(sectionId, id, {
+      kind: "phobos",
+      name: nextLinkName(sectionId, links, input),
+      address: endpoint.address,
+      private_key: endpoint.private_key,
+      mtu: endpoint.mtu ? String(endpoint.mtu) : "",
+      phobos_obfuscation: JSON.stringify(endpoint.obfuscation)
+    });
+    endpoint.peers.forEach((peer) => {
+      const peerId = uci.add(
+        FORKOP_UCI_PACKAGE,
+        "tunnel_peer",
+        nextSectionId("tunnel_peer")
+      );
+      uci.set(FORKOP_UCI_PACKAGE, peerId, "tunnel", id);
+      Object.entries(peer).forEach(
+        ([key, value]) => uci.set(
+          FORKOP_UCI_PACKAGE,
+          peerId,
+          key,
+          Array.isArray(value) ? value : String(value)
+        )
+      );
+    });
+    addDynamicListItem(widget, id);
+    refreshLiveChoiceWidgets(sectionId);
+    return "";
+  };
   o = section2.taboption(
     "settings",
     ButtonAddSettingsDynamicList,

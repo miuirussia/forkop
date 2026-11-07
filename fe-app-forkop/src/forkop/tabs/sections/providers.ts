@@ -27,6 +27,7 @@ export function groupTypeChoices() {
     ...providerTypeChoices(),
     ...[
       ['wireguard', 'WireGuard'],
+      ['phobos', 'Phobos'],
       ['amneziawg', 'AmneziaWG'],
       ['warp', 'WARP'],
       ['tailscale', 'Tailscale'],

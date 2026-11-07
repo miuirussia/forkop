@@ -125,6 +125,7 @@
     "socks",
     "http",
     "wireguard",
+    "phobos",
     "amneziawg",
     "warp",
     "tailscale",
@@ -323,6 +324,7 @@
         "mieru": "mieru"
       },
       "endpoint": {
+        "phobos": "wireguard",
         "wireguard": "wireguard",
         "amneziawg": "wireguard",
         "warp": "wireguard",

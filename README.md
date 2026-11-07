@@ -2,7 +2,7 @@
 
 Маршрутизация трафика OpenWrt по правилам.
 
-[![Релиз](https://img.shields.io/github/v/release/ushan0v/forkop?label=%D1%80%D0%B5%D0%BB%D0%B8%D0%B7&color=0d9488)](https://github.com/ushan0v/forkop/releases/latest)
+[![Релиз](https://img.shields.io/github/v/release/miuirussia/forkop?label=%D1%80%D0%B5%D0%BB%D0%B8%D0%B7&color=0d9488)](https://github.com/miuirussia/forkop/releases/latest)
 [![Документация](https://img.shields.io/badge/%D0%B4%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D0%B0%D1%86%D0%B8%D1%8F-ushan0v.github.io-0d9488)](https://ushan0v.github.io/forkop/)
 [![Чат в Telegram](https://img.shields.io/badge/Telegram-%D1%87%D0%B0%D1%82-2CA5E0?logo=telegram&logoColor=white)](https://t.me/forkop_chat)
 
@@ -19,10 +19,10 @@
 Подключитесь к роутеру по SSH и выполните:
 
 ```sh
-sh <(wget -O - https://raw.githubusercontent.com/ushan0v/forkop/main/install.sh)
+sh <(wget -O - https://raw.githubusercontent.com/miuirussia/forkop/main/install.sh)
 ```
 
-Команда устанавливает или обновляет [Forkop](https://github.com/ushan0v/forkop) и [sing-box-forkop](https://github.com/ushan0v/sing-box-forkop).
+Команда устанавливает или обновляет [Forkop](https://github.com/miuirussia/forkop) и [sing-box-forkop](https://github.com/miuirussia/sing-box-forkop).
 
 ## Возможности
 

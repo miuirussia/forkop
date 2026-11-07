@@ -558,3 +558,88 @@ export async function parseWireGuardInput(
     };
   }
 }
+
+export const PHOBOS_LIMITS: Record<string, number> = {
+  max_dummy: 1024,
+  obfuscate_bytes: 2147483647,
+  media_pt: 127,
+  media_ssrc: 4294967295,
+  media_clock: 1000,
+};
+
+export function validPhobosObfuscation(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.key !== 'string') return false;
+  const size = new TextEncoder().encode(value.key).length;
+  return (
+    size >= 1 &&
+    size <= 255 &&
+    !value.key.includes('\0') &&
+    (value.masking === undefined ||
+      ['STUN', 'MEDIA', 'AUTO', 'NONE'].includes(String(value.masking))) &&
+    Object.entries(value).every(
+      ([key, item]) =>
+        key === 'key' ||
+        key === 'masking' ||
+        (key in PHOBOS_LIMITS &&
+          typeof item === 'number' &&
+          Number.isInteger(item) &&
+          item >= 0 &&
+          item <= PHOBOS_LIMITS[key]),
+    )
+  );
+}
+
+export function parsePhobosLink(input: string) {
+  const invalid = { valid: false as const, message: _('Invalid Phobos link') };
+  try {
+    const match = /^phobos:\/\/([A-Za-z0-9_-]+)(?:#.*)?$/iu.exec(input.trim());
+    if (!match) return invalid;
+    const text = new TextDecoder('utf-8', { fatal: true })
+      .decode(decodeBase64Url(match[1]))
+      .replace(/^[ \t]*[A-Za-z0-9_-]+[ \t]*=[ \t]*none[ \t]*$/gmu, '');
+    const sections = readSections(text);
+    const instances = sections?.filter(
+      (section) => section.name === 'instance',
+    );
+    if (!sections || instances?.length !== 1) return invalid;
+    const instance = instances[0].values;
+    const mode = firstValue(instance, 'mode').toLowerCase();
+    if (mode === 'socks5')
+      return {
+        valid: false as const,
+        message: _('Phobos SOCKS5 is not supported'),
+      };
+    if (mode && mode !== 'wireguard') return invalid;
+    const role = firstValue(instance, 'role').toLowerCase();
+    if (role && role !== 'client') return invalid;
+    const target = firstValue(instance, 'target');
+    if (!/^(?:\[[^\]]+\]|[^:\s]+):[0-9]+$/u.test(target)) return invalid;
+    const source = readConfigFile(text);
+    if ('message' in source || source.peers.length !== 1) return invalid;
+    source.peers[0].endpoint = [target];
+    // The core owns the UDP socket; the local obfuscator's port is irrelevant.
+    delete source.iface.listenport;
+    const parsed = buildEndpoint(source);
+    if (!parsed.valid || parsed.endpoint.amnezia) return invalid;
+    const obfuscation: Record<string, unknown> = {
+      key: firstValue(instance, 'key'),
+    };
+    const masking = firstValue(instance, 'masking');
+    if (masking) obfuscation.masking = masking.toUpperCase();
+    for (const [key, max] of Object.entries(PHOBOS_LIMITS)) {
+      const value = firstValue(instance, key.replaceAll('_', ''));
+      if (value !== '') {
+        const number = parseUnsigned(value, max);
+        if (number === undefined) return invalid;
+        obfuscation[key] = number;
+      }
+    }
+    if (!validPhobosObfuscation(obfuscation)) return invalid;
+    return {
+      valid: true as const,
+      endpoint: { ...parsed.endpoint, type: 'phobos' as const, obfuscation },
+    };
+  } catch {
+    return invalid;
+  }
+}

@@ -46,7 +46,7 @@ function delete_token_space(line, token) {
     return space_pos < length(line) && is_space_char(substr(line, space_pos, 1));
 }
 
-const MULTILINE_OPTIONS = [ "option destinations", "option outbound_json", "list outbound_jsons", "option endpoint_json", "option inbound_json",
+const MULTILINE_OPTIONS = [ "option destinations", "option outbound_json", "list outbound_jsons", "option endpoint_json", "option phobos_obfuscation", "option inbound_json",
     "option openvpn_certificate", "option openvpn_key", "option openvpn_tls_crypt_key",
     "option tls_certificate", "option tls_key", "option tls_self_signed_certificate", "option tls_self_signed_key" ];
 
@@ -180,6 +180,7 @@ const SING_BOX_MASKED_KEYS = {
     secret: true,
     password: true,
     private_key: true,
+    obfuscation: true,
     // VLESS Encryption: the server's private key and the clients' setting with its public one
     decryption: true,
     encryption: true,

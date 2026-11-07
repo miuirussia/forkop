@@ -1,3 +1,4 @@
+import { validPhobosObfuscation } from '../../../../helpers/parseWireGuardConfig';
 import { validateCoreFeature } from '../../../services/coreFeatures.service';
 import { tunnelCoreFeature } from '../coreSupport';
 import { message } from '../../../../validators/messages';
@@ -191,6 +192,8 @@ export function validateTunnelSettings(
       ? true
       : message.fixSettings();
   }
+  if (kind === 'phobos' && !validPhobosObfuscation(endpoint.obfuscation))
+    return _('Invalid Phobos obfuscation');
   const amnezia = amneziaProblem(kind, settings);
   if (amnezia !== true) {
     return amnezia;

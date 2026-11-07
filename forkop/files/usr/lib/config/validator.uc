@@ -256,7 +256,7 @@ function outbound_section(sections, label, target_name) {
 
 // Tailscale reaches its coordination server through a section of its own choosing, and a JSON
 // endpoint names its own detour.
-const CASCADE_TUNNEL_KINDS = { wireguard: true, amneziawg: true, warp: true, "openvpn-client": true, openconnect: true };
+const CASCADE_TUNNEL_KINDS = { phobos: true, wireguard: true, amneziawg: true, warp: true, "openvpn-client": true, openconnect: true };
 
 function tunnel_kind(tunnel) {
     return lc(trim(as_string(option(tunnel, "kind", "wireguard"))));
@@ -762,7 +762,7 @@ function validate_tunnel_values(section) {
         }
 
         if (endpoint_type == "" ||
-            (endpoint_type != "wireguard" && endpoint_type != "amneziawg" && endpoint_type != "warp" && endpoint_type != "tailscale" &&
+            (endpoint_type != "phobos" && endpoint_type != "wireguard" && endpoint_type != "amneziawg" && endpoint_type != "warp" && endpoint_type != "tailscale" &&
                 endpoint_type != "openvpn-client" && endpoint_type != "openconnect"))
             fail_validation(owner + " has an invalid tunnel endpoint");
         if (trim(as_string(connections.option(tunnel, "name", ""))) == "")
@@ -804,6 +804,19 @@ function validate_tunnel_values(section) {
             continue;
         }
 
+        if (endpoint_type == "phobos") {
+            let obf = endpoint.obfuscation;
+            if (type(obf) != "object" || type(obf.key) != "string" || length(obf.key) < 1 || length(obf.key) > 255 || index(obf.key, chr(0)) >= 0)
+                fail_validation(owner + " has invalid Phobos obfuscation");
+            if (obf.masking != null && index([ "STUN", "MEDIA", "AUTO", "NONE" ], obf.masking) < 0)
+                fail_validation(owner + " has invalid Phobos masking");
+            let limits = { max_dummy: 1024, obfuscate_bytes: 2147483647, media_pt: 127, media_ssrc: 4294967295, media_clock: 1000 };
+            for (let key, value in obf) {
+                if (key == "key" || key == "masking") continue;
+                if (limits[key] == null || type(value) != "int" || value < 0 || value > limits[key])
+                    fail_validation(owner + " has invalid Phobos obfuscation parameters");
+            }
+        }
         let amnezia_problem = amnezia.problem(tunnel, endpoint_type == "amneziawg" ? amnezia.KEYS : amnezia.ONE_SIDED_KEYS);
         if (amnezia_problem != "")
             fail_validation(owner + " " + amnezia_problem);

@@ -465,7 +465,7 @@ function wireguard_identities(endpoint) {
         let key = as_string(object_or_empty(endpoint.profile).private_key || "");
         return key == "" ? [] : [ "warp/" + key ];
     }
-    if (type_name != "wireguard" && type_name != "amneziawg")
+    if (type_name != "phobos" && type_name != "wireguard" && type_name != "amneziawg")
         return [];
     return map(array_or_empty(endpoint.peers), (peer) =>
         as_string(endpoint.private_key || "") + "/" + as_string(object_or_empty(peer).public_key || ""));
@@ -1156,14 +1156,14 @@ function add_connection_tunnels(config, section, selector_tags, urltest_candidat
         let endpoint_type = lc(as_string(endpoint.type || ""));
         let wrapper_kind = lc(as_string(connections.option(tunnel, "kind", "wireguard")));
         if (wrapper_kind != "json" &&
-            (endpoint_type != "wireguard" && endpoint_type != "amneziawg" && endpoint_type != "warp" && endpoint_type != "tailscale" &&
+            (endpoint_type != "phobos" && endpoint_type != "wireguard" && endpoint_type != "amneziawg" && endpoint_type != "warp" && endpoint_type != "tailscale" &&
                 endpoint_type != "openvpn-client" && endpoint_type != "openconnect"))
             runtime_generate_unsupported("tunnel " + (i + 1) + " has an unsupported endpoint type");
 
         let tag_name = child_outbound_tag(section, connections.tunnel_display_name(tunnel, i + 1));
         endpoint.tag = tag_name;
 
-        if (wrapper_kind != "json" && (endpoint_type == "wireguard" || endpoint_type == "amneziawg" || endpoint_type == "warp" ||
+        if (wrapper_kind != "json" && (endpoint_type == "phobos" || endpoint_type == "wireguard" || endpoint_type == "amneziawg" || endpoint_type == "warp" ||
             endpoint_type == "openvpn-client" || endpoint_type == "openconnect")) {
             let detour = cascade_tag(tunnel);
             if (detour != "")

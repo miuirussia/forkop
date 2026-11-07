@@ -12,6 +12,7 @@
 | TUIC | `tuic://` | все |
 | SOCKS | `socks://`, `socks5://`, `socks5h://`, `socks4://`, `socks4a://` | все |
 | HTTP | `http://`, `https://` | все |
+| Phobos (WireGuard) | `phobos://` | base, full |
 | VMess | `vmess://` | base, full |
 | AnyTLS | `anytls://` | base, full |
 | TrustTunnel | `tt://` | base, full |
@@ -19,6 +20,8 @@
 | mieru | `mieru://`, `mierus://` | full |
 
 Ссылки `wireguard://` и профили Amnezia `vpn://` добавляются в поле **Туннель**, см. [Туннели](/tunnels/).
+
+Ссылка `phobos://` автоматически создаёт туннель **Phobos** в том же разделе. Имя берётся из ссылки; параметры WireGuard и обфускации можно изменить в настройках туннеля. Поддерживается WireGuard-режим; ссылки Phobos SOCKS5 отклоняются. Нужна сборка [ядра miuirussia](https://github.com/miuirussia/sing-box-forkop) с поддержкой Phobos.
 
 ## Каскадное подключение
 

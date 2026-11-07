@@ -48,7 +48,7 @@ const INBOUND_TYPES = {
     vmess: "vmess", snell: "snell", shadowtls: "shadowtls", anytls: "anytls", mieru: "mieru"
 };
 const ENDPOINT_TYPES = {
-    wireguard: "wireguard", amneziawg: "wireguard", warp: "wireguard",
+    phobos: "wireguard", wireguard: "wireguard", amneziawg: "wireguard", warp: "wireguard",
     tailscale: "tailscale", "openvpn-client": "openvpn", "openvpn-server": "openvpn",
     openconnect: "openconnect"
 };

@@ -1,3 +1,5 @@
+import { parsePhobosLink } from '../../../helpers/parseWireGuardConfig';
+import { validateCoreFeature } from '../../services/coreFeatures.service';
 import { FORKOP_UCI_PACKAGE } from '../../../constants';
 import { getProxyUrlName } from '../../../helpers/getProxyUrlName';
 import { nextNumberedName } from '../../../helpers/nextNumberedName';
@@ -21,6 +23,10 @@ export function validateConnectionLink(value: unknown) {
     return true;
   }
 
+  if (/^phobos:\/\//iu.test(link)) {
+    const parsed = parsePhobosLink(link);
+    return parsed.valid ? validateCoreFeature('wireguard') : parsed.message;
+  }
   const validation = validateProxyUrl(link);
   return validation === true ? validateConnectionUriCore(link) : validation;
 }
@@ -62,7 +68,9 @@ export function nextLinkName(
       .filter((child) => child.kind !== 'link')
       .map((child) => child.name),
   ]);
-  const own = getProxyUrlName(link).trim().replaceAll('/', '／');
+  const fragment = getProxyUrlName(link).trim().replaceAll('/', '／');
+  const own =
+    /^phobos:\/\//iu.test(link) && fragment === 'none' ? '' : fragment;
   if (own && !taken.has(own)) {
     return own;
   }

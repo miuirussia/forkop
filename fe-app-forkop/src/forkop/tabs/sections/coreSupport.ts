@@ -33,6 +33,7 @@ export function connectionUriDescription() {
       coreSupportsType(type, ['outbound']),
     )
       .map(([name]) => name)
+      .concat(coreHas('wireguard') ? ['phobos'] : [])
       .join(', '),
   );
 }

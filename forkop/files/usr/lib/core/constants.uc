@@ -7,7 +7,7 @@ return {
     FORKOP_SERVICE_INIT: "/etc/init.d/forkop",
     // START in the init script, which names its rc.d links.
     FORKOP_START_PRIORITY: "99",
-    FORKOP_RELEASE_REPO: "ushan0v/forkop",
+    FORKOP_RELEASE_REPO: "miuirussia/forkop",
     FORKOP_LUCI_VIEW_DIR: "/www/luci-static/resources/view/forkop",
     FORKOP_LUCI_I18N_DOMAIN: "forkop",
     // Tags match at the start of a message, so a LuCI login on a Forkop page stays out.

@@ -164,7 +164,7 @@ describe('the Sections tab', () => {
     const links = option(sections(), 'connection_link');
 
     expect(links.description).toBe(
-      'Supported URIs: vless, vmess, shadowsocks, trojan, socks, http, tuic, hysteria, anytls, trusttunnel',
+      'Supported URIs: vless, vmess, shadowsocks, trojan, socks, http, tuic, hysteria, anytls, trusttunnel, phobos',
     );
     expect(links.validate('sec', 'http://u:p@example.com:8080#h')).toBe(true);
     expect(links.validate('sec', 'naive+https://u:p@example.com:443#n')).toBe(
@@ -182,12 +182,12 @@ describe('the Sections tab', () => {
   it('names only the tunnel kinds the core has', () => {
     harness.bundle.setCoreFeatures(base());
     expect(option(sections(), 'tunnels').description).toBe(
-      'Available: WireGuard, AmneziaWG, Cloudflare WARP, OpenVPN, JSON endpoint',
+      'Available: WireGuard, Phobos, AmneziaWG, Cloudflare WARP, OpenVPN, JSON endpoint',
     );
 
     harness.bundle.setCoreFeatures(coreFeatures({ add: ['with_tailscale'] }));
     expect(option(sections(), 'tunnels').description).toBe(
-      'Available: WireGuard, AmneziaWG, Cloudflare WARP, Tailscale, OpenVPN, JSON endpoint',
+      'Available: WireGuard, Phobos, AmneziaWG, Cloudflare WARP, Tailscale, OpenVPN, JSON endpoint',
     );
   });
 

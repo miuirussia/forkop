@@ -59,7 +59,7 @@ const FILTERABLE_PROVIDER_TYPES = [
 // Groups also hold a section's own servers, the only way tunnels and interfaces become members.
 const FILTERABLE_GROUP_TYPES = [
     ...FILTERABLE_PROVIDER_TYPES,
-    "wireguard", "amneziawg", "warp", "tailscale", "openvpn-client", "openconnect", "direct"
+    "wireguard", "phobos", "amneziawg", "warp", "tailscale", "openvpn-client", "openconnect", "direct"
 ];
 
 // A manual link is parsed at runtime, so its outbound is typed by the link's scheme. These are

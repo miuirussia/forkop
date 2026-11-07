@@ -26,8 +26,8 @@
 
 set -u
 
-FORKOP_REPO=ushan0v/forkop
-CORE_REPO=ushan0v/sing-box-forkop
+FORKOP_REPO=miuirussia/forkop
+CORE_REPO=miuirussia/sing-box-forkop
 # github.com answers a release link with a header line longer than uclient-fetch reads
 API_URL=https://api.github.com
 MIRROR=${FORKOP_DOWNLOAD_URL:-}
@@ -923,6 +923,15 @@ decide_forkop() { # the Forkop packages to install, NEED_*, and the Forkop that 
 	[ "$I18N" = 0 ] || { [ "$NEED_APP" = 0 ] && [ "$I18N_OLD" = "$F_VERSION" ]; } || NEED_I18N=1
 }
 
+core_has_phobos() {
+	# A configuration check never starts the tunnel or sends traffic. Probe standard WG builds
+	# because the fork shares a release version with the old core; tiny has no WireGuard.
+	cat >"$WORK/phobos-probe.json" <<'EOF'
+{"endpoints":[{"type":"phobos","tag":"probe","address":["10.8.0.2/32"],"private_key":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","peers":[{"address":"192.0.2.1","port":51824,"public_key":"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=","allowed_ips":["0.0.0.0/0"]}],"obfuscation":{"key":"probe"}}]}
+EOF
+	sing-box check -c "$WORK/phobos-probe.json" >/dev/null 2>&1
+}
+
 decide_core() { # the build, the core release and whether the core is installed
 	local order text
 	if [ -n "$VARIANT" ]; then
@@ -959,7 +968,8 @@ decide_core() { # the build, the core release and whether the core is installed
 		if [ "$order" = 1 ]; then
 			info "$(t 'sing-box-forkop %s is newer than the latest release %s and stays' 'sing-box-forkop %s новее последнего релиза %s и остаётся' "$CORE_OLD" "$C_VERSION")"
 			RESULT_CORE=$CORE_OLD RESULT_VARIANT=$CORE_OLD_VARIANT
-		elif [ "$order" != 0 ] || [ "$CORE_VARIANT" != "$CORE_OLD_VARIANT" ]; then
+		elif [ "$order" != 0 ] || [ "$CORE_VARIANT" != "$CORE_OLD_VARIANT" ] ||
+			{ [ "$CORE_VARIANT" != tiny ] && ! core_has_phobos; }; then
 			CORE_ACTION=install
 			[ "$order" != 0 ] || CORE_REINSTALL=1
 		fi
