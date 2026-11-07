@@ -335,6 +335,7 @@
       }
     },
     "links": {
+      "phobos": "phobos",
       "ss": "shadowsocks",
       "vmess": "vmess",
       "vless": "vless",

@@ -242,6 +242,7 @@ function link_features(link) {
     let separator = index(link, "://");
     let scheme = separator > 0 ? lc(substr(link, 0, separator)) : "";
     let type_name = link_type(link);
+    if (scheme == "phobos") return [ "wireguard" ];
     let result = [];
     let feature = type_feature("outbound", type_name);
     if (feature != "")

@@ -192,6 +192,8 @@ function validate_connection_links(section) {
         let uri = trim(option(link, "uri", ""));
         if (uri == "")
             fail_validation("A link in section '" + section_label(section) + "' is empty. Paste the link in its settings");
+        if (core_url.scheme(uri) == "phobos")
+            require("singbox.phobos").endpoint(uri);
         if (subscription_address(uri))
             fail_validation("Link '" + link_name + "' in section '" + section_label(section) + "' is probably a subscription URL. Paste it into Subscription");
         if (trim(link_name) == "")

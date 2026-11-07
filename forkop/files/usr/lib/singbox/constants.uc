@@ -62,9 +62,10 @@ const FILTERABLE_GROUP_TYPES = [
     "wireguard", "phobos", "amneziawg", "warp", "tailscale", "openvpn-client", "openconnect", "direct"
 ];
 
-// A manual link is parsed at runtime, so its outbound is typed by the link's scheme. These are
-// the schemes ParseSubscriptionLink accepts; a missing one leaves the node without a protocol.
+// Types of manual links. Phobos is decoded into an endpoint by Forkop; other links go
+// to the core parser. A missing scheme leaves the node without a protocol for group filters.
 const LINK_SCHEME_OUTBOUND_TYPES = {
+    "phobos": "phobos",
     "ss": "shadowsocks",
     "vmess": "vmess",
     "vless": "vless",

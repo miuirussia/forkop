@@ -1,3 +1,5 @@
+let phobos = require("singbox.phobos");
+let core_url = require("core.url");
 let common = require("core.common");
 let core_ip = require("core.ip");
 let uci_core = require("core.uci");
@@ -594,11 +596,14 @@ function add_subscription_providers(config, section) {
 function add_manual_link_outbounds(config, section, selector_tags, urltest_candidate_tags) {
     for (let link in connections.connection_link_items(section)) {
         let tag_name = child_outbound_tag(section, connections.link_display_name(link));
-        let outbound = { type: "parser", tag: tag_name, link: connections.option(link, "uri", "") };
+        let uri = connections.option(link, "uri", "");
+        let is_phobos = core_url.scheme(uri) == "phobos";
+        let outbound = is_phobos ? phobos.endpoint(uri) : { type: "parser", link: uri };
+        outbound.tag = tag_name;
         let detour = cascade_tag(link);
         if (detour != "")
             outbound.detour = detour;
-        push(config.outbounds, outbound);
+        push(is_phobos ? config.endpoints : config.outbounds, outbound);
         push(selector_tags, tag_name);
         push(urltest_candidate_tags, tag_name);
     }
