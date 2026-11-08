@@ -16989,6 +16989,29 @@ ${PartialStyles}
 }
 
 /* LuCI renders dropdown entries as flex rows, including their helper text. */
+.cbi-dropdown[open] > ul.dropdown > li.fkp-ruleset-search {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4em;
+    padding: 0.5em;
+    background: var(--background-color-low, #fff);
+}
+
+.fkp-ruleset-search-input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 12em;
+    min-height: 2em;
+    font: inherit;
+}
+
+.fkp-ruleset-search > small:empty {
+    display: none;
+}
+
 .cbi-dropdown[open] > ul.dropdown > li.fkp-ruleset-group {
     display: flex;
     align-items: center;
@@ -17001,7 +17024,9 @@ ${PartialStyles}
 }
 
 .cbi-dropdown:not([open]) > ul > li.fkp-ruleset-group,
-.cbi-dropdown > ul.preview > li.fkp-ruleset-group {
+.cbi-dropdown > ul.preview > li.fkp-ruleset-group,
+.cbi-dropdown:not([open]) > ul > li.fkp-ruleset-search,
+.cbi-dropdown > ul.preview > li.fkp-ruleset-search {
     display: none !important;
 }
 
@@ -25041,6 +25066,55 @@ function groupGeoRulesetChoices(node) {
   const dropdown = node.querySelector(".add-item .cbi-dropdown");
   const list3 = dropdown?.querySelector("ul");
   if (!dropdown || !list3) return;
+  const groups = [];
+  const tail = list3.lastElementChild;
+  let query = "";
+  let firstMatch = null;
+  const status = textE("small", { role: "status" }, []);
+  const search = textE("input", {
+    type: "search",
+    class: "fkp-ruleset-search-input",
+    placeholder: _("Search"),
+    "aria-label": _("Search rule sets"),
+    autocomplete: "off"
+  });
+  const searchRow = textE("li", { class: "fkp-ruleset-search", tabindex: 0 }, [
+    search,
+    status
+  ]);
+  const refresh = () => {
+    const selected = dynamicListItemValues(node);
+    firstMatch = null;
+    let totalMatches = 0;
+    for (const group of groups) {
+      group.heading.remove();
+      group.items.forEach((item) => item.remove());
+    }
+    for (const group of groups) {
+      const matches = query ? group.items.filter(
+        (item) => item.textContent?.toLowerCase().includes(query)
+      ) : group.items;
+      if (!matches.length) continue;
+      totalMatches += matches.length;
+      const expanded = query ? group.searchExpanded : group.expanded;
+      group.heading.setAttribute("aria-expanded", String(expanded));
+      group.heading.setAttribute(
+        "aria-label",
+        `${group.source} (${matches.length})`
+      );
+      group.count.textContent = query ? `${matches.length} / ${group.items.length}` : `${group.items.length}`;
+      list3.insertBefore(group.heading, tail);
+      if (!expanded) continue;
+      for (const item of matches) {
+        const unavailable = selected.includes(item.getAttribute("data-value"));
+        item.setAttribute("tabindex", "0");
+        item.toggleAttribute("unselectable", unavailable);
+        list3.insertBefore(item, tail);
+        if (!unavailable && !firstMatch) firstMatch = item;
+      }
+    }
+    status.textContent = query && !totalMatches ? _("No matching rule sets") : "";
+  };
   for (const [source, url] of [
     ["geosite", SING_GEOSITE_URL],
     ["geoip", SING_GEOIP_URL]
@@ -25049,6 +25123,11 @@ function groupGeoRulesetChoices(node) {
       list3.querySelectorAll("li[data-value]")
     ).filter((item) => item.getAttribute("data-value")?.startsWith(url));
     if (!items.length) continue;
+    const count = textE(
+      "small",
+      { class: "fkp-ruleset-group-count" },
+      `${items.length}`
+    );
     const heading = textE(
       "li",
       {
@@ -25065,34 +25144,28 @@ function groupGeoRulesetChoices(node) {
           "\u25B8"
         ),
         textE("span", {}, source),
-        textE("small", { class: "fkp-ruleset-group-count" }, `${items.length}`)
+        count
       ]
     );
-    list3.insertBefore(heading, items[0]);
-    items.forEach((item) => item.remove());
+    const group = {
+      source,
+      heading,
+      count,
+      items,
+      expanded: false,
+      searchExpanded: true
+    };
+    groups.push(group);
     const toggle = () => {
-      const expanded = heading.getAttribute("aria-expanded") !== "true";
-      heading.setAttribute("aria-expanded", String(expanded));
-      const before = heading.nextElementSibling;
-      const selected = dynamicListItemValues(node);
-      items.forEach((item) => {
-        if (expanded) {
-          item.setAttribute("tabindex", "0");
-          item.toggleAttribute(
-            "unselectable",
-            selected.includes(item.getAttribute("data-value"))
-          );
-          list3.insertBefore(item, before);
-        } else {
-          item.remove();
-        }
-      });
+      if (query) group.searchExpanded = !group.searchExpanded;
+      else group.expanded = !group.expanded;
+      refresh();
+      heading.focus();
     };
     heading.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
       toggle();
-      heading.focus();
     });
     heading.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
@@ -25101,6 +25174,45 @@ function groupGeoRulesetChoices(node) {
       toggle();
     });
   }
+  if (!groups.length) return;
+  search.addEventListener("input", () => {
+    query = search.value.trim().toLowerCase();
+    groups.forEach((group) => {
+      group.searchExpanded = true;
+    });
+    refresh();
+  });
+  search.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      (firstMatch ?? groups.find((group) => group.heading.parentNode === list3)?.heading)?.focus();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      if (search.value) {
+        search.value = "";
+        query = "";
+        refresh();
+      } else {
+        dropdown.dispatchEvent(new CustomEvent("cbi-dropdown-close"));
+        dropdown.focus();
+      }
+    }
+  });
+  searchRow.addEventListener("click", (event) => {
+    event.stopPropagation();
+    search.focus();
+  });
+  searchRow.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    event.stopPropagation();
+    search.focus();
+  });
+  list3.insertBefore(searchRow, list3.firstElementChild);
+  refresh();
 }
 function isBuiltinRulesetValue(value) {
   return Object.prototype.hasOwnProperty.call(DOMAIN_LIST_OPTIONS, value);

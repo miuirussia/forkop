@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-08 15:19+0300\n"
-"PO-Revision-Date: 2026-11-08 15:19+0300\n"
+"POT-Creation-Date: 2026-11-08 15:46+0300\n"
+"PO-Revision-Date: 2026-11-08 15:46+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1658,6 +1658,9 @@ msgstr "Логи отсутствуют"
 msgid "No logs match the current filters"
 msgstr "Нет логов, соответствующих текущим фильтрам"
 
+msgid "No matching rule sets"
+msgstr "Наборы правил не найдены"
+
 msgid "No other devices in the tailnet"
 msgstr "В сети нет других устройств"
 
@@ -2158,6 +2161,9 @@ msgstr "Сохранить"
 
 msgid "Search"
 msgstr "Поиск"
+
+msgid "Search rule sets"
+msgstr "Поиск наборов правил"
 
 msgid "Seconds, or a range such as 25-35"
 msgstr "Секунды или диапазон, например 25-35"

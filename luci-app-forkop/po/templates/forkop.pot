@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-08 15:19+0300\n"
-"PO-Revision-Date: 2026-11-08 15:19+0300\n"
+"POT-Creation-Date: 2026-11-08 15:46+0300\n"
+"PO-Revision-Date: 2026-11-08 15:46+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -2300,6 +2300,10 @@ msgstr ""
 msgid "No logs match the current filters"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
+msgid "No matching rule sets"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
 msgid "No other devices in the tailnet"
 msgstr ""
@@ -2998,7 +3002,12 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/logs/render.ts
 #: fe-app-forkop/src/forkop/tabs/monitoring/render.ts
+#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
 msgid "Search"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
+msgid "Search rule sets"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts

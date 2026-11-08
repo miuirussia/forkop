@@ -4,6 +4,8 @@ import { groupGeoRulesetChoices } from '../ruleSets';
 
 // The DOM operations the grouping hook needs; LuCI still owns values and selection.
 class Item {
+  textContent = '';
+  value = '';
   children: Item[] = [];
   parent: Item | null = null;
   classes = new Set<string>();
@@ -62,6 +64,15 @@ class Item {
       this.parent?.children[this.parent.children.indexOf(this) + 1] ?? null
     );
   }
+  get firstElementChild() {
+    return this.children[0] ?? null;
+  }
+  get lastElementChild() {
+    return this.children[this.children.length - 1] ?? null;
+  }
+  get parentNode() {
+    return this.parent;
+  }
   toggleAttribute(name: string, enabled: boolean) {
     if (enabled) this.attrs[name] = '';
     else delete this.attrs[name];
@@ -82,11 +93,13 @@ function grouped(files: string[]) {
   const list = new Item();
   list.children = [
     new Item({ placeholder: '' }),
-    ...files.map(
-      (file) =>
+    ...files.map((file) =>
+      Object.assign(
         new Item({
           'data-value': `https://raw.githubusercontent.com/SagerNet/sing-${file.startsWith('geoip-') ? 'geoip' : 'geosite'}/rule-set/${file}`,
         }),
+        { textContent: file },
+      ),
     ),
     new Item({ 'data-value': '-' }),
   ];
@@ -116,6 +129,8 @@ function grouped(files: string[]) {
     list,
     dropdown,
     selected,
+    search: list.children[0].children[0],
+    status: list.children[0].children[1],
     headings: list.children.filter((item) => item.attrs.role === 'button'),
   };
 }
@@ -206,5 +221,67 @@ describe('rule set catalog sections', () => {
     selected.length = 0;
     headings[0].listeners.get('click')!(keyEvent());
     expect(choice.hasAttribute('unselectable')).toBe(false);
+  });
+
+  it('searches collapsed catalogs without case sensitivity and shows matching counts', () => {
+    const { list, search, headings } = grouped([
+      'geosite-youtube.srs',
+      'geosite-google.srs',
+      'geoip-ru.srs',
+    ]);
+    search.value = '  YOUTUBE  ';
+    search.listeners.get('input')!(keyEvent());
+    expect(headings[0].attrs['aria-expanded']).toBe('true');
+    expect(headings[0].children[2].textContent).toBe('1 / 2');
+    expect(headings[1].parent).toBeNull();
+    const matches = list.children.filter((item) =>
+      item.attrs['data-value']?.endsWith('.srs'),
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].attrs['data-value']).toContain('geosite-youtube.srs');
+    search.listeners.get('keydown')!(keyEvent('ArrowDown'));
+    expect(document.activeElement).toBe(matches[0]);
+  });
+
+  it('clearing the search restores the previous expanded sections and leaves manual input last', () => {
+    const { list, search, headings } = grouped([
+      'geosite-youtube.srs',
+      'geosite-google.srs',
+      'geoip-ru.srs',
+    ]);
+    headings[1].listeners.get('click')!(keyEvent());
+    search.value = 'google';
+    search.listeners.get('input')!(keyEvent());
+    search.listeners.get('keydown')!(keyEvent('Escape'));
+    expect(search.value).toBe('');
+    expect(headings[0].attrs['aria-expanded']).toBe('false');
+    expect(headings[1].attrs['aria-expanded']).toBe('true');
+    expect(list.lastElementChild?.attrs['data-value']).toBe('-');
+    expect(
+      list.children.filter((item) =>
+        item.attrs['data-value']?.endsWith('.srs'),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('reports no matches without turning the query into a rule set', () => {
+    const { list, search, status, headings, selected } = grouped([
+      'geosite-youtube.srs',
+      'geoip-ru.srs',
+    ]);
+    search.value = 'does-not-exist';
+    search.listeners.get('input')!(keyEvent());
+    expect(status.textContent).toBe('No matching rule sets');
+    expect(headings.every((item) => !item.parent)).toBe(true);
+    expect(list.lastElementChild?.attrs['data-value']).toBe('-');
+    const enter = keyEvent('Enter');
+    search.listeners.get('keydown')!(enter);
+    expect(enter.preventDefault).toHaveBeenCalledOnce();
+    expect(enter.stopPropagation).toHaveBeenCalledOnce();
+    expect(selected).toEqual([]);
+    search.value = 'RU';
+    search.listeners.get('input')!(keyEvent());
+    expect(status.textContent).toBe('');
+    expect(headings[1].attrs['aria-expanded']).toBe('true');
   });
 });

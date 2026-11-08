@@ -24,6 +24,29 @@ ${PartialStyles}
 }
 
 /* LuCI renders dropdown entries as flex rows, including their helper text. */
+.cbi-dropdown[open] > ul.dropdown > li.fkp-ruleset-search {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4em;
+    padding: 0.5em;
+    background: var(--background-color-low, #fff);
+}
+
+.fkp-ruleset-search-input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 12em;
+    min-height: 2em;
+    font: inherit;
+}
+
+.fkp-ruleset-search > small:empty {
+    display: none;
+}
+
 .cbi-dropdown[open] > ul.dropdown > li.fkp-ruleset-group {
     display: flex;
     align-items: center;
@@ -36,7 +59,9 @@ ${PartialStyles}
 }
 
 .cbi-dropdown:not([open]) > ul > li.fkp-ruleset-group,
-.cbi-dropdown > ul.preview > li.fkp-ruleset-group {
+.cbi-dropdown > ul.preview > li.fkp-ruleset-group,
+.cbi-dropdown:not([open]) > ul > li.fkp-ruleset-search,
+.cbi-dropdown > ul.preview > li.fkp-ruleset-search {
     display: none !important;
 }
 
