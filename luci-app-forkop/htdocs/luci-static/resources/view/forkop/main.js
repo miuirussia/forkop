@@ -24919,6 +24919,36 @@ function builtinListRefusal(selected, picked) {
   return (held.length === 1 ? _("%s is already in %s: remove it first") : _("%s are already in %s: remove them first")).format(names, builtinListLabel(picked));
 }
 function refuseHeldBuiltinLists(dl) {
+  const refresh = () => {
+    const selected = dynamicListItemValues(dl);
+    dl.querySelectorAll(
+      ".add-item .cbi-dropdown > ul > li[data-value]"
+    ).forEach((item) => {
+      const value = item.getAttribute("data-value");
+      if (!isBuiltinRulesetValue(value)) return;
+      const alreadySelected = selected.includes(value);
+      const refusal = alreadySelected ? null : builtinListRefusal(selected, value);
+      const disabled = alreadySelected || refusal != null;
+      item.toggleAttribute("unselectable", disabled);
+      item.setAttribute("aria-disabled", String(disabled));
+      item.style.cursor = disabled ? "not-allowed" : "";
+      item.querySelector(".fkp-builtin-list-refusal")?.remove();
+      if (refusal) {
+        item.appendChild(
+          textE(
+            "small",
+            {
+              class: "fkp-builtin-list-refusal",
+              style: "display: block; white-space: normal; line-height: 1.4"
+            },
+            refusal
+          )
+        );
+      }
+    });
+  };
+  refresh();
+  dl.addEventListener("cbi-dynlist-change", refresh);
   dl.addEventListener(
     "cbi-dropdown-change",
     (event) => {

@@ -4,6 +4,7 @@ import {
   FORKOP_UCI_PACKAGE,
 } from '../../../constants';
 import { showToast } from '../../../helpers/showToast';
+import { E } from '../../../helpers/element';
 import { message } from '../../../validators/messages';
 import { validatePath } from '../../../validators/validatePath';
 import { validateUrl } from '../../../validators/validateUrl';
@@ -150,9 +151,43 @@ export function builtinListRefusal(selected: string[], picked: string) {
   ).format(names, builtinListLabel(picked));
 }
 
-// LuCI adds a picked list in a listener on the list itself; this one runs first, in the capture
-// phase, and keeps a list out that the selection already holds or that would hold the selection.
 export function refuseHeldBuiltinLists(dl: HTMLElement) {
+  const refresh = () => {
+    const selected = dynamicListItemValues(dl);
+    dl.querySelectorAll<HTMLElement>(
+      '.add-item .cbi-dropdown > ul > li[data-value]',
+    ).forEach((item) => {
+      const value = item.getAttribute('data-value')!;
+      if (!isBuiltinRulesetValue(value)) return;
+
+      const alreadySelected = selected.includes(value);
+      const refusal = alreadySelected
+        ? null
+        : builtinListRefusal(selected, value);
+      const disabled = alreadySelected || refusal != null;
+      item.toggleAttribute('unselectable', disabled);
+      item.setAttribute('aria-disabled', String(disabled));
+      item.style.cursor = disabled ? 'not-allowed' : '';
+      item.querySelector('.fkp-builtin-list-refusal')?.remove();
+      if (refusal) {
+        item.appendChild(
+          E(
+            'small',
+            {
+              class: 'fkp-builtin-list-refusal',
+              style: 'display: block; white-space: normal; line-height: 1.4',
+            },
+            refusal,
+          ),
+        );
+      }
+    });
+  };
+
+  refresh();
+  dl.addEventListener('cbi-dynlist-change', refresh);
+
+  // Keep the capture guard for custom input and synthetic dropdown selections.
   dl.addEventListener(
     'cbi-dropdown-change',
     (event) => {
