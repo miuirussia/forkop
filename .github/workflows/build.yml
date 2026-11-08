@@ -4,7 +4,15 @@ name: Build packages
 # packages and drafts its GitHub release with them, install.sh, release.json and SHA256SUMS.
 # Publishing the draft by hand makes it the latest release, the one install.sh installs and every
 # Forkop's update check offers.
+# Build on main when the build setup changes to seed the default-branch SDK cache:
+# release tags can restore it, but cannot restore caches saved under other tags.
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'build.sh'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
     inputs:
       install_command:
@@ -17,12 +25,13 @@ permissions:
 
 jobs:
   build:
-    name: Build the release packages
+    name: Build packages
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5.0.0
 
       - name: Check the tag
+        if: github.event_name == 'workflow_dispatch'
         env:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
@@ -50,10 +59,11 @@ jobs:
         env:
           SDK_CACHE_DIR: ${{ runner.temp }}/openwrt-sdk
           INSTALL_COMMAND: ${{ inputs.install_command }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ github.event_name == 'push' && '0.0.0' || github.ref_name }}
         run: ./build.sh "$TAG" "$PWD/release"
 
       - name: Upload the release files
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4.6.2
         with:
           name: release
@@ -63,6 +73,7 @@ jobs:
 
   release:
     name: Draft the release
+    if: github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-24.04
     permissions:
