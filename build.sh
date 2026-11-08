@@ -12,6 +12,9 @@ release.json and SHA256SUMS. The version must use x.y.z format.
 
 INSTALL_COMMAND, when set, goes into release.json as install_command: the release installs
 only with that command, and the Components tab shows it instead of installing the release.
+
+SDK downloads from downloads.openwrt.org are speed-tested against mirrors automatically.
+IPK_SDK_URL and APK_SDK_URL can point to custom SDK URLs, downloaded directly.
 EOF
 }
 
@@ -100,15 +103,68 @@ ensure_host_deps() {
   fi
 }
 
+sdk_download_sources() {
+  local url="$1"
+  local candidate
+  local candidates=("$url")
+
+  if [[ "$url" == https://downloads.openwrt.org/* ]]; then
+    local relative_path="${url#https://downloads.openwrt.org/}"
+    candidates+=(
+      "https://ftp.halifax.rwth-aachen.de/openwrt/$relative_path"
+      "https://mirrors.ustc.edu.cn/openwrt/$relative_path"
+      "https://mirror2.mirror.garr.it/mirrors/openwrt/$relative_path"
+    )
+  else
+    printf '%s\n' "$url"
+    return 0
+  fi
+
+  echo "Checking SDK download speeds: $(basename "$url")" >&2
+  {
+    for candidate in "${candidates[@]}"; do
+      (
+        local stats status=0
+        stats="$(curl --fail --location --silent --connect-timeout 3 --max-time 5 \
+          --range 0-4194303 --max-filesize 4194304 --output /dev/null \
+          --write-out '%{http_code} %{size_download} %{speed_download}' "$candidate")" || status=$?
+        # A timed-out sample still measures throughput if it received part of the archive.
+        if (( status == 0 || status == 28 )) &&
+          awk '($1 == 206 && $2 > 0 && $3 > 0) { ok = 1 } END { exit !ok }' <<< "$stats"; then
+          awk -v url="$candidate" '{
+            printf "  %.0f KiB/s: %s\n", $3 / 1024, url > "/dev/stderr"
+            printf "%.0f %s\n", $3, url
+          }' <<< "$stats"
+        elif [[ "$candidate" == "$url" ]]; then
+          # Keep the original URL as a fallback even when its probe fails.
+          printf '0 %s\n' "$candidate"
+        fi
+      ) &
+    done
+    wait
+  } | LC_ALL=C sort -k1,1nr | cut -d ' ' -f2-
+}
+
 download_sdk_archive() {
   local url="$1"
   local archive_path="$SDK_CACHE_DIR/$(basename "$url")"
+  local source_url
 
   mkdir -p "$SDK_CACHE_DIR"
   if [[ ! -f "$archive_path" ]]; then
-    echo "Downloading SDK: $url" >&2
-    curl --fail --location --retry 3 --output "$archive_path.part" "$url"
-    mv "$archive_path.part" "$archive_path"
+    while IFS= read -r source_url; do
+      echo "Downloading SDK: $source_url" >&2
+      if curl --fail --location --retry 3 --connect-timeout 10 \
+        --speed-limit 1024 --speed-time 30 --output "$archive_path.part" "$source_url"; then
+        mv "$archive_path.part" "$archive_path" || return 1
+        printf '%s\n' "$archive_path"
+        return 0
+      fi
+      echo "SDK download failed, trying the next source" >&2
+    done < <(sdk_download_sources "$url")
+    rm -f "$archive_path.part"
+    echo "Cannot download SDK: $url" >&2
+    return 1
   fi
 
   printf '%s\n' "$archive_path"
