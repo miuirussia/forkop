@@ -24,6 +24,32 @@ ${PartialStyles}
 }
 
 /* LuCI renders dropdown entries as flex rows, including their helper text. */
+.cbi-dropdown[open] > ul.dropdown > li.fkp-ruleset-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.65em 0.75em;
+    font-weight: 600;
+    cursor: pointer;
+    opacity: 1;
+    border-top: 1px solid var(--border-color-low, #ddd);
+}
+
+.cbi-dropdown:not([open]) > ul > li.fkp-ruleset-group,
+.cbi-dropdown > ul.preview > li.fkp-ruleset-group {
+    display: none !important;
+}
+
+.fkp-ruleset-group-count {
+    margin-left: auto;
+    font-weight: normal;
+    color: var(--text-color-medium, #888);
+}
+
+.fkp-ruleset-group[aria-expanded="true"] > .fkp-ruleset-group-arrow {
+    transform: rotate(90deg);
+}
+
 .cbi-dropdown > ul > li.fkp-builtin-list-unavailable {
     flex-direction: column;
     align-items: stretch;

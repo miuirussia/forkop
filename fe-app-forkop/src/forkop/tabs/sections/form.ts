@@ -84,6 +84,8 @@ import {
 import {
   getBuiltInRulesetReferences,
   getCustomRulesetReferences,
+  groupGeoRulesetChoices,
+  loadGeoRulesetValues,
   loadRulesetValues,
   refuseHeldBuiltinLists,
   showRuleSetSettingsModal,
@@ -649,7 +651,22 @@ export function createSectionContent(section: CBISection) {
   // Both rule set fields edit one list and this one shows only for a DNS rule; without retain LuCI
   // would call its remove() under every other action and clear the list and its settings.
   dnsRuleSetOption.retain = true;
-  dnsRuleSetOption.load = function (section_id: string) {
+  dnsRuleSetOption.renderWidget = function (
+    section_id: string,
+    option_index: string,
+    cfgvalue: unknown,
+  ) {
+    const node = form.DynamicList.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
+    groupGeoRulesetChoices(node);
+    return node;
+  };
+  dnsRuleSetOption.load = async function (section_id: string) {
+    await loadGeoRulesetValues(this, false);
     return getCustomRulesetReferences(section_id);
   };
   dnsRuleSetOption.write = function (section_id: string, value: unknown) {
@@ -672,11 +689,26 @@ export function createSectionContent(section: CBISection) {
   dependsOnRoutingAction(ruleSetOption);
   ruleSetOption.modalonly = true;
   ruleSetOption.retain = true;
+  ruleSetOption.renderWidget = function (
+    section_id: string,
+    option_index: string,
+    cfgvalue: unknown,
+  ) {
+    const node = SettingsDynamicList.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue,
+    );
+    groupGeoRulesetChoices(node);
+    return node;
+  };
   ruleSetOption.renderItemSettingsModal = showRuleSetSettingsModal;
   ruleSetOption.hasItemSettings = function (section_id: string) {
     return getRuleResolvedAction(section_id) !== 'dns';
   };
-  ruleSetOption.load = function (section_id: string) {
+  ruleSetOption.load = async function (section_id: string) {
+    await loadGeoRulesetValues(this);
     return getCustomRulesetReferences(section_id);
   };
   ruleSetOption.write = function (section_id: string, value: unknown) {

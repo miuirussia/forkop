@@ -16989,6 +16989,32 @@ ${PartialStyles}
 }
 
 /* LuCI renders dropdown entries as flex rows, including their helper text. */
+.cbi-dropdown[open] > ul.dropdown > li.fkp-ruleset-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.65em 0.75em;
+    font-weight: 600;
+    cursor: pointer;
+    opacity: 1;
+    border-top: 1px solid var(--border-color-low, #ddd);
+}
+
+.cbi-dropdown:not([open]) > ul > li.fkp-ruleset-group,
+.cbi-dropdown > ul.preview > li.fkp-ruleset-group {
+    display: none !important;
+}
+
+.fkp-ruleset-group-count {
+    margin-left: auto;
+    font-weight: normal;
+    color: var(--text-color-medium, #888);
+}
+
+.fkp-ruleset-group[aria-expanded="true"] > .fkp-ruleset-group-arrow {
+    transform: rotate(90deg);
+}
+
 .cbi-dropdown > ul > li.fkp-builtin-list-unavailable {
     flex-direction: column;
     align-items: stretch;
@@ -24844,6 +24870,74 @@ function showConnectionLinkSettingsModal(sectionId, itemValue, option2, widget, 
   });
 }
 
+// src/forkop/services/singGeo.service.ts
+var SING_GEOSITE_URL = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/";
+var SING_GEOIP_URL = "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/";
+var CACHE_TTL = 24 * 60 * 60 * 1e3;
+function createCatalogLoader(kind) {
+  const catalogUrl = `https://api.github.com/repos/SagerNet/sing-${kind}/git/trees/rule-set`;
+  const cacheKey = `forkop.sing-${kind}.v1`;
+  const filePattern = new RegExp(`^${kind}-[a-z0-9@!._+-]+\\.srs$`, "u");
+  let cache = null;
+  let pending = null;
+  function isRulesetFile(value) {
+    return typeof value === "string" && filePattern.test(value);
+  }
+  function readCache() {
+    try {
+      const stored = JSON.parse(getLocalStorage()?.getItem(cacheKey) ?? "null");
+      if (stored && Number.isFinite(stored.timestamp) && Array.isArray(stored.files) && stored.files.length > 0 && stored.files.every(isRulesetFile)) {
+        return stored;
+      }
+    } catch {
+    }
+    return null;
+  }
+  return function loadFiles() {
+    cache ?? (cache = readCache());
+    const age = cache ? Date.now() - cache.timestamp : -1;
+    if (cache && age >= 0 && age < CACHE_TTL) {
+      return Promise.resolve(cache.files);
+    }
+    if (pending) return pending;
+    pending = (async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8e3);
+      try {
+        const response = await fetch(catalogUrl, { signal: controller.signal });
+        if (!response.ok) throw new Error(`GitHub HTTP ${response.status}`);
+        const data = await response.json();
+        if (data.truncated !== false || !Array.isArray(data.tree)) {
+          throw new Error(`Incomplete sing-${kind} catalog`);
+        }
+        const files = Array.from(
+          new Set(
+            data.tree.filter(
+              (entry) => entry?.type === "blob" && isRulesetFile(entry.path)
+            ).map((entry) => entry.path)
+          )
+        ).sort();
+        if (!files.length) throw new Error(`Empty sing-${kind} catalog`);
+        cache = { timestamp: Date.now(), files };
+        try {
+          getLocalStorage()?.setItem(cacheKey, JSON.stringify(cache));
+        } catch {
+        }
+        return files;
+      } catch {
+        return cache?.files ?? [];
+      } finally {
+        clearTimeout(timeout);
+      }
+    })().finally(() => {
+      pending = null;
+    });
+    return pending;
+  };
+}
+var loadSingGeositeFiles = createCatalogLoader("geosite");
+var loadSingGeoipFiles = createCatalogLoader("geoip");
+
 // src/forkop/tabs/sections/ruleSets.ts
 function ruleSetIncludesSubnets(section_id, value) {
   const settings = readItemSettingsMap(section_id, RULE_SET_ITEM_SETTINGS_KEY);
@@ -24916,6 +25010,97 @@ function loadRulesetValues(option2) {
   Object.entries(DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
     option2.value(key, label);
   });
+}
+async function loadGeoRulesetValues(option2, includeGeoip = true) {
+  const [geositeFiles, geoipFiles] = await Promise.all([
+    loadSingGeositeFiles(),
+    includeGeoip ? loadSingGeoipFiles() : Promise.resolve([])
+  ]);
+  delete option2.keylist;
+  delete option2.vallist;
+  geositeFiles.forEach((file) => {
+    option2.value(SING_GEOSITE_URL + file, `geosite: ${file.slice(8, -4)}`);
+  });
+  geoipFiles.forEach((file) => {
+    option2.value(SING_GEOIP_URL + file, `geoip: ${file.slice(6, -4)}`);
+  });
+  option2.description = geositeFiles.length + geoipFiles.length ? includeGeoip ? _(
+    "Choose a sing-geosite or sing-geoip list, or enter a URL or local path. The format is detected automatically"
+  ) : _(
+    "Choose a sing-geosite list, or enter a URL or local path. The format is detected automatically"
+  ) : _(
+    "Could not load the rule set catalogs. Enter a URL or local path, or reopen this dialog to retry"
+  );
+  if (includeGeoip) {
+    option2.description += " " + _(
+      'For GeoIP, enable "Include IP addresses and subnets" in the list settings'
+    );
+  }
+}
+function groupGeoRulesetChoices(node) {
+  const dropdown = node.querySelector(".add-item .cbi-dropdown");
+  const list3 = dropdown?.querySelector("ul");
+  if (!dropdown || !list3) return;
+  for (const [source, url] of [
+    ["geosite", SING_GEOSITE_URL],
+    ["geoip", SING_GEOIP_URL]
+  ]) {
+    const items = Array.from(
+      list3.querySelectorAll("li[data-value]")
+    ).filter((item) => item.getAttribute("data-value")?.startsWith(url));
+    if (!items.length) continue;
+    const heading = textE(
+      "li",
+      {
+        class: "fkp-ruleset-group",
+        tabindex: 0,
+        role: "button",
+        "aria-expanded": "false",
+        "aria-label": `${source} (${items.length})`
+      },
+      [
+        textE(
+          "span",
+          { class: "fkp-ruleset-group-arrow", "aria-hidden": "true" },
+          "\u25B8"
+        ),
+        textE("span", {}, source),
+        textE("small", { class: "fkp-ruleset-group-count" }, `${items.length}`)
+      ]
+    );
+    list3.insertBefore(heading, items[0]);
+    items.forEach((item) => item.remove());
+    const toggle = () => {
+      const expanded = heading.getAttribute("aria-expanded") !== "true";
+      heading.setAttribute("aria-expanded", String(expanded));
+      const before = heading.nextElementSibling;
+      const selected = dynamicListItemValues(node);
+      items.forEach((item) => {
+        if (expanded) {
+          item.setAttribute("tabindex", "0");
+          item.toggleAttribute(
+            "unselectable",
+            selected.includes(item.getAttribute("data-value"))
+          );
+          list3.insertBefore(item, before);
+        } else {
+          item.remove();
+        }
+      });
+    };
+    heading.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggle();
+      heading.focus();
+    });
+    heading.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggle();
+    });
+  }
 }
 function isBuiltinRulesetValue(value) {
   return Object.prototype.hasOwnProperty.call(DOMAIN_LIST_OPTIONS, value);
@@ -28083,7 +28268,18 @@ function createSectionContent(section2) {
   dnsRuleSetOption.depends("action", "dns");
   dnsRuleSetOption.modalonly = true;
   dnsRuleSetOption.retain = true;
-  dnsRuleSetOption.load = function(section_id) {
+  dnsRuleSetOption.renderWidget = function(section_id, option_index, cfgvalue) {
+    const node = form.DynamicList.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue
+    );
+    groupGeoRulesetChoices(node);
+    return node;
+  };
+  dnsRuleSetOption.load = async function(section_id) {
+    await loadGeoRulesetValues(this, false);
     return getCustomRulesetReferences(section_id);
   };
   dnsRuleSetOption.write = function(section_id, value) {
@@ -28105,11 +28301,22 @@ function createSectionContent(section2) {
   dependsOnRoutingAction(ruleSetOption);
   ruleSetOption.modalonly = true;
   ruleSetOption.retain = true;
+  ruleSetOption.renderWidget = function(section_id, option_index, cfgvalue) {
+    const node = SettingsDynamicList.prototype.renderWidget.call(
+      this,
+      section_id,
+      option_index,
+      cfgvalue
+    );
+    groupGeoRulesetChoices(node);
+    return node;
+  };
   ruleSetOption.renderItemSettingsModal = showRuleSetSettingsModal;
   ruleSetOption.hasItemSettings = function(section_id) {
     return getRuleResolvedAction(section_id) !== "dns";
   };
-  ruleSetOption.load = function(section_id) {
+  ruleSetOption.load = async function(section_id) {
+    await loadGeoRulesetValues(this);
     return getCustomRulesetReferences(section_id);
   };
   ruleSetOption.write = function(section_id, value) {

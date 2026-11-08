@@ -694,6 +694,24 @@ export function createHarness(
 
   const moduleGlobals = {
     form,
+    fetch: async (url) => {
+      const catalogs = {
+        'https://api.github.com/repos/SagerNet/sing-geosite/git/trees/rule-set':
+          'geosite-youtube.srs',
+        'https://api.github.com/repos/SagerNet/sing-geoip/git/trees/rule-set':
+          'geoip-ru.srs',
+      };
+      if (!catalogs[url]) {
+        throw new Error(`Unexpected form fetch: ${url}`);
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          truncated: false,
+          tree: [{ type: 'blob', path: catalogs[url] }],
+        }),
+      };
+    },
     ui: {
       DynamicList: makeClass('ui.DynamicList', function () {}),
       addNotification(title, body, kind) {

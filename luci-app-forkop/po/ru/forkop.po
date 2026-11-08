@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-08 12:27+0300\n"
-"PO-Revision-Date: 2026-11-08 12:27+0300\n"
+"POT-Creation-Date: 2026-11-08 15:19+0300\n"
+"PO-Revision-Date: 2026-11-08 15:19+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -470,6 +470,12 @@ msgstr "Проверки не пройдены"
 msgid "Checks passed"
 msgstr "Проверки пройдены"
 
+msgid "Choose a sing-geosite list, or enter a URL or local path. The format is detected automatically"
+msgstr "Выберите список sing-geosite или введите URL либо локальный путь. Формат определяется автоматически"
+
+msgid "Choose a sing-geosite or sing-geoip list, or enter a URL or local path. The format is detected automatically"
+msgstr "Выберите список sing-geosite или sing-geoip либо введите URL или локальный путь. Формат определяется автоматически"
+
 msgid "Cipher"
 msgstr "Шифр"
 
@@ -649,6 +655,9 @@ msgstr "Не удалось сгенерировать пару ключей VLE
 
 msgid "Could not get the check results"
 msgstr "Не удалось получить результаты проверки"
+
+msgid "Could not load the rule set catalogs. Enter a URL or local path, or reopen this dialog to retry"
+msgstr "Не удалось загрузить каталоги наборов правил. Введите URL или локальный путь либо откройте это окно заново, чтобы повторить попытку"
 
 msgid "Country"
 msgstr "Страна"
@@ -1003,6 +1012,9 @@ msgstr "Для сервера, который пускает только нек
 
 msgid "For example 30m, 12h or 1d"
 msgstr "Например: 30m, 12h или 1d"
+
+msgid "For GeoIP, enable \"Include IP addresses and subnets\" in the list settings"
+msgstr "Для GeoIP включите «Учитывать IP-адреса и подсети» в настройках набора"
 
 msgid "Forkop configuration"
 msgstr "Конфигурация Forkop"

@@ -45,3 +45,38 @@ describe('the built-in lists field', () => {
     ]);
   });
 });
+
+describe('sing-geosite and sing-geoip in the rule set fields', () => {
+  it('offers SRS URLs for both routing and DNS and keeps custom entries', async () => {
+    harness.uci.add('forkop', 'section', 'section_probe');
+    Object.assign(harness.store.get('section_probe'), {
+      action: 'connection',
+      rule_set: ['/etc/forkop/custom.srs'],
+      rule_set_with_subnets: ['https://example.com/mixed.srs'],
+    });
+    const map = new harness.form.Map('forkop');
+    const grid = map.section(harness.form.GridSection, 'section');
+    harness.bundle.createSectionContent(grid);
+
+    for (const name of ['rule_set', '_dns_rule_set']) {
+      const option = grid.children.find((child) => child.option === name);
+      expect(await option.load('section_probe')).toEqual([
+        '/etc/forkop/custom.srs',
+        'https://example.com/mixed.srs',
+      ]);
+      const geoip = name === 'rule_set';
+      expect(option.keylist).toEqual([
+        'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs',
+        ...(geoip
+          ? [
+              'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs',
+            ]
+          : []),
+      ]);
+      expect(option.vallist).toEqual([
+        'geosite: youtube',
+        ...(geoip ? ['geoip: ru'] : []),
+      ]);
+    }
+  });
+});

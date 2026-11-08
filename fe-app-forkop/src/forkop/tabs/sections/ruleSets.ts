@@ -17,6 +17,12 @@ import {
 import { renderStackedJsonSettingsModal } from '../../cbi/modal';
 import { getConfigListValues, writeListOption } from '../../cbi/uci';
 import { getRuleResolvedAction } from './actions';
+import {
+  loadSingGeositeFiles,
+  loadSingGeoipFiles,
+  SING_GEOSITE_URL,
+  SING_GEOIP_URL,
+} from '../../services/singGeo.service';
 import { RULE_SET_ITEM_SETTINGS_KEY } from './constants';
 
 function ruleSetIncludesSubnets(section_id: string, value: string) {
@@ -114,6 +120,113 @@ export function loadRulesetValues(option: CBIOption) {
   Object.entries(DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
     option.value(key, label);
   });
+}
+
+export async function loadGeoRulesetValues(
+  option: CBIOption,
+  includeGeoip = true,
+) {
+  const [geositeFiles, geoipFiles] = await Promise.all([
+    loadSingGeositeFiles(),
+    includeGeoip ? loadSingGeoipFiles() : Promise.resolve([]),
+  ]);
+  delete option.keylist;
+  delete option.vallist;
+  geositeFiles.forEach((file) => {
+    option.value(SING_GEOSITE_URL + file, `geosite: ${file.slice(8, -4)}`);
+  });
+  geoipFiles.forEach((file) => {
+    option.value(SING_GEOIP_URL + file, `geoip: ${file.slice(6, -4)}`);
+  });
+  option.description =
+    geositeFiles.length + geoipFiles.length
+      ? includeGeoip
+        ? _(
+            'Choose a sing-geosite or sing-geoip list, or enter a URL or local path. The format is detected automatically',
+          )
+        : _(
+            'Choose a sing-geosite list, or enter a URL or local path. The format is detected automatically',
+          )
+      : _(
+          'Could not load the rule set catalogs. Enter a URL or local path, or reopen this dialog to retry',
+        );
+  if (includeGeoip) {
+    option.description +=
+      ' ' +
+      _(
+        'For GeoIP, enable "Include IP addresses and subnets" in the list settings',
+      );
+  }
+}
+
+export function groupGeoRulesetChoices(node: HTMLElement) {
+  const dropdown = node.querySelector<HTMLElement>('.add-item .cbi-dropdown');
+  const list = dropdown?.querySelector<HTMLElement>('ul');
+  if (!dropdown || !list) return;
+
+  for (const [source, url] of [
+    ['geosite', SING_GEOSITE_URL],
+    ['geoip', SING_GEOIP_URL],
+  ]) {
+    const items = Array.from(
+      list.querySelectorAll<HTMLElement>('li[data-value]'),
+    ).filter((item) => item.getAttribute('data-value')?.startsWith(url));
+    if (!items.length) continue;
+
+    const heading = E(
+      'li',
+      {
+        class: 'fkp-ruleset-group',
+        tabindex: 0,
+        role: 'button',
+        'aria-expanded': 'false',
+        'aria-label': `${source} (${items.length})`,
+      },
+      [
+        E(
+          'span',
+          { class: 'fkp-ruleset-group-arrow', 'aria-hidden': 'true' },
+          '▸',
+        ),
+        E('span', {}, source),
+        E('small', { class: 'fkp-ruleset-group-count' }, `${items.length}`),
+      ],
+    );
+    list.insertBefore(heading, items[0]);
+    // Keep collapsed choices outside the menu: LuCI uses siblings for keyboard navigation
+    // and measures the last choices to size the popup.
+    items.forEach((item) => item.remove());
+    const toggle = () => {
+      const expanded = heading.getAttribute('aria-expanded') !== 'true';
+      heading.setAttribute('aria-expanded', String(expanded));
+      const before = heading.nextElementSibling;
+      const selected = dynamicListItemValues(node);
+      items.forEach((item) => {
+        if (expanded) {
+          item.setAttribute('tabindex', '0');
+          item.toggleAttribute(
+            'unselectable',
+            selected.includes(item.getAttribute('data-value')!),
+          );
+          list.insertBefore(item, before);
+        } else {
+          item.remove();
+        }
+      });
+    };
+    heading.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggle();
+      heading.focus();
+    });
+    heading.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggle();
+    });
+  }
 }
 
 function isBuiltinRulesetValue(value: string) {

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-08 12:27+0300\n"
-"PO-Revision-Date: 2026-11-08 12:27+0300\n"
+"POT-Creation-Date: 2026-11-08 15:19+0300\n"
+"PO-Revision-Date: 2026-11-08 15:19+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -643,6 +643,14 @@ msgstr ""
 msgid "Checks passed"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
+msgid "Choose a sing-geosite list, or enter a URL or local path. The format is detected automatically"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
+msgid "Choose a sing-geosite or sing-geoip list, or enter a URL or local path. The format is detected automatically"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "Cipher"
 msgstr ""
@@ -902,6 +910,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/present.ts
 msgid "Could not get the check results"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
+msgid "Could not load the rule set catalogs. Enter a URL or local path, or reopen this dialog to retry"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderExitPanel.ts
@@ -1403,6 +1415,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/options.ts
 msgid "For example 30m, 12h or 1d"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
+msgid "For GeoIP, enable \"Include IP addresses and subnets\" in the list settings"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/report.ts
