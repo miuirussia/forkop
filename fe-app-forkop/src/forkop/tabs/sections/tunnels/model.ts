@@ -21,6 +21,7 @@ import {
   parseOutboundJsonObject,
 } from '../outboundJson';
 import { tailscaleDetourSectionValue, tailscaleDetourTag } from '../references';
+import { sshInitialSettings, sshOutbound } from './ssh';
 import { openVPNEndpoint, openVPNInitialSettings } from './openvpn';
 import { openConnectEndpoint, openConnectInitialSettings } from './openconnect';
 import { tunnelCoreFeature } from '../coreSupport';
@@ -81,6 +82,7 @@ function tunnelPeerIds(tunnelId: string) {
 function tunnelKindLabel(kind: string, endpointType: string) {
   if (kind === 'openvpn-client') return 'OpenVPN';
   if (kind === 'openconnect') return 'OpenConnect';
+  if (kind === 'ssh') return 'SSH';
   if (kind === 'phobos') return 'Phobos';
   return kind === 'amneziawg'
     ? 'AmneziaWG'
@@ -137,6 +139,7 @@ export const CASCADE_TUNNEL_KINDS = [
   'warp',
   'openvpn-client',
   'openconnect',
+  'ssh',
 ];
 
 // The kinds whose server declares names of its own and a DNS that answers them.
@@ -147,10 +150,11 @@ export const SERVER_DNS_TUNNEL_KINDS = [
 ];
 
 // The kinds stored as the native endpoint the dialog builds.
-const NATIVE_ENDPOINT_KINDS = ['openvpn-client', 'openconnect'];
+const NATIVE_ENDPOINT_KINDS = ['openvpn-client', 'openconnect', 'ssh'];
 
 // What a tunnel's kind option names; anything else, and none, is WireGuard.
 const STORED_KINDS = [
+  'ssh',
   'phobos',
   'openvpn-client',
   'openconnect',
@@ -183,6 +187,7 @@ export function tunnelInitialSettings(
   const settings: ChildSettings = {
     ...(kind === 'openvpn-client' ? openVPNInitialSettings(endpoint) : {}),
     ...(kind === 'openconnect' ? openConnectInitialSettings(endpoint) : {}),
+    ...(kind === 'ssh' ? sshInitialSettings(endpoint) : {}),
     name: kind === 'json' ? `${endpoint.tag || ''}` : `${tunnel.name || ''}`,
     tunnel_type: kind,
     amnezia_enabled: amneziaEnabled ? '1' : '0',
@@ -452,6 +457,7 @@ export function tunnelEndpointFromSettings(
   const kind = `${settings.tunnel_type || ''}`;
   if (kind === 'openvpn-client') return openVPNEndpoint(settings);
   if (kind === 'openconnect') return openConnectEndpoint(settings);
+  if (kind === 'ssh') return sshOutbound(settings);
   if (kind === 'json') {
     return parseOutboundJsonObject(settings.endpoint_json);
   }

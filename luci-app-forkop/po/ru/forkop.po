@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-07 21:20+0300\n"
-"PO-Revision-Date: 2026-11-07 21:20+0300\n"
+"POT-Creation-Date: 2026-11-08 12:27+0300\n"
+"PO-Revision-Date: 2026-11-08 12:27+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1163,6 +1163,9 @@ msgstr "HTTP-коды успешной проверки. * — любой отв
 msgid "Idle timeout"
 msgstr "Таймаут простоя"
 
+msgid "If empty, any server host key is accepted."
+msgstr "Если список пуст, принимается любой ключ сервера."
+
 msgid "ifconfig and ifconfig-ipv6 in the profile"
 msgstr "ifconfig и ifconfig-ipv6 в профиле"
 
@@ -1937,6 +1940,12 @@ msgstr "Префиксы: full:, keyword:, regex:"
 msgid "Private key"
 msgstr "Приватный ключ"
 
+msgid "Private key passphrase"
+msgstr "Пароль приватного ключа"
+
+msgid "Private key path on router"
+msgstr "Путь к приватному ключу на роутере"
+
 msgid "Probably a subscription URL: paste it into Subscription"
 msgstr "Возможно, это URL подписки: вставьте его в поле «Подписка»"
 
@@ -2353,6 +2362,15 @@ msgstr "Сетевой интерфейс источника"
 
 msgid "Spaces are not allowed"
 msgstr "Пробелы недопустимы"
+
+msgid "SSH client version"
+msgstr "Версия SSH-клиента"
+
+msgid "SSH host key algorithms"
+msgstr "Алгоритмы ключей SSH-сервера"
+
+msgid "SSH host keys"
+msgstr "Ключи SSH-сервера"
 
 msgid "SSO and SAML through the sing-box dashboard, which the tunnel waits for at every connection"
 msgstr "SSO и SAML через панель sing-box: туннель будет ждать входа при каждом подключении"

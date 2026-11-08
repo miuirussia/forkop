@@ -200,4 +200,14 @@ t.test("a client of a WireGuard server takes its own route by its tunnel address
         "a client that follows the rules gets the rules under its addresses");
 });
 
+
+t.test("an SSH tunnel is an outbound, supports a cascade and joins its selector", () => {
+    let ssh = { type: "ssh", server: "ssh.example.com", server_port: 22, user: "alice", password: "secret" };
+    fixture.seed(openconnect_fixture(ssh, { kind: "ssh", detour_section: "proxy" }));
+    let config = generator.build({ service_address: "127.0.0.1" });
+    t.eq(q.outbound(config, "vpn/Work"), { ...ssh, tag: "vpn/Work", detour: "proxy" });
+    t.eq(length(filter(config.endpoints, (item) => item.type == "ssh")), 0);
+    t.contains(q.outbound(config, "vpn").outbounds, "vpn/Work");
+});
+
 t.done();

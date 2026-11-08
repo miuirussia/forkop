@@ -89,4 +89,25 @@ t.test("WARP profiles go through a section of their own choosing, never the one 
     v.refuses(through("tunnels"), "Section 'tunnels' holds WARP tunnel 'Generated WARP', so it cannot carry the requests for its profile");
 });
 
+
+function ssh_tunnel(endpoint) {
+    let data = tunnels();
+    data.tunnel = [ { ".name": "ssh", section: "tunnels", kind: "ssh", name: "SSH",
+        endpoint_json: sprintf("%J", { type: "ssh", server: "ssh.example.com", ...(endpoint ?? {}) }) } ];
+    data.tunnel_peer = [];
+    return data;
+}
+
+t.test("SSH tunnels accept native credentials and refuse invalid fields", () => {
+    v.accepts(ssh_tunnel({ server_port: 22, password: "secret", private_key: "KEY\n", private_key_passphrase: "pass", host_key: [ "ssh-ed25519 AAAA" ] }));
+    v.accepts(ssh_tunnel({ server: "::1" }));
+    v.refuses(ssh_tunnel({ server: "https://host" }), "invalid SSH server address");
+    v.refuses(ssh_tunnel({ server_port: 65536 }), "invalid SSH server port");
+    v.refuses(ssh_tunnel({ server_port: "22" }), "invalid SSH server port");
+    v.refuses(ssh_tunnel({ type: "openconnect" }), "invalid SSH server address");
+    v.refuses(ssh_tunnel({ password: [] }), "invalid SSH password");
+    v.refuses(ssh_tunnel({ host_key: "key" }), "invalid SSH host_key");
+    v.refuses(ssh_tunnel({ host_key_algorithms: [ 1 ] }), "invalid SSH host_key_algorithms");
+});
+
 t.done();

@@ -7,6 +7,7 @@ import { validateSubnet } from '../../../../validators/validateSubnet';
 import { validateTailscaleHostname } from '../../../../validators/validateTailscaleHostname';
 import { validateUrl } from '../../../../validators/validateUrl';
 import { isExistingChildItem } from '../../../cbi/childItems';
+import { validateSSHSettings } from './ssh';
 import { validateOpenVPNSettings } from './openvpn';
 import { validateOpenConnectSettings } from './openconnect';
 import { normalizeDynamicListItems } from '../../../cbi/listValues';
@@ -169,6 +170,7 @@ export function validateTunnelSettings(
   if (kind !== 'json' && !`${settings.name || ''}`.trim()) {
     return message.fixSettings();
   }
+  if (kind === 'ssh') return validateSSHSettings(settings);
   if (kind === 'openvpn-client') {
     return validateOpenVPNSettings(settings);
   }

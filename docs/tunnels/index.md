@@ -1,6 +1,6 @@
 # Туннели
 
-Туннели работают внутри ядра, без дополнительных пакетов. Здесь описаны WireGuard, OpenVPN, OpenConnect и JSON endpoint, а у [AmneziaWG](/tunnels/amneziawg), [Cloudflare WARP](/tunnels/warp) и [Tailscale](/tunnels/tailscale) свои страницы.
+Туннели работают внутри ядра, без дополнительных пакетов. Здесь описаны WireGuard, OpenVPN, OpenConnect, SSH и JSON endpoint, а у [AmneziaWG](/tunnels/amneziawg), [Cloudflare WARP](/tunnels/warp) и [Tailscale](/tunnels/tailscale) свои страницы.
 
 В [сборке ядра](/guide/install#сборки-ядра) tiny туннелей нет, а OpenConnect и Tailscale есть только в full.
 
@@ -17,6 +17,14 @@
 ## OpenConnect
 
 Корпоративные SSL VPN: Cisco AnyConnect и ocserv, GlobalProtect, Fortinet, Pulse, F5. **Импортировать** принимает профиль AnyConnect `.xml`, ссылку `anyconnect://` и экспорт NetworkManager `.nmconnection`.
+
+## SSH
+
+В окне **Добавить туннель** выберите **SSH**, задайте имя и адрес сервера. По умолчанию используются порт `22` и пользователь `root`. Для входа укажите пароль, приватный ключ или путь к ключу на роутере. Для зашифрованного ключа заполните пароль приватного ключа.
+
+В поле **Ключи SSH-сервера** можно указать доверенные ключи в формате `ssh-ed25519 AAAA…`. Если список пуст, sing-box принимает любой ключ сервера. Дополнительно доступны алгоритмы ключей сервера и версия SSH-клиента.
+
+Нужна сборка sing-box с `with_ssh`. SSH передаёт TCP-трафик; в конфигурации ядра это исходящее подключение (`outbound`).
 
 ## JSON endpoint
 
@@ -41,4 +49,4 @@
 
 ## Каскадное подключение
 
-WireGuard, AmneziaWG, WARP, OpenVPN и OpenConnect можно подключить через другую секцию, так же как [ссылку](/connections/links#каскадное-подключение).
+WireGuard, AmneziaWG, WARP, OpenVPN, OpenConnect и SSH можно подключить через другую секцию, так же как [ссылку](/connections/links#каскадное-подключение).

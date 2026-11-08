@@ -32,6 +32,8 @@
     },
     "tunnel": {
       "openvpn_key_direction": "1",
+      "ssh_server_port": "22",
+      "ssh_user": "root",
       "openvpn_server_name_type": "name",
       "openvpn_verify_purpose": "server",
       "tailscale_control_url": "https://controlplane.tailscale.com"
@@ -162,6 +164,9 @@
     "Reapplying configuration"
   ],
   "password_fields": {
+    "ssh_password": "endpoint_json",
+    "ssh_private_key": "endpoint_json",
+    "ssh_private_key_passphrase": "endpoint_json",
     "amnezia_header_protection_key": "amnezia_header_protection_key",
     "hysteria2_obfs_password": "hysteria2_obfs_password",
     "openconnect_cookie": "endpoint_json",

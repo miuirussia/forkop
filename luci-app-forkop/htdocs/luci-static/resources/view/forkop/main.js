@@ -19783,6 +19783,89 @@ function subscriptionDownloadTargetChoices(section_id) {
   }));
 }
 
+// src/validators/fields.ts
+function wholeNumberField(min, max = Infinity) {
+  return (_sectionId, value) => {
+    const text8 = `${value ?? ""}`.trim();
+    const number4 = Number(text8);
+    return !text8 || /^[0-9]+$/.test(text8) && number4 >= min && number4 <= max ? true : max === Infinity ? _("Whole number from %d").format(min) : message.wholeNumber(min, max);
+  };
+}
+function portField(_sectionId, value) {
+  return wholeNumberField(1, 65535)(_sectionId, value) === true ? true : message.invalidPort();
+}
+function anyPortField(_sectionId, value) {
+  return wholeNumberField(0, 65535)(_sectionId, value) === true ? true : message.invalidPort();
+}
+function domainField(_sectionId, value) {
+  const text8 = `${value ?? ""}`.trim();
+  const ascii = asciiHostname(text8.toLowerCase());
+  return !text8 || ascii && validAsciiDomain(ascii, false) ? true : message.invalidDomain();
+}
+function hostField(_sectionId, value) {
+  const text8 = `${value ?? ""}`.trim();
+  return !text8 || isIPv4(text8) || isIPv6(text8) || domainField(_sectionId, text8) === true ? true : message.invalidHost();
+}
+function ipv4Field(_sectionId, value) {
+  const text8 = `${value ?? ""}`.trim();
+  return !text8 || isIPv4(text8) ? true : message.invalidIp();
+}
+function ipv6Field(_sectionId, value) {
+  const text8 = `${value ?? ""}`.trim();
+  return !text8 || isIPv6(text8) ? true : message.invalidIp();
+}
+
+// src/forkop/tabs/sections/tunnels/ssh.ts
+var STRINGS = [
+  "server",
+  "user",
+  "password",
+  "private_key",
+  "private_key_path",
+  "private_key_passphrase",
+  "client_version"
+];
+var LISTS = ["host_key", "host_key_algorithms"];
+function sshInitialSettings(outbound) {
+  const settings = {};
+  STRINGS.forEach((key) => {
+    settings[`ssh_${key}`] = `${outbound[key] ?? ""}`;
+  });
+  LISTS.forEach((key) => {
+    settings[`ssh_${key}`] = normalizeOptionValues(outbound[key]);
+  });
+  settings.ssh_server_port = `${outbound.server_port ?? 22}`;
+  settings.ssh_user || (settings.ssh_user = "root");
+  return settings;
+}
+function sshOutbound(settings) {
+  const outbound = { type: "ssh" };
+  STRINGS.forEach((key) => {
+    const value = `${settings[`ssh_${key}`] ?? ""}`;
+    if (value)
+      outbound[key] = [
+        "server",
+        "user",
+        "private_key_path",
+        "client_version"
+      ].includes(key) ? value.trim() : value;
+  });
+  outbound.user || (outbound.user = "root");
+  outbound.server_port = Number(
+    `${settings.ssh_server_port ?? ""}`.trim() || 22
+  );
+  LISTS.forEach((key) => {
+    const values = normalizeOptionValues(settings[`ssh_${key}`]);
+    if (values.length) outbound[key] = values;
+  });
+  return outbound;
+}
+function validateSSHSettings(settings) {
+  if (!`${settings.ssh_server || ""}`.trim()) return message.fixSettings();
+  const host = hostField("", settings.ssh_server);
+  return host === true ? portField("", settings.ssh_server_port) : host;
+}
+
 // src/helpers/material.ts
 var PRIVATE_KEY_LABELS = ["PRIVATE KEY", "RSA PRIVATE KEY", "EC PRIVATE KEY"];
 function isRouterPath(value) {
@@ -22372,7 +22455,7 @@ function validateConnectionUriCore(link) {
   );
 }
 function tunnelKindCoreFeature(kind) {
-  return kind === "json" ? "" : coreFeatureOfType(kind, ["endpoint"]);
+  return kind === "json" ? "" : coreFeatureOfType(kind, [kind === "ssh" ? "outbound" : "endpoint"]);
 }
 function tunnelKindAvailable(kind) {
   if (kind === "json") {
@@ -22444,6 +22527,7 @@ function tunnelPeerIds(tunnelId) {
 function tunnelKindLabel(kind, endpointType) {
   if (kind === "openvpn-client") return "OpenVPN";
   if (kind === "openconnect") return "OpenConnect";
+  if (kind === "ssh") return "SSH";
   if (kind === "phobos") return "Phobos";
   return kind === "amneziawg" ? "AmneziaWG" : kind === "warp" ? "WARP" : kind === "tailscale" ? "Tailscale" : kind === "json" ? endpointType || _("JSON endpoint") : "WireGuard";
 }
@@ -22479,15 +22563,17 @@ var CASCADE_TUNNEL_KINDS = [
   "amneziawg",
   "warp",
   "openvpn-client",
-  "openconnect"
+  "openconnect",
+  "ssh"
 ];
 var SERVER_DNS_TUNNEL_KINDS = [
   "openconnect",
   "openvpn-client",
   "tailscale"
 ];
-var NATIVE_ENDPOINT_KINDS = ["openvpn-client", "openconnect"];
+var NATIVE_ENDPOINT_KINDS = ["openvpn-client", "openconnect", "ssh"];
 var STORED_KINDS = [
+  "ssh",
   "phobos",
   "openvpn-client",
   "openconnect",
@@ -22507,6 +22593,7 @@ function tunnelInitialSettings(value, sectionId) {
   const settings = {
     ...kind === "openvpn-client" ? openVPNInitialSettings(endpoint) : {},
     ...kind === "openconnect" ? openConnectInitialSettings(endpoint) : {},
+    ...kind === "ssh" ? sshInitialSettings(endpoint) : {},
     name: kind === "json" ? `${endpoint.tag || ""}` : `${tunnel.name || ""}`,
     tunnel_type: kind,
     amnezia_enabled: amneziaEnabled ? "1" : "0",
@@ -22695,6 +22782,7 @@ function tunnelEndpointFromSettings(settings, tunnelId, peerOption) {
   const kind = `${settings.tunnel_type || ""}`;
   if (kind === "openvpn-client") return openVPNEndpoint(settings);
   if (kind === "openconnect") return openConnectEndpoint(settings);
+  if (kind === "ssh") return sshOutbound(settings);
   if (kind === "json") {
     return parseOutboundJsonObject(settings.endpoint_json);
   }
@@ -25195,6 +25283,35 @@ function validateTailscaleHostname(value) {
   return hostname.length <= 63 && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(hostname) ? true : _("Only a-z, 0-9 and hyphens, up to 63 characters");
 }
 
+// src/forkop/tabs/sections/tunnels/sshForm.ts
+function addSSHOptions(section2) {
+  const add = (type, key, label) => {
+    const option2 = section2.option(type, `ssh_${key}`, label);
+    option2.depends("tunnel_type", "ssh");
+    option2.rmempty = true;
+    return option2;
+  };
+  let o = add(form.Value, "server", _("Server address"));
+  o.validate = required(hostField);
+  o = add(form.Value, "server_port", _("Server port"));
+  o.default = "22";
+  o.validate = portField;
+  o = add(form.Value, "user", _("Username"));
+  o.default = "root";
+  o = add(form.Value, "password", _("Password"));
+  o.password = true;
+  o = add(form.TextValue, "private_key", _("Private key"));
+  o.rows = 5;
+  o.password = true;
+  add(form.Value, "private_key_path", _("Private key path on router"));
+  o = add(form.Value, "private_key_passphrase", _("Private key passphrase"));
+  o.password = true;
+  o = add(form.DynamicList, "host_key", _("SSH host keys"));
+  o.description = _("If empty, any server host key is accepted.");
+  add(form.DynamicList, "host_key_algorithms", _("SSH host key algorithms"));
+  add(form.Value, "client_version", _("SSH client version"));
+}
+
 // src/forkop/cbi/material.ts
 var STYLE_ID3 = "fkp-material-styles";
 function injectMaterialStyles() {
@@ -25345,38 +25462,6 @@ function configureMaterialOption(option2, kind, required2, pair) {
     });
     return textE("div", { class: "fkp-material" }, [frame, load]);
   };
-}
-
-// src/validators/fields.ts
-function wholeNumberField(min, max = Infinity) {
-  return (_sectionId, value) => {
-    const text8 = `${value ?? ""}`.trim();
-    const number4 = Number(text8);
-    return !text8 || /^[0-9]+$/.test(text8) && number4 >= min && number4 <= max ? true : max === Infinity ? _("Whole number from %d").format(min) : message.wholeNumber(min, max);
-  };
-}
-function portField(_sectionId, value) {
-  return wholeNumberField(1, 65535)(_sectionId, value) === true ? true : message.invalidPort();
-}
-function anyPortField(_sectionId, value) {
-  return wholeNumberField(0, 65535)(_sectionId, value) === true ? true : message.invalidPort();
-}
-function domainField(_sectionId, value) {
-  const text8 = `${value ?? ""}`.trim();
-  const ascii = asciiHostname(text8.toLowerCase());
-  return !text8 || ascii && validAsciiDomain(ascii, false) ? true : message.invalidDomain();
-}
-function hostField(_sectionId, value) {
-  const text8 = `${value ?? ""}`.trim();
-  return !text8 || isIPv4(text8) || isIPv6(text8) || domainField(_sectionId, text8) === true ? true : message.invalidHost();
-}
-function ipv4Field(_sectionId, value) {
-  const text8 = `${value ?? ""}`.trim();
-  return !text8 || isIPv4(text8) ? true : message.invalidIp();
-}
-function ipv6Field(_sectionId, value) {
-  const text8 = `${value ?? ""}`.trim();
-  return !text8 || isIPv6(text8) ? true : message.invalidIp();
 }
 
 // src/forkop/tabs/sections/tunnels/openvpnForm.ts
@@ -26522,6 +26607,7 @@ function validateTunnelSettings(settings, tunnelId, peerOption) {
   if (kind !== "json" && !`${settings.name || ""}`.trim()) {
     return message.fixSettings();
   }
+  if (kind === "ssh") return validateSSHSettings(settings);
   if (kind === "openvpn-client") {
     return validateOpenVPNSettings(settings);
   }
@@ -26878,6 +26964,7 @@ var TUNNEL_KINDS = [
   ["tailscale", "Tailscale"],
   ["openvpn-client", "OpenVPN"],
   ["openconnect", "OpenConnect"],
+  ["ssh", "SSH"],
   ["json", _("JSON endpoint")]
 ];
 function availableTunnelKinds() {
@@ -26934,7 +27021,8 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
     "warp",
     "tailscale",
     "openvpn-client",
-    "openconnect"
+    "openconnect",
+    "ssh"
   ].forEach((kind) => o.depends("tunnel_type", kind));
   const importButton = itemSection.option(
     form.Button,
@@ -27068,6 +27156,7 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
     (_itemId, value) => validPhobosObfuscation(parseOutboundJsonObject(value)) ? true : _("Invalid Phobos obfuscation")
   );
   configureTextareaOption(obfuscation);
+  addSSHOptions(itemSection);
   const openvpnOptions = addOpenVPNOptions(itemSection);
   const openconnectOptions = addOpenConnectOptions(itemSection);
   const addressOption = itemSection.option(

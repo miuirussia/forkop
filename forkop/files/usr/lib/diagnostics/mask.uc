@@ -180,6 +180,8 @@ const SING_BOX_MASKED_KEYS = {
     secret: true,
     password: true,
     private_key: true,
+    private_key_path: true,
+    private_key_passphrase: true,
     obfuscation: true,
     // VLESS Encryption: the server's private key and the clients' setting with its public one
     decryption: true,

@@ -258,7 +258,7 @@ function outbound_section(sections, label, target_name) {
 
 // Tailscale reaches its coordination server through a section of its own choosing, and a JSON
 // endpoint names its own detour.
-const CASCADE_TUNNEL_KINDS = { phobos: true, wireguard: true, amneziawg: true, warp: true, "openvpn-client": true, openconnect: true };
+const CASCADE_TUNNEL_KINDS = { ssh: true, phobos: true, wireguard: true, amneziawg: true, warp: true, "openvpn-client": true, openconnect: true };
 
 function tunnel_kind(tunnel) {
     return lc(trim(as_string(option(tunnel, "kind", "wireguard"))));
@@ -765,10 +765,29 @@ function validate_tunnel_values(section) {
 
         if (endpoint_type == "" ||
             (endpoint_type != "phobos" && endpoint_type != "wireguard" && endpoint_type != "amneziawg" && endpoint_type != "warp" && endpoint_type != "tailscale" &&
-                endpoint_type != "openvpn-client" && endpoint_type != "openconnect"))
+                endpoint_type != "openvpn-client" && endpoint_type != "openconnect" && endpoint_type != "ssh"))
             fail_validation(owner + " has an invalid tunnel endpoint");
         if (trim(as_string(connections.option(tunnel, "name", ""))) == "")
             fail_validation("A tunnel in section '" + section_label(section) + "' has no name");
+
+        if (wrapper_kind == "ssh") {
+            if (endpoint_type != "ssh" || type(endpoint.server) != "string" || (!core_ip.valid_ip(endpoint.server) && !valid_hostname(endpoint.server)))
+                fail_validation(owner + " has an invalid SSH server address");
+            if (endpoint.server_port != null && (type(endpoint.server_port) != "int" || endpoint.server_port < 1 || endpoint.server_port > 65535))
+                fail_validation(owner + " has an invalid SSH server port");
+            for (let key in [ "user", "password", "private_key", "private_key_path", "private_key_passphrase", "client_version" ])
+                if (endpoint[key] != null && type(endpoint[key]) != "string")
+                    fail_validation(owner + " has an invalid SSH " + key);
+            for (let key in [ "host_key", "host_key_algorithms" ]) {
+                if (endpoint[key] == null) continue;
+                if (type(endpoint[key]) != "array")
+                    fail_validation(owner + " has an invalid SSH " + key);
+                for (let value in endpoint[key])
+                    if (type(value) != "string" || trim(value) == "")
+                        fail_validation(owner + " has an invalid SSH " + key);
+            }
+            continue;
+        }
 
         if (wrapper_kind == "openconnect") {
             validate_openconnect_endpoint(owner, endpoint);
@@ -1673,7 +1692,7 @@ function validate_core_features(settings, sections, servers, core_tags) {
             let tunnel = connections.tunnel_child(section, tunnel_id);
             let kind = lc(trim(as_string(connections.option(tunnel, "kind", "wireguard"))));
             let endpoint = kind == "json" ? core_common.parse_json(connections.option(tunnel, "endpoint_json", "")) : null;
-            let feature = features.type_feature("endpoint", kind == "json" ? endpoint?.type : kind);
+            let feature = features.type_feature(kind == "ssh" ? "outbound" : "endpoint", kind == "json" ? endpoint?.type : kind);
             if (feature == "")
                 continue;
             let what = kind == "json"

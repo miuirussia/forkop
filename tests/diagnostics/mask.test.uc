@@ -232,4 +232,12 @@ t.test("free text loses URL paths and credentials, the given hosts and public ad
         t.contains(masked, kept);
 });
 
+
+t.test("SSH credentials and key paths are masked in generated outbounds", () => {
+    let masked = mask.sing_box_config({ outbounds: [ { type: "ssh", password: "secret", private_key: "KEY\n",
+        private_key_path: "/etc/ssh/private", private_key_passphrase: "passphrase" } ] });
+    for (let key in [ "password", "private_key", "private_key_path", "private_key_passphrase" ])
+        t.eq(masked.outbounds[0][key], "MASKED", key);
+});
+
 t.done();

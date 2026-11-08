@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-07 21:20+0300\n"
-"PO-Revision-Date: 2026-11-07 21:20+0300\n"
+"POT-Creation-Date: 2026-11-08 12:27+0300\n"
+"PO-Revision-Date: 2026-11-08 12:27+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -1624,6 +1624,10 @@ msgstr ""
 msgid "Idle timeout"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
+msgid "If empty, any server host key is accepted."
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "ifconfig and ifconfig-ipv6 in the profile"
 msgstr ""
@@ -1810,6 +1814,7 @@ msgstr ""
 msgid "Invalid Phobos link"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/validate.ts
 msgid "Invalid Phobos obfuscation"
 msgstr ""
@@ -2561,6 +2566,7 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
 #: fe-app-forkop/src/forkop/tabs/servers/clients.ts
 msgid "Password"
 msgstr ""
@@ -2686,8 +2692,17 @@ msgid "Prefixes: full:, keyword:, regex:"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
 #: fe-app-forkop/src/forkop/tabs/servers/form/security.ts
 msgid "Private key"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
+msgid "Private key passphrase"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
+msgid "Private key path on router"
 msgstr ""
 
 #: fe-app-forkop/src/validators/validateProxyUrl.ts
@@ -3048,6 +3063,7 @@ msgid "server %s"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
 msgid "Server address"
 msgstr ""
 
@@ -3114,6 +3130,7 @@ msgid "Server parameters"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
 msgid "Server port"
 msgstr ""
 
@@ -3270,6 +3287,18 @@ msgstr ""
 
 #: fe-app-forkop/src/helpers/parseOpenConnectConfig.ts
 msgid "Spaces are not allowed"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
+msgid "SSH client version"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
+msgid "SSH host key algorithms"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
+msgid "SSH host keys"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -3907,6 +3936,7 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
 msgid "Username"
 msgstr ""
 

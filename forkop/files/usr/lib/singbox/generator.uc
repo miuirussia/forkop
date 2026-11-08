@@ -1162,14 +1162,14 @@ function add_connection_tunnels(config, section, selector_tags, urltest_candidat
         let wrapper_kind = lc(as_string(connections.option(tunnel, "kind", "wireguard")));
         if (wrapper_kind != "json" &&
             (endpoint_type != "phobos" && endpoint_type != "wireguard" && endpoint_type != "amneziawg" && endpoint_type != "warp" && endpoint_type != "tailscale" &&
-                endpoint_type != "openvpn-client" && endpoint_type != "openconnect"))
+                endpoint_type != "openvpn-client" && endpoint_type != "openconnect" && endpoint_type != "ssh"))
             runtime_generate_unsupported("tunnel " + (i + 1) + " has an unsupported endpoint type");
 
         let tag_name = child_outbound_tag(section, connections.tunnel_display_name(tunnel, i + 1));
         endpoint.tag = tag_name;
 
         if (wrapper_kind != "json" && (endpoint_type == "phobos" || endpoint_type == "wireguard" || endpoint_type == "amneziawg" || endpoint_type == "warp" ||
-            endpoint_type == "openvpn-client" || endpoint_type == "openconnect")) {
+            endpoint_type == "openvpn-client" || endpoint_type == "openconnect" || endpoint_type == "ssh")) {
             let detour = cascade_tag(tunnel);
             if (detour != "")
                 endpoint.detour = detour;
@@ -1193,7 +1193,7 @@ function add_connection_tunnels(config, section, selector_tags, urltest_candidat
                 endpoint.exit_node_allow_lan_access = true;
         }
 
-        push(config.endpoints, endpoint);
+        push(wrapper_kind == "ssh" ? config.outbounds : config.endpoints, endpoint);
         push(selector_tags, tag_name);
         push(urltest_candidate_tags, tag_name);
 

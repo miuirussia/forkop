@@ -144,4 +144,12 @@ t.test("requesting WARP profiles through a section needs WARP", () => {
         "Requesting WARP profiles through a section is on, but this sing-box build lacks WireGuard, AmneziaWG and WARP (built without with_wireguard)");
 });
 
+
+t.test("an SSH tunnel needs with_ssh and does not need gVisor", () => {
+    let data = { section: [ section() ], tunnel: [ { ".name": "ssh", section: "proxy", kind: "ssh", name: "SSH",
+        endpoint_json: '{"type":"ssh","server":"ssh.example.com"}' } ] };
+    v.refuses(data, "built without with_ssh", { core_tags: BASE });
+    v.accepts(data, { core_tags: [ "with_clash_api", "with_ssh" ] });
+});
+
 t.done();

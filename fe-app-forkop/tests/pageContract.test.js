@@ -253,6 +253,7 @@ describe('a password field', () => {
         continue;
       }
       const kinds = {
+        ssh: {},
         wireguard: {},
         amneziawg: {},
         warp: {},

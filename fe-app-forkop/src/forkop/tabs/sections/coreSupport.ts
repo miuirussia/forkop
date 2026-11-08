@@ -47,7 +47,9 @@ export function validateConnectionUriCore(link: string) {
 }
 
 function tunnelKindCoreFeature(kind: string) {
-  return kind === 'json' ? '' : coreFeatureOfType(kind, ['endpoint']);
+  return kind === 'json'
+    ? ''
+    : coreFeatureOfType(kind, [kind === 'ssh' ? 'outbound' : 'endpoint']);
 }
 
 // A JSON endpoint is one of the endpoint types the core builds, so it needs the core to build one.

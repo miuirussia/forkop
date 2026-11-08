@@ -35,6 +35,7 @@ import { JSON_ENDPOINT_PLACEHOLDER } from '../constants';
 import { tunnelCoreFeature, tunnelKindAvailable } from '../coreSupport';
 import { missingCoreFeatureNote } from '../../../services/coreFeatures.service';
 import { parseOutboundJsonObject } from '../outboundJson';
+import { addSSHOptions } from './sshForm';
 import { addOpenVPNOptions, applyImportedOpenVPN } from './openvpnForm';
 import { keepWarpGenerateButtonCurrent } from './warpGenerate';
 import {
@@ -385,6 +386,7 @@ const TUNNEL_KINDS = [
   ['tailscale', 'Tailscale'],
   ['openvpn-client', 'OpenVPN'],
   ['openconnect', 'OpenConnect'],
+  ['ssh', 'SSH'],
   ['json', _('JSON endpoint')],
 ];
 
@@ -463,6 +465,7 @@ export function showTunnelSettingsModal(
     'tailscale',
     'openvpn-client',
     'openconnect',
+    'ssh',
   ].forEach((kind: string) => o.depends('tunnel_type', kind));
 
   const importButton = itemSection.option(
@@ -621,6 +624,7 @@ export function showTunnelSettingsModal(
   );
   configureTextareaOption(obfuscation);
 
+  addSSHOptions(itemSection);
   const openvpnOptions = addOpenVPNOptions(itemSection);
   const openconnectOptions = addOpenConnectOptions(itemSection);
 

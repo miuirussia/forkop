@@ -29,7 +29,7 @@ sh <(wget -O - https://raw.githubusercontent.com/miuirussia/forkop/main/install.
 - **Секции** для точечной маршрутизации трафика по правилам и спискам.
 - **Подключения** по ссылкам VLESS, Trojan, Shadowsocks, Hysteria2 и другим.
 - **Подписки** с поддержкой всех основных форматов.
-- **Туннели** WireGuard, AmneziaWG, Cloudflare WARP, OpenVPN и Tailscale.
+- **Туннели** WireGuard, AmneziaWG, Cloudflare WARP, OpenVPN, Tailscale и SSH.
 - **URLTest и Fallback** сами выбирают рабочий сервер.
 - **DNS** с шифрованием и DNS Fallback.
 - **VPN-сервер** на самом роутере.
