@@ -16988,6 +16988,30 @@ ${PartialStyles}
     font-weight: normal;
 }
 
+/* LuCI renders dropdown entries as flex rows, including their helper text. */
+.cbi-dropdown > ul > li.fkp-builtin-list-unavailable {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.2em;
+    white-space: normal;
+}
+
+.cbi-dynlist .cbi-dropdown[open] > ul.dropdown > li[aria-disabled="true"] {
+    color: var(--text-color-medium, #888);
+    background: transparent;
+    opacity: 1;
+}
+
+.cbi-dropdown > ul > li > .fkp-builtin-list-refusal {
+    display: block;
+    min-width: 0;
+    color: inherit;
+    font-size: 0.8em;
+    line-height: 1.4;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 .fkp_page-status {
     margin-left: 0.4em;
     white-space: nowrap;
@@ -24932,17 +24956,11 @@ function refuseHeldBuiltinLists(dl) {
       item.toggleAttribute("unselectable", disabled);
       item.setAttribute("aria-disabled", String(disabled));
       item.style.cursor = disabled ? "not-allowed" : "";
+      item.classList.toggle("fkp-builtin-list-unavailable", refusal != null);
       item.querySelector(".fkp-builtin-list-refusal")?.remove();
       if (refusal) {
         item.appendChild(
-          textE(
-            "small",
-            {
-              class: "fkp-builtin-list-refusal",
-              style: "display: block; white-space: normal; line-height: 1.4"
-            },
-            refusal
-          )
+          textE("small", { class: "fkp-builtin-list-refusal" }, refusal)
         );
       }
     });

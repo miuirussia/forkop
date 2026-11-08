@@ -14,6 +14,7 @@ INSTALL_COMMAND, when set, goes into release.json as install_command: the releas
 only with that command, and the Components tab shows it instead of installing the release.
 
 SDK downloads from downloads.openwrt.org are speed-tested against mirrors automatically.
+When available, aria2c downloads SDKs using up to eight connections across the mirrors.
 IPK_SDK_URL and APK_SDK_URL can point to custom SDK URLs, downloaded directly.
 EOF
 }
@@ -114,6 +115,10 @@ sdk_download_sources() {
       "https://ftp.halifax.rwth-aachen.de/openwrt/$relative_path"
       "https://mirrors.ustc.edu.cn/openwrt/$relative_path"
       "https://mirror2.mirror.garr.it/mirrors/openwrt/$relative_path"
+      "https://mirror-03.infra.openwrt.org/$relative_path"
+      "https://openwrt.tetaneutral.net/$relative_path"
+      "https://mirror.sjtu.edu.cn/openwrt/$relative_path"
+      "https://mirrors.nkn.in/openwrt/$relative_path"
     )
   else
     printf '%s\n' "$url"
@@ -135,9 +140,12 @@ sdk_download_sources() {
             printf "  %.0f KiB/s: %s\n", $3 / 1024, url > "/dev/stderr"
             printf "%.0f %s\n", $3, url
           }' <<< "$stats"
-        elif [[ "$candidate" == "$url" ]]; then
-          # Keep the original URL as a fallback even when its probe fails.
-          printf '0 %s\n' "$candidate"
+        else
+          printf '  Probe failed (curl=%s, HTTP/bytes/speed=%s): %s\n' "$status" "$stats" "$candidate" >&2
+          if [[ "$candidate" == "$url" ]]; then
+            # Keep the original URL as a fallback even when its probe fails.
+            printf '0 %s\n' "$candidate"
+          fi
         fi
       ) &
     done
@@ -149,10 +157,30 @@ download_sdk_archive() {
   local url="$1"
   local archive_path="$SDK_CACHE_DIR/$(basename "$url")"
   local source_url
+  local sources=()
 
   mkdir -p "$SDK_CACHE_DIR"
   if [[ ! -f "$archive_path" ]]; then
     while IFS= read -r source_url; do
+      sources+=("$source_url")
+    done < <(sdk_download_sources "$url")
+
+    if command -v aria2c >/dev/null 2>&1; then
+      echo "Downloading SDK with aria2c: $(basename "$url")" >&2
+      if aria2c --no-conf=true --split=8 --max-connection-per-server=4 --min-split-size=4M \
+        --uri-selector=inorder --file-allocation=none --auto-file-renaming=false \
+        --allow-overwrite=true --continue=true --connect-timeout=10 --timeout=30 \
+        --lowest-speed-limit=64K --max-tries=2 --retry-wait=2 --summary-interval=10 \
+        --dir="$SDK_CACHE_DIR" --out="$(basename "$archive_path").part" "${sources[@]}" >&2; then
+        mv "$archive_path.part" "$archive_path" || return 1
+        printf '%s\n' "$archive_path"
+        return 0
+      fi
+      echo "aria2c download failed, trying sources with curl" >&2
+      rm -f "$archive_path.part.aria2"
+    fi
+
+    for source_url in "${sources[@]}"; do
       echo "Downloading SDK: $source_url" >&2
       if curl --fail --location --retry 3 --connect-timeout 10 \
         --speed-limit 1024 --speed-time 30 --output "$archive_path.part" "$source_url"; then
@@ -161,7 +189,7 @@ download_sdk_archive() {
         return 0
       fi
       echo "SDK download failed, trying the next source" >&2
-    done < <(sdk_download_sources "$url")
+    done
     rm -f "$archive_path.part"
     echo "Cannot download SDK: $url" >&2
     return 1

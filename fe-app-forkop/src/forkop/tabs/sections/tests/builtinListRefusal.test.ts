@@ -56,6 +56,7 @@ function builtinDropdown(selected: string[]) {
     return {
       value,
       style: { cursor: '' },
+      classList: { toggle: vi.fn() },
       getAttribute: (name: string) => attributes.get(name) ?? null,
       setAttribute: (name: string, text: string) => attributes.set(name, text),
       toggleAttribute(name: string, enabled: boolean) {

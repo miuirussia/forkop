@@ -168,17 +168,11 @@ export function refuseHeldBuiltinLists(dl: HTMLElement) {
       item.toggleAttribute('unselectable', disabled);
       item.setAttribute('aria-disabled', String(disabled));
       item.style.cursor = disabled ? 'not-allowed' : '';
+      item.classList.toggle('fkp-builtin-list-unavailable', refusal != null);
       item.querySelector('.fkp-builtin-list-refusal')?.remove();
       if (refusal) {
         item.appendChild(
-          E(
-            'small',
-            {
-              class: 'fkp-builtin-list-refusal',
-              style: 'display: block; white-space: normal; line-height: 1.4',
-            },
-            refusal,
-          ),
+          E('small', { class: 'fkp-builtin-list-refusal' }, refusal),
         );
       }
     });
