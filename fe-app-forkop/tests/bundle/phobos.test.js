@@ -151,3 +151,111 @@ describe('Phobos pasted in Connection URI', () => {
     });
   });
 });
+
+async function openSavedLink(link = uri) {
+  const { h, links } = setup();
+  h.uci.add('forkop', 'connection_link', 'saved');
+  const stored = h.store.get('saved');
+  Object.assign(stored, { section: 'sec', name: 'work', uri: link });
+  const dialog = await h.openDialog(links, 'sec', 'saved');
+  const fields = Object.fromEntries(
+    dialog.map.children[0].children.map((field) => [field.option, field]),
+  );
+  for (const name of ['uri', 'phobos_masking']) {
+    const field = fields[name];
+    let value = field.cfgvalue('settings');
+    field.formvalue = () => value;
+    field.getUIElement = () => ({
+      setValue: (next) => (value = next),
+      triggerValidation() {},
+    });
+  }
+  const change = (name, value) => {
+    fields[name].getUIElement().setValue(value);
+    fields[name].onchange(null, 'settings', value);
+  };
+  return { h, links, stored, dialog, fields, change };
+}
+
+describe('Phobos saved as a connection link', () => {
+  it.each(['STUN', 'MEDIA', 'AUTO', 'NONE'])(
+    'shows, saves and reopens %s masking in the server dialog',
+    async (mode) => {
+      const { h, links, stored, dialog, fields, change } =
+        await openSavedLink();
+      expect(fields.phobos_masking.isActive('settings')).toBe(true);
+      expect(fields.phobos_masking.keylist).toEqual([
+        '',
+        'STUN',
+        'MEDIA',
+        'AUTO',
+        'NONE',
+      ]);
+      change('phobos_masking', mode);
+      expect(await dialog.save()).toEqual({ saved: true });
+      expect(stored.uri.endsWith('#Home')).toBe(true);
+      expect(
+        Buffer.from(stored.uri.slice(9).split('#')[0], 'base64url').toString(),
+      ).toBe(config.replace('[instance]', `[instance]\nmasking = ${mode}`));
+      expect(stored).not.toHaveProperty('phobos_masking');
+      const reopened = await h.openDialog(links, 'sec', 'saved');
+      expect(
+        reopened.map.children[0].children
+          .find((field) => field.option === 'phobos_masking')
+          .cfgvalue('settings'),
+      ).toBe(mode);
+    },
+  );
+
+  it('preserves an unchanged URI and reads its masking', async () => {
+    const link = `phobos://${Buffer.from(`${config}masking = media\n`).toString('base64url')}#work`;
+    const { h, stored, dialog, fields } = await openSavedLink(link);
+    expect(fields.phobos_masking.formvalue()).toBe('MEDIA');
+    h.operations.length = 0;
+    expect(await dialog.save()).toEqual({ saved: true });
+    expect(stored.uri).toBe(link);
+    expect(h.operations).toEqual([]);
+  });
+
+  it.each(['', 'MEDIA'])(
+    'saves a manually restored URI with original masking %j',
+    async (mode) => {
+      const source = mode ? `${config}masking = ${mode}\n` : config;
+      const original = `phobos://${Buffer.from(source).toString('base64url')}#Home`;
+      const { h, stored, dialog, fields, change } =
+        await openSavedLink(original);
+      h.operations.length = 0;
+
+      change('phobos_masking', 'NONE');
+      expect(fields.uri.formvalue()).not.toBe(original);
+      change('uri', original);
+      expect(fields.phobos_masking.formvalue()).toBe(mode);
+
+      expect(await dialog.save()).toEqual({ saved: true });
+      expect(stored.uri).toBe(original);
+      expect(h.operations).toEqual([]);
+    },
+  );
+
+  it('follows edited URIs and removes masking when Default is selected', async () => {
+    const { stored, dialog, fields, change } = await openSavedLink();
+    change(
+      'uri',
+      `phobos://${Buffer.from(`${config}masking = STUN\n`).toString('base64url')}#Changed`,
+    );
+    expect(fields.phobos_masking.formvalue()).toBe('STUN');
+    change('phobos_masking', '');
+    expect(await dialog.save()).toEqual({ saved: true });
+    expect(stored.uri).toBe(
+      `phobos://${Buffer.from(config).toString('base64url')}#Changed`,
+    );
+  });
+
+  it('hides masking for other connection protocols', async () => {
+    const link = 'socks5://127.0.0.1:1080#proxy';
+    const { stored, dialog, fields } = await openSavedLink(link);
+    expect(fields.phobos_masking.isActive('settings')).toBe(false);
+    expect(await dialog.save()).toEqual({ saved: true });
+    expect(stored.uri).toBe(link);
+  });
+});

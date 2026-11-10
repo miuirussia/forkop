@@ -1,4 +1,7 @@
-import { validPhobosObfuscation } from '../../../../helpers/parseWireGuardConfig';
+import {
+  PHOBOS_MASKING_MODES,
+  validPhobosObfuscation,
+} from '../../../../helpers/parseWireGuardConfig';
 import {
   FORKOP_UCI_PACKAGE,
   TAILSCALE_CONTROL_URL,
@@ -620,8 +623,9 @@ export function showTunnelSettingsModal(
   );
   masking.depends('tunnel_type', 'phobos');
   masking.value('', _('Default'));
-  ['STUN', 'MEDIA', 'AUTO'].forEach((mode) => masking.value(mode, mode));
-  masking.value('NONE', _('None'));
+  PHOBOS_MASKING_MODES.forEach((mode) =>
+    masking.value(mode, mode === 'NONE' ? _('None') : mode),
+  );
 
   const obfuscation = itemSection.option(
     form.TextValue,

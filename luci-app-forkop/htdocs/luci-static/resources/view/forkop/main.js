@@ -17386,8 +17386,7 @@ function readSections(input) {
   }
   return sections;
 }
-function readConfigFile(input) {
-  const sections = readSections(input);
+function readConfigSections(sections) {
   if (!sections) return { message: _("Invalid WireGuard configuration") };
   const iface = sections.find((section2) => section2.name === "interface");
   const peers = sections.filter((section2) => section2.name === "peer");
@@ -17554,7 +17553,7 @@ function parseWireGuardConfig(input) {
   const value = `${input || ""}`.trim();
   const link = readShareLink(value);
   if (link) return buildEndpoint(link);
-  const source = readConfigFile(value);
+  const source = readConfigSections(readSections(value));
   return "message" in source ? { valid: false, message: source.message } : buildEndpoint(source);
 }
 function isRecord(value) {
@@ -17651,6 +17650,12 @@ async function parseWireGuardInput(input) {
     };
   }
 }
+var PHOBOS_MASKING_MODES = [
+  "STUN",
+  "MEDIA",
+  "AUTO",
+  "NONE"
+];
 var PHOBOS_LIMITS = {
   max_dummy: 1024,
   obfuscate_bytes: 2147483647,
@@ -17661,17 +17666,21 @@ var PHOBOS_LIMITS = {
 function validPhobosObfuscation(value) {
   if (!isRecord(value) || typeof value.key !== "string") return false;
   const size = new TextEncoder().encode(value.key).length;
-  return size >= 1 && size <= 255 && !value.key.includes("\0") && (value.masking === void 0 || ["STUN", "MEDIA", "AUTO", "NONE"].includes(String(value.masking))) && Object.entries(value).every(
+  return size >= 1 && size <= 255 && !value.key.includes("\0") && (value.masking === void 0 || PHOBOS_MASKING_MODES.includes(String(value.masking))) && Object.entries(value).every(
     ([key, item]) => key === "key" || key === "masking" || key in PHOBOS_LIMITS && typeof item === "number" && Number.isInteger(item) && item >= 0 && item <= PHOBOS_LIMITS[key]
   );
 }
-function parsePhobosLink(input) {
+function readPhobosLink(input) {
   const invalid = { valid: false, message: _("Invalid Phobos link") };
   try {
-    const match = /^phobos:\/\/([A-Za-z0-9_-]+)(?:#.*)?$/iu.exec(input.trim());
+    const match = /^(phobos:\/\/)([A-Za-z0-9_-]+)(#.*)?$/iu.exec(input.trim());
     if (!match) return invalid;
-    const text8 = new TextDecoder("utf-8", { fatal: true }).decode(decodeBase64Url(match[1])).replace(/^[ \t]*[A-Za-z0-9_-]+[ \t]*=[ \t]*none[ \t]*$/gmu, "");
-    const sections = readSections(text8);
+    const text8 = new TextDecoder("utf-8", { fatal: true }).decode(
+      decodeBase64Url(match[2])
+    );
+    const sections = readSections(
+      text8.replace(/^[ \t]*[A-Za-z0-9_-]+[ \t]*=[ \t]*none[ \t]*$/gmu, "")
+    );
     const instances = sections?.filter(
       (section2) => section2.name === "instance"
     );
@@ -17688,7 +17697,7 @@ function parsePhobosLink(input) {
     if (role && role !== "client") return invalid;
     const target2 = firstValue(instance, "target");
     if (!/^(?:\[[^\]]+\]|[^:\s]+):[0-9]+$/u.test(target2)) return invalid;
-    const source = readConfigFile(text8);
+    const source = readConfigSections(sections);
     if ("message" in source || source.peers.length !== 1) return invalid;
     source.peers[0].endpoint = [target2];
     delete source.iface.listenport;
@@ -17710,11 +17719,45 @@ function parsePhobosLink(input) {
     if (!validPhobosObfuscation(obfuscation)) return invalid;
     return {
       valid: true,
-      endpoint: { ...parsed.endpoint, type: "phobos", obfuscation }
+      endpoint: { ...parsed.endpoint, type: "phobos", obfuscation },
+      text: text8,
+      scheme: match[1],
+      fragment: match[3] || ""
     };
   } catch {
     return invalid;
   }
+}
+function parsePhobosLink(input) {
+  const parsed = readPhobosLink(input);
+  return parsed.valid ? { valid: true, endpoint: parsed.endpoint } : parsed;
+}
+function withPhobosLinkMasking(input, masking) {
+  const parsed = readPhobosLink(input);
+  if (!parsed.valid) throw new TypeError(parsed.message);
+  if (masking && !PHOBOS_MASKING_MODES.includes(masking))
+    throw new TypeError(_("Invalid Phobos obfuscation"));
+  if ((parsed.endpoint.obfuscation.masking || "") === masking) return input;
+  const { text: text8 } = parsed;
+  const newline = text8.includes("\r\n") ? "\r\n" : "\n";
+  let inInstance = false;
+  const lines3 = [];
+  for (const rawLine of text8.split(/\r?\n/u)) {
+    const line = rawLine.replace(/^\uFEFF/u, "").replace(/#.*$/u, "").trim();
+    const header = /^\[([^\]]+)\]$/u.exec(line);
+    if (header) {
+      inInstance = header[1].trim().toLowerCase() === "instance";
+      lines3.push(rawLine);
+      if (inInstance && masking) lines3.push(`masking = ${masking}`);
+    } else if (!inInstance || canonicalField(line.split("=")[0]) !== "masking") {
+      lines3.push(rawLine);
+    }
+  }
+  const bytes = new TextEncoder().encode(lines3.join(newline));
+  const payload = btoa(
+    Array.from(bytes, (byte) => String.fromCharCode(byte)).join("")
+  ).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+  return `${parsed.scheme}${payload}${parsed.fragment}`;
 }
 
 // src/forkop/cbi/listItems.ts
@@ -21740,7 +21783,7 @@ function configOption(line) {
   if (!match || !(match[1] in OPTION_ARGUMENTS)) return void 0;
   return { name: match[1], value: `${match[2] ?? ""}` };
 }
-function readConfigFile2(state, input) {
+function readConfigFile(state, input) {
   input.split(/\r?\n/).forEach((line) => {
     const option2 = configOption(line);
     if (option2 === void 0) {
@@ -22103,7 +22146,7 @@ function buildEndpoint3(input, files) {
       readCommandLine(state, input);
       break;
     case "config":
-      readConfigFile2(state, input);
+      readConfigFile(state, input);
       break;
     case "networkmanager":
       readNetworkManager(state, input);
@@ -24866,7 +24909,7 @@ function showConnectionLinkSettingsModal(sectionId, itemValue, option2, widget, 
     itemNode,
     defaults: (inputValue) => ({ uri: inputValue, name }),
     addOptions: (itemSection) => {
-      let o = itemSection.option(form.Value, "name", _("Server name"));
+      const o = itemSection.option(form.Value, "name", _("Server name"));
       o.write = writeTrimmed;
       o.validate = required(function(_itemId, value) {
         return validateSectionChildListName(
@@ -24877,10 +24920,51 @@ function showConnectionLinkSettingsModal(sectionId, itemValue, option2, widget, 
           value
         );
       });
-      o = itemSection.option(form.Value, "uri", _("Connection URI"));
-      o.password = true;
-      o.write = writeTrimmed;
-      o.validate = required((_itemId, value) => validateConnectionLink(value));
+      const uri = itemSection.option(form.Value, "uri", _("Connection URI"));
+      uri.password = true;
+      uri.forcewrite = true;
+      uri.write = writeTrimmed;
+      uri.validate = required(
+        (_itemId, value) => validateConnectionLink(value)
+      );
+      const masking = itemSection.option(
+        form.ListValue,
+        "phobos_masking",
+        _("Masking type")
+      );
+      masking.depends("uri", /^\s*phobos:\/\//iu);
+      masking.value("", _("Default"));
+      PHOBOS_MASKING_MODES.forEach(
+        (mode) => masking.value(mode, mode === "NONE" ? _("None") : mode)
+      );
+      masking.load = function(itemId) {
+        const parsed = parsePhobosLink(
+          `${this.map.data.get(this.map.config, itemId, "uri") || ""}`
+        );
+        return parsed.valid ? parsed.endpoint.obfuscation.masking || "" : "";
+      };
+      masking.write = function() {
+      };
+      masking.remove = function() {
+      };
+      masking.onchange = (_event, itemId, value) => {
+        const link = `${uri.formvalue(itemId) || ""}`;
+        let updated;
+        try {
+          updated = withPhobosLinkMasking(link, `${value || ""}`);
+        } catch {
+          return;
+        }
+        setModalOptionValue(itemSection.map, uri, updated);
+      };
+      uri.onchange = (_event, _itemId, value) => {
+        const parsed = parsePhobosLink(`${value || ""}`);
+        setModalOptionValue(
+          itemSection.map,
+          masking,
+          parsed.valid ? parsed.endpoint.obfuscation.masking || "" : ""
+        );
+      };
       addCascadeOptions(
         itemSection,
         () => sectionId,
@@ -27498,8 +27582,9 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
   );
   masking.depends("tunnel_type", "phobos");
   masking.value("", _("Default"));
-  ["STUN", "MEDIA", "AUTO"].forEach((mode) => masking.value(mode, mode));
-  masking.value("NONE", _("None"));
+  PHOBOS_MASKING_MODES.forEach(
+    (mode) => masking.value(mode, mode === "NONE" ? _("None") : mode)
+  );
   const obfuscation = itemSection.option(
     form.TextValue,
     "phobos_obfuscation",

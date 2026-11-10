@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parsePhobosLink,
   validPhobosObfuscation,
+  withPhobosLinkMasking,
 } from '../parseWireGuardConfig';
 const conf = `[Interface]
 PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -91,5 +92,71 @@ describe('Phobos WireGuard import', () => {
       false,
     );
     expect(validPhobosObfuscation({ key: 'key', max_dummy: 0 })).toBe(true);
+  });
+});
+
+describe('Phobos link masking updates', () => {
+  it('preserves none placeholders and comments when masking changes', () => {
+    const source = conf
+      .replace('MTU = 1280', 'MTU = none')
+      .replace('max-dummy = 0', 'max-dummy = none')
+      .replace('[instance]', '[instance] # obfuscation');
+    const updated = withPhobosLinkMasking(link(source), 'STUN');
+    const payload = updated.slice('phobos://'.length).split('#')[0];
+    const text = new TextDecoder().decode(
+      Uint8Array.from(
+        atob(payload.replaceAll('-', '+').replaceAll('_', '/')),
+        (character) => character.charCodeAt(0),
+      ),
+    );
+    expect(text).toBe(
+      source
+        .replace(
+          '[instance] # obfuscation\n',
+          '[instance] # obfuscation\nmasking = STUN\n',
+        )
+        .replace('masking = MEDIA\n', ''),
+    );
+    const parsed = parsePhobosLink(updated);
+    expect(parsed.valid && parsed.endpoint.obfuscation.masking).toBe('STUN');
+  });
+
+  it('only replaces masking in instance, preserving UTF-8, CRLF and the fragment', () => {
+    const source = conf
+      .replace('key = test-key', 'key = секрет')
+      .replace('[Peer]', 'masking = interface-value\n[Peer]')
+      .replace('masking = MEDIA', 'Masking = MEDIA\nmasking = AUTO')
+      .concat('[extra]\nmasking = extra-value\n')
+      .replaceAll('\n', '\r\n');
+    const updated = withPhobosLinkMasking(link(source), 'NONE');
+    const [, payload, fragment] = /^phobos:\/\/([^#]+)(#.*)$/u.exec(updated)!;
+    const text = new TextDecoder().decode(
+      Uint8Array.from(
+        atob(payload.replaceAll('-', '+').replaceAll('_', '/')),
+        (character) => character.charCodeAt(0),
+      ),
+    );
+    expect(text).toBe(
+      source
+        .replace('[instance]\r\n', '[instance]\r\nmasking = NONE\r\n')
+        .replace('Masking = MEDIA\r\nmasking = AUTO\r\n', ''),
+    );
+    expect(fragment).toBe('#%D0%A3%D0%B7%D0%B5%D0%BB');
+    const parsed = parsePhobosLink(updated);
+    expect(parsed.valid && parsed.endpoint.obfuscation).toMatchObject({
+      key: 'секрет',
+      masking: 'NONE',
+      media_ssrc: 305419896,
+    });
+  });
+
+  it('does not re-encode the same selection or accept invalid input', () => {
+    expect(withPhobosLinkMasking(link(conf), 'MEDIA')).toBe(link(conf));
+    expect(() => withPhobosLinkMasking('phobos://!', 'MEDIA')).toThrow(
+      'Invalid Phobos link',
+    );
+    expect(() => withPhobosLinkMasking(link(conf), 'TLS')).toThrow(
+      'Invalid Phobos obfuscation',
+    );
   });
 });

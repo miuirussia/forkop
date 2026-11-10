@@ -1,4 +1,8 @@
-import { parsePhobosLink } from '../../../helpers/parseWireGuardConfig';
+import {
+  PHOBOS_MASKING_MODES,
+  parsePhobosLink,
+  withPhobosLinkMasking,
+} from '../../../helpers/parseWireGuardConfig';
 import { validateCoreFeature } from '../../services/coreFeatures.service';
 import { FORKOP_UCI_PACKAGE } from '../../../constants';
 import { getProxyUrlName } from '../../../helpers/getProxyUrlName';
@@ -6,7 +10,10 @@ import { nextNumberedName } from '../../../helpers/nextNumberedName';
 import { validateProxyUrl } from '../../../validators/validateProxyUrl';
 import { getChildItemIds, isExistingChildItem } from '../../cbi/childItems';
 import { updateDynamicListItemLabel } from '../../cbi/listItems';
-import { showChildItemSettingsModal } from '../../cbi/modal';
+import {
+  setModalOptionValue,
+  showChildItemSettingsModal,
+} from '../../cbi/modal';
 import { required } from '../../cbi/required';
 import { E } from '../../../helpers/element';
 import { addCascadeOptions } from './cascade';
@@ -108,7 +115,7 @@ export function showConnectionLinkSettingsModal(
     itemNode,
     defaults: (inputValue: string) => ({ uri: inputValue, name }),
     addOptions: (itemSection: CBISection) => {
-      let o = itemSection.option(form.Value, 'name', _('Server name'));
+      const o = itemSection.option(form.Value, 'name', _('Server name'));
       o.write = writeTrimmed;
       o.validate = required(function (_itemId, value) {
         return validateSectionChildListName(
@@ -120,11 +127,53 @@ export function showConnectionLinkSettingsModal(
         );
       });
 
-      o = itemSection.option(form.Value, 'uri', _('Connection URI'));
+      const uri = itemSection.option(form.Value, 'uri', _('Connection URI'));
       // A link carries the credentials of its server.
-      o.password = true;
-      o.write = writeTrimmed;
-      o.validate = required((_itemId, value) => validateConnectionLink(value));
+      uri.password = true;
+      // Masking updates the JSON data before save; always persist the visible URI.
+      uri.forcewrite = true;
+      uri.write = writeTrimmed;
+      uri.validate = required((_itemId, value) =>
+        validateConnectionLink(value),
+      );
+
+      const masking = itemSection.option(
+        form.ListValue,
+        'phobos_masking',
+        _('Masking type'),
+      );
+      masking.depends('uri', /^\s*phobos:\/\//iu);
+      masking.value('', _('Default'));
+      PHOBOS_MASKING_MODES.forEach((mode) =>
+        masking.value(mode, mode === 'NONE' ? _('None') : mode),
+      );
+      masking.load = function (itemId: string) {
+        const parsed = parsePhobosLink(
+          `${this.map.data.get(this.map.config, itemId, 'uri') || ''}`,
+        );
+        return parsed.valid ? parsed.endpoint.obfuscation.masking || '' : '';
+      };
+      // The selection is carried inside the URI, not in a separate UCI option.
+      masking.write = function () {};
+      masking.remove = function () {};
+      masking.onchange = (_event, itemId, value) => {
+        const link = `${uri.formvalue(itemId) || ''}`;
+        let updated: string;
+        try {
+          updated = withPhobosLinkMasking(link, `${value || ''}`);
+        } catch {
+          return;
+        }
+        setModalOptionValue(itemSection.map, uri, updated);
+      };
+      uri.onchange = (_event, _itemId, value) => {
+        const parsed = parsePhobosLink(`${value || ''}`);
+        setModalOptionValue(
+          itemSection.map,
+          masking,
+          parsed.valid ? parsed.endpoint.obfuscation.masking || '' : '',
+        );
+      };
 
       addCascadeOptions(
         itemSection,

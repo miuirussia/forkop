@@ -195,8 +195,9 @@ function readSections(input: string): ConfigSection[] | null {
 }
 
 /** Collects the fields of a native wg-quick / awg-quick configuration file. */
-function readConfigFile(input: string): WireGuardSource | { message: string } {
-  const sections = readSections(input);
+function readConfigSections(
+  sections: ConfigSection[] | null,
+): WireGuardSource | { message: string } {
   if (!sections) return { message: _('Invalid WireGuard configuration') };
 
   const iface = sections.find((section) => section.name === 'interface');
@@ -404,7 +405,7 @@ export function parseWireGuardConfig(input: string): WireGuardConfigResult {
   const link = readShareLink(value);
   if (link) return buildEndpoint(link);
 
-  const source = readConfigFile(value);
+  const source = readConfigSections(readSections(value));
   return 'message' in source
     ? { valid: false, message: source.message }
     : buildEndpoint(source);
@@ -559,6 +560,13 @@ export async function parseWireGuardInput(
   }
 }
 
+export const PHOBOS_MASKING_MODES: readonly string[] = [
+  'STUN',
+  'MEDIA',
+  'AUTO',
+  'NONE',
+];
+
 export const PHOBOS_LIMITS: Record<string, number> = {
   max_dummy: 1024,
   obfuscate_bytes: 2147483647,
@@ -575,7 +583,7 @@ export function validPhobosObfuscation(value: unknown): boolean {
     size <= 255 &&
     !value.key.includes('\0') &&
     (value.masking === undefined ||
-      ['STUN', 'MEDIA', 'AUTO', 'NONE'].includes(String(value.masking))) &&
+      PHOBOS_MASKING_MODES.includes(String(value.masking))) &&
     Object.entries(value).every(
       ([key, item]) =>
         key === 'key' ||
@@ -589,15 +597,17 @@ export function validPhobosObfuscation(value: unknown): boolean {
   );
 }
 
-export function parsePhobosLink(input: string) {
+function readPhobosLink(input: string) {
   const invalid = { valid: false as const, message: _('Invalid Phobos link') };
   try {
-    const match = /^phobos:\/\/([A-Za-z0-9_-]+)(?:#.*)?$/iu.exec(input.trim());
+    const match = /^(phobos:\/\/)([A-Za-z0-9_-]+)(#.*)?$/iu.exec(input.trim());
     if (!match) return invalid;
-    const text = new TextDecoder('utf-8', { fatal: true })
-      .decode(decodeBase64Url(match[1]))
-      .replace(/^[ \t]*[A-Za-z0-9_-]+[ \t]*=[ \t]*none[ \t]*$/gmu, '');
-    const sections = readSections(text);
+    const text = new TextDecoder('utf-8', { fatal: true }).decode(
+      decodeBase64Url(match[2]),
+    );
+    const sections = readSections(
+      text.replace(/^[ \t]*[A-Za-z0-9_-]+[ \t]*=[ \t]*none[ \t]*$/gmu, ''),
+    );
     const instances = sections?.filter(
       (section) => section.name === 'instance',
     );
@@ -614,7 +624,7 @@ export function parsePhobosLink(input: string) {
     if (role && role !== 'client') return invalid;
     const target = firstValue(instance, 'target');
     if (!/^(?:\[[^\]]+\]|[^:\s]+):[0-9]+$/u.test(target)) return invalid;
-    const source = readConfigFile(text);
+    const source = readConfigSections(sections);
     if ('message' in source || source.peers.length !== 1) return invalid;
     source.peers[0].endpoint = [target];
     // The core owns the UDP socket; the local obfuscator's port is irrelevant.
@@ -638,8 +648,56 @@ export function parsePhobosLink(input: string) {
     return {
       valid: true as const,
       endpoint: { ...parsed.endpoint, type: 'phobos' as const, obfuscation },
+      text,
+      scheme: match[1],
+      fragment: match[3] || '',
     };
   } catch {
     return invalid;
   }
+}
+
+export function parsePhobosLink(input: string) {
+  const parsed = readPhobosLink(input);
+  return parsed.valid
+    ? { valid: true as const, endpoint: parsed.endpoint }
+    : parsed;
+}
+
+export function withPhobosLinkMasking(input: string, masking: string): string {
+  const parsed = readPhobosLink(input);
+  if (!parsed.valid) throw new TypeError(parsed.message);
+  if (masking && !PHOBOS_MASKING_MODES.includes(masking))
+    throw new TypeError(_('Invalid Phobos obfuscation'));
+  if ((parsed.endpoint.obfuscation.masking || '') === masking) return input;
+
+  const { text } = parsed;
+  const newline = text.includes('\r\n') ? '\r\n' : '\n';
+  let inInstance = false;
+  const lines: string[] = [];
+  for (const rawLine of text.split(/\r?\n/u)) {
+    const line = rawLine
+      .replace(/^\uFEFF/u, '')
+      .replace(/#.*$/u, '')
+      .trim();
+    const header = /^\[([^\]]+)\]$/u.exec(line);
+    if (header) {
+      inInstance = header[1].trim().toLowerCase() === 'instance';
+      lines.push(rawLine);
+      if (inInstance && masking) lines.push(`masking = ${masking}`);
+    } else if (
+      !inInstance ||
+      canonicalField(line.split('=')[0]) !== 'masking'
+    ) {
+      lines.push(rawLine);
+    }
+  }
+  const bytes = new TextEncoder().encode(lines.join(newline));
+  const payload = btoa(
+    Array.from(bytes, (byte) => String.fromCharCode(byte)).join(''),
+  )
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replace(/=+$/u, '');
+  return `${parsed.scheme}${payload}${parsed.fragment}`;
 }
