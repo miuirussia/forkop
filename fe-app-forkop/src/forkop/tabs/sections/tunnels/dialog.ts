@@ -421,6 +421,9 @@ export function showTunnelSettingsModal(
   }
 
   const data = { settings: tunnelInitialSettings(tunnelId, section_id) };
+  data.settings.phobos_masking = `${
+    parseOutboundJsonObject(data.settings.phobos_obfuscation)?.masking || ''
+  }`;
   if (context.adding) {
     // A new tunnel starts as the first kind the installed core can run.
     data.settings.tunnel_type = availableTunnelKinds()[0][0];
@@ -610,6 +613,16 @@ export function showTunnelSettingsModal(
   });
   configureTextareaOption(endpointJsonOption);
 
+  const masking = itemSection.option(
+    form.ListValue,
+    'phobos_masking',
+    _('Masking type'),
+  );
+  masking.depends('tunnel_type', 'phobos');
+  masking.value('', _('Default'));
+  ['STUN', 'MEDIA', 'AUTO'].forEach((mode) => masking.value(mode, mode));
+  masking.value('NONE', _('None'));
+
   const obfuscation = itemSection.option(
     form.TextValue,
     'phobos_obfuscation',
@@ -623,6 +636,24 @@ export function showTunnelSettingsModal(
       : _('Invalid Phobos obfuscation'),
   );
   configureTextareaOption(obfuscation);
+  const withMasking = (value: unknown, mode: unknown) => {
+    const parsed = parseOutboundJsonObject(value);
+    if (!parsed || (parsed.masking || '') === (mode || '')) return value;
+    if (mode) parsed.masking = mode;
+    else delete parsed.masking;
+    return JSON.stringify(parsed, null, 2);
+  };
+  masking.onchange = (_event, _itemId, value) => {
+    setModalOptionValue(
+      map,
+      obfuscation,
+      withMasking(obfuscation.formvalue('settings'), value),
+    );
+  };
+  obfuscation.onchange = (_event, _itemId, value) => {
+    const parsed = parseOutboundJsonObject(value);
+    if (parsed) setModalOptionValue(map, masking, parsed.masking || '');
+  };
 
   addSSHOptions(itemSection);
   const openvpnOptions = addOpenVPNOptions(itemSection);
@@ -902,6 +933,12 @@ export function showTunnelSettingsModal(
     tunnelName ? _('Tunnel: %s').format(tunnelName) : _('Tunnel settings'),
     map,
     (settings: ChildSettings) => {
+      if (settings.tunnel_type === 'phobos') {
+        settings.phobos_obfuscation = withMasking(
+          settings.phobos_obfuscation,
+          settings.phobos_masking,
+        );
+      }
       const validation = validateTunnelSettings(
         settings,
         tunnelId,

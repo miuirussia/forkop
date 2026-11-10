@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-08 15:46+0300\n"
-"PO-Revision-Date: 2026-11-08 15:46+0300\n"
+"POT-Creation-Date: 2026-11-10 09:41+0300\n"
+"PO-Revision-Date: 2026-11-10 09:41+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -957,6 +957,7 @@ msgstr ""
 msgid "Dead peer detection, seconds"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 #: fe-app-forkop/src/forkop/tabs/servers/form/protocol.ts
 msgid "Default"
 msgstr ""
@@ -2080,6 +2081,10 @@ msgstr ""
 msgid "Main DNS Query Mode"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
+msgid "Masking type"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/servers/form/protocol.ts
 msgid "Masquerade"
 msgstr ""
@@ -2348,6 +2353,7 @@ msgstr ""
 msgid "Nodes"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 #: fe-app-forkop/src/forkop/tabs/servers/clientDialog.ts
