@@ -6,6 +6,7 @@ import { ComponentsTab } from '../tabs/components';
 import { DashboardTab } from '../tabs/dashboard';
 import { DiagnosticTab } from '../tabs/diagnostic';
 import { LogsTab } from '../tabs/logs';
+import { createGeodataContent } from '../tabs/geodata';
 import { MonitoringTab } from '../tabs/monitoring';
 import { mountTabOption } from '../tabs/mountTab';
 import {
@@ -107,6 +108,7 @@ export const ForkopView = {
       return ['settings'];
     };
     createSettingsContent(settingsSection);
+    createGeodataContent(forkopMap);
 
     addMountedTab(forkopMap, 'diagnostic', _('Status'), DiagnosticTab);
     addMountedTab(forkopMap, 'dashboard', _('Dashboard'), DashboardTab);

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 14:58+0300\n"
-"PO-Revision-Date: 2026-11-12 14:58+0300\n"
+"POT-Creation-Date: 2026-11-12 21:13+0300\n"
+"PO-Revision-Date: 2026-11-12 21:13+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -27,6 +27,10 @@ msgstr ""
 
 #: fe-app-forkop/src/helpers/parseWireGuardConfig.ts
 msgid "[Peer] without PublicKey or Endpoint"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "/tmp uses RAM and is cleared on reboot. Use external storage for large DAT files. An update temporarily needs space for both versions"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/helpers/formatDuration.ts
@@ -278,12 +282,17 @@ msgstr ""
 msgid "Action"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Actions"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/monitoring/initController.ts
 #: fe-app-forkop/src/forkop/tabs/monitoring/render.ts
 msgid "Active"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/entry/gridSection.ts
+#: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
 msgid "Add"
 msgstr ""
 
@@ -319,6 +328,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "Add AmneziaWG junk and signature packets. Makes the traffic harder to recognize"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+msgid "Add and download a DAT source on the Geodata tab first"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/validate.ts
@@ -488,6 +501,10 @@ msgstr ""
 msgid "Auto refresh"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Auto update"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/fallback.ts
 msgid "Availability check for every server"
 msgstr ""
@@ -645,12 +662,20 @@ msgstr ""
 msgid "Checks passed"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Choose a dedicated absolute directory"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
 msgid "Choose a sing-geosite list, or enter a URL or local path. The format is detected automatically"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
 msgid "Choose a sing-geosite or sing-geoip list, or enter a URL or local path. The format is detected automatically"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
+msgid "Choose DAT tag"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
@@ -707,6 +732,8 @@ msgid "Clients"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
+#: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 #: fe-app-forkop/src/forkop/tabs/monitoring/connectionList.ts
 #: fe-app-forkop/src/forkop/tabs/servers/details.ts
 #: fe-app-forkop/src/forkop/tabs/settings/staticHosts.ts
@@ -751,6 +778,14 @@ msgstr ""
 
 #: fe-app-forkop/src/helpers/parseOpenVPNConfig.ts
 msgid "comp-lzo: unsupported mode %s"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Compiling rule sets"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Completed"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/entry/view.ts
@@ -881,6 +916,10 @@ msgstr ""
 msgid "Copy proxy link"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+msgid "Copy reference"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/components/initController.ts
 msgid "Copy the output"
 msgstr ""
@@ -947,6 +986,22 @@ msgstr ""
 msgid "Dashboard currently unavailable"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "DAT source"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "DAT sources"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+msgid "DAT tags"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "DAT URL or local path"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "Data ciphers"
 msgstr ""
@@ -959,6 +1014,7 @@ msgstr ""
 msgid "Dead peer detection, seconds"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/links.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 #: fe-app-forkop/src/forkop/tabs/servers/form/protocol.ts
 msgid "Default"
@@ -1028,6 +1084,10 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/servers/constants.ts
 #: fe-app-forkop/src/forkop/tabs/servers/routing.ts
 msgid "Direct"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Directly"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/partials/renderAvailableActions.ts
@@ -1136,6 +1196,10 @@ msgstr ""
 msgid "Download"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Download DAT through"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
 msgid "Download lists through"
 msgstr ""
@@ -1162,6 +1226,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/monitoring/connectionList.ts
 msgid "Downloaded"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Downloading"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/healthCheck.ts
@@ -1278,6 +1346,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/components/initController.ts
 msgid "failed"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Failed"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/monitoring/initController.ts
@@ -1537,6 +1609,22 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "Generate profile"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Geodata"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/services/geodata.service.ts
+msgid "Geodata operation failed"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+msgid "Geodata source"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Geodata storage directory"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/partials/renderRunAction.ts
@@ -1839,6 +1927,7 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/validate.ts
+#: fe-app-forkop/src/helpers/parseWireGuardConfig.ts
 msgid "Invalid Phobos obfuscation"
 msgstr ""
 
@@ -2047,6 +2136,8 @@ msgstr ""
 msgid "Loading logs..."
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
 msgid "Loading…"
 msgstr ""
@@ -2087,6 +2178,7 @@ msgstr ""
 msgid "Main DNS Query Mode"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/links.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "Masking type"
 msgstr ""
@@ -2172,6 +2264,7 @@ msgstr ""
 msgid "N/A"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 #: fe-app-forkop/src/forkop/tabs/servers/clients.ts
 msgid "Name"
 msgstr ""
@@ -2227,6 +2320,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/interfaces.ts
 msgid "Network interface: %s"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+msgid "Next"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
@@ -2359,6 +2456,7 @@ msgstr ""
 msgid "Nodes"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/links.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
@@ -2387,6 +2485,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/sections.ts
 msgid "Not checked: the Clash API did not answer"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Not downloaded"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/sections.ts
@@ -2723,6 +2825,10 @@ msgstr ""
 msgid "Prefixes: full:, keyword:, regex:"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+msgid "Previous"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
 #: fe-app-forkop/src/forkop/tabs/servers/form/security.ts
@@ -2846,6 +2952,10 @@ msgstr ""
 #: fe-app-forkop/src/helpers/material.ts
 #: fe-app-forkop/src/helpers/parseOpenVPNConfig.ts
 msgid "Remove the key passphrase: openssl pkey -in key.pem -out plain.pem"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Remove this source from routing and DNS rules first"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/components/removeDialog.ts
@@ -3012,6 +3122,10 @@ msgstr ""
 msgid "Save"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Save & Apply before downloading newly added or changed sources"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/logs/render.ts
 #: fe-app-forkop/src/forkop/tabs/monitoring/render.ts
 #: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
@@ -3020,6 +3134,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
 msgid "Search rule sets"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+msgid "Search tags"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
@@ -3362,6 +3480,14 @@ msgstr ""
 msgid "Starting..."
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Starting…"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "State"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 msgid "Stateless (lz4, lzs)"
 msgstr ""
@@ -3460,6 +3586,14 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/partials/renderSystemInfo.ts
 msgid "System information"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "tags"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Tags"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
@@ -3816,8 +3950,13 @@ msgstr ""
 msgid "Tunnel: %s"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 #: fe-app-forkop/src/forkop/tabs/monitoring/connectionList.ts
 msgid "Type"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Unavailable"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/services/systemInfo.service.ts
@@ -3872,6 +4011,19 @@ msgstr ""
 msgid "Up to %d characters"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Update"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Update all DAT sources"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Update geodata"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/options.ts
 msgid "Update interval"
 msgstr ""
@@ -3947,6 +4099,10 @@ msgstr ""
 msgid "URLTest: %s"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/services/geodata.service.ts
+msgid "Use an interval from 5m to 365d, for example 12h or 1d"
+msgstr ""
+
 #: fe-app-forkop/src/helpers/parseOpenConnectConfig.ts
 msgid "Use pin-sha256 instead of a certificate SHA-256"
 msgstr ""
@@ -3979,6 +4135,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/clients.ts
 msgid "UUID"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Validating"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts

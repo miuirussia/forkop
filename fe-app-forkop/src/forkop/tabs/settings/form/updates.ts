@@ -14,7 +14,7 @@ import {
   validateCoreFeature,
 } from '../../../services/coreFeatures.service';
 
-export function addUpdateOptions(section: CBISection) {
+export function addRuleSetUpdateOptions(section: CBISection) {
   let o = section.option(
     form.Flag,
     'list_update_enabled',
@@ -47,6 +47,27 @@ export function addUpdateOptions(section: CBISection) {
 
   o = section.option(
     form.Flag,
+    'download_lists_via_proxy',
+    _('Download lists through a section'),
+    _(
+      'Download the built-in lists and remote rule sets through the selected section',
+    ),
+  );
+  configureDownloadViaProxyFlag(o, 'download_lists_via_proxy_section');
+
+  o = section.option(
+    form.ListValue,
+    'download_lists_via_proxy_section',
+    _('Download lists through'),
+  );
+  o.depends('download_lists_via_proxy', '1');
+  o.retain = true;
+  configureDownloadSectionOption(o, 'download_lists_via_proxy_section');
+}
+
+export function addUpdateOptions(section: CBISection) {
+  let o = section.option(
+    form.Flag,
     'unified_delay',
     _('Accurate latency measurement'),
     _('Includes connection setup and the TLS handshake'),
@@ -66,25 +87,6 @@ export function addUpdateOptions(section: CBISection) {
   o.validate = function (_section_id: string, value: string) {
     return validateUrlField(value);
   };
-
-  o = section.option(
-    form.Flag,
-    'download_lists_via_proxy',
-    _('Download lists through a section'),
-    _(
-      'Download the built-in lists and remote rule sets through the selected section',
-    ),
-  );
-  configureDownloadViaProxyFlag(o, 'download_lists_via_proxy_section');
-
-  o = section.option(
-    form.ListValue,
-    'download_lists_via_proxy_section',
-    _('Download lists through'),
-  );
-  o.depends('download_lists_via_proxy', '1');
-  o.retain = true;
-  configureDownloadSectionOption(o, 'download_lists_via_proxy_section');
 
   // A WARP tunnel requests its profile on every start, and the dialog registers new ones. Shown only
   // with a WARP-capable core, or while on, so it can be switched off.

@@ -136,7 +136,13 @@ function ensure_custom_ruleset(config, reference) {
     if (ruleset_registered(config, tag_name))
         return tag_name;
 
-    if (substr(reference, 0, 1) == "/") {
+    if (substr(reference, 0, 4) == "dat:") {
+        push(config.route.rule_set, {
+            type: "local", tag: tag_name, format: "binary",
+            path: require("geodata.sources").resolve(reference)
+        });
+    }
+    else if (substr(reference, 0, 1) == "/") {
         push(config.route.rule_set, {
             type: "local",
             tag: tag_name,

@@ -24,8 +24,46 @@ import {
   SING_GEOIP_URL,
 } from '../../services/singGeo.service';
 import { RULE_SET_ITEM_SETTINGS_KEY } from './constants';
+import { parseDatReference } from '../../services/geodata.service';
+import { showGeodataCatalog } from '../geodata/catalog';
+
+export function addDatRulesetPicker(
+  node: HTMLElement,
+  option: CBIOption,
+  sectionId: string,
+  includeGeoip = true,
+) {
+  node.appendChild(
+    E(
+      'button',
+      {
+        type: 'button',
+        class: 'cbi-button',
+        click: () => {
+          void showGeodataCatalog(includeGeoip, (reference) => {
+            const widget = option.getUIElement(sectionId);
+            if (widget)
+              widget.setValue(
+                uniqueDynamicListItems([
+                  ...normalizeDynamicListItems(widget.getValue()),
+                  reference,
+                ]),
+              );
+            node.dispatchEvent(
+              new CustomEvent('cbi-dynlist-change', { bubbles: true }),
+            );
+          }).catch((error: Error) => showToast(error.message, 'error'));
+        },
+      },
+      _('Choose DAT tag'),
+    ),
+  );
+}
 
 function ruleSetIncludesSubnets(section_id: string, value: string) {
+  const dat = parseDatReference(value);
+  if (dat && uci.get(FORKOP_UCI_PACKAGE, dat.source, 'kind') === 'geoip')
+    return true;
   const settings = readItemSettingsMap(section_id, RULE_SET_ITEM_SETTINGS_KEY);
   const itemSettings = settings && settings[value];
 
@@ -76,6 +114,9 @@ export function showRuleSetSettingsModal(
   );
   includeSubnets.default = '0';
   includeSubnets.rmempty = false;
+  const dat = parseDatReference(`${itemValue ?? ''}`);
+  includeSubnets.readonly =
+    !!dat && uci.get(FORKOP_UCI_PACKAGE, dat.source, 'kind') === 'geoip';
 
   const name = ruleSetFileName(`${itemValue ?? ''}`);
   return renderStackedJsonSettingsModal(
@@ -426,6 +467,7 @@ export function validateCustomRulesetReference(value: string) {
   if (!value) {
     return true;
   }
+  if (parseDatReference(value)) return true;
   if (/\.ya?ml$/i.test(value.replace(/[?#].*$/, ''))) {
     return _('YAML is not supported');
   }

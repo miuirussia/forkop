@@ -24,5 +24,7 @@ export {
   createServerContent,
 } from './forkop/tabs/servers';
 export { createSettingsContent } from './forkop/tabs/settings';
+export { createGeodataContent } from './forkop/tabs/geodata';
+export { addRuleSetUpdateOptions } from './forkop/tabs/settings/form/updates';
 // A check building one tab sets the core features the way ForkopView reads them.
 export { setCoreFeatures } from './forkop/services/coreFeatures.service';

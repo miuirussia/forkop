@@ -182,7 +182,19 @@ const COMMANDS = {
     initd_wan_up: { run: () => initd().wan_up() },
     initd_retry_start: { run: () => initd().retry_start() },
     sing_box_watch: { run: () => require("service.singbox_watch").monitor() },
-    sync_rule_sets: { run: () => require("nft.ruleset_sync").worker() }
+    sync_rule_sets: { run: () => require("nft.ruleset_sync").worker() },
+    geodata_status: { help: "Show DAT sources and update progress", run: json(() => require("geodata.service").status()) },
+    geodata_tags: { args: 3, usage: "<source> [search] [offset]", help: "List a page of DAT tags", run: json((id, query, offset) => require("geodata.service").tags(id, query, offset)) },
+    geodata_start: { args: 1, usage: "[source]", help: "Update DAT sources in the background", run: reply((id) => require("geodata.service").start(id)) },
+    geodata_update: { args: 1, usage: "[source]", help: "Download, validate and compile DAT sources", run: (args) => {
+        try {
+            let changed = require("geodata.service").run(args[0], false);
+            if (changed && require("singbox.runtime").process_running())
+                exec.background([ constants.FORKOP_SERVICE_INIT, "reload", "geodata_update" ]);
+            return require("geodata.service").status().job?.phase == "error" ? 1 : 0;
+        } catch (e) { exec.log("error", "Geodata: " + e.message); return 1; }
+    } },
+    geodata_worker: { run: () => require("geodata.service").worker() }
 };
 
 function help() {

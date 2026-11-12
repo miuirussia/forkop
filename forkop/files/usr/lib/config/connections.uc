@@ -400,11 +400,15 @@ function community_lists(section) {
 }
 
 function rule_sets(section) {
-    return list_value(section, "rule_set");
+    return filter(list_value(section, "rule_set"), (reference) => !require("geodata.sources").is_geoip(reference));
 }
 
 function rule_sets_with_subnets(section) {
-    return list_value(section, "rule_set_with_subnets");
+    let result = list_value(section, "rule_set_with_subnets");
+    for (let reference in list_value(section, "rule_set"))
+        if (require("geodata.sources").is_geoip(reference) && index(result, reference) < 0)
+            push(result, reference);
+    return result;
 }
 
 function destinations(section) {

@@ -26,6 +26,7 @@ type HtmlAttributes<T extends HtmlTag = 'div'> = Partial<
     'aria-expanded'?: string;
     'aria-haspopup'?: string;
     'aria-label'?: string;
+    'aria-live'?: string;
     'aria-pressed'?: string;
     // E() sets whatever it is given with setAttribute, so an attribute keeps its
     // HTML spelling and does not have to belong to the tag it is set on.
@@ -87,6 +88,7 @@ declare global {
 
   // LuCI's own members; the ones Forkop attaches merge in from src/forkop/cbi/cbi.d.ts.
   interface CBIOption {
+    subsection?: CBISection;
     readonly option: string;
     readonly section: CBISection;
     readonly map: CBIMap;
@@ -302,6 +304,7 @@ declare global {
     JSONMap: { new (data: Record<string, unknown>, title?: string): CBIMap };
 
     TypedSection: CBISectionClass;
+    SectionValue: CBIWidgetClass;
     NamedSection: CBISectionClass;
     GridSection: CBISectionClass;
     TableSection: CBISectionClass;

@@ -380,7 +380,7 @@ function check(path) {
 const FIXTURE_TYPES = [
     "settings", "section", "server", "server_client", "subscription_url", "section_interface",
     "connection_link", "urltest", "priority_group", "priority_level", "fallback_group", "fallback_level",
-    "tunnel", "tunnel_peer"
+    "tunnel", "tunnel_peer", "geodata"
 ];
 
 // Tests describe a configuration by type, { settings: {...}, section: [...], ... }.

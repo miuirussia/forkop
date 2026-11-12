@@ -217,7 +217,7 @@ class JSONConfig {
 
 /* -------------------------------------------------------------------- forms */
 
-function buildForm(uciData, dropDefaults) {
+function buildForm(uciData, dropDefaults, dom) {
   const droppedAtDefault = (option, fval) =>
     dropDefaults &&
     fval == option.default &&
@@ -466,7 +466,37 @@ function buildForm(uciData, dropDefaults) {
   });
   const TypedSection = AbstractSection.extend({ __name__: 'CBI.TypedSection' });
   const TableSection = TypedSection.extend({ __name__: 'CBI.TableSection' });
-  const GridSection = TableSection.extend({ __name__: 'CBI.GridSection' });
+  const GridSection = TableSection.extend({
+    __name__: 'CBI.GridSection',
+    handleAdd(ev, name) {
+      const config = this.uciconfig ?? this.map.config;
+      const sid = this.map.data.add(config, this.sectiontype, name);
+      const node = this.getPreviousModalMap();
+      const previous = node ? dom.findClassInstance(node) : this.map;
+      previous.addedSection = sid;
+      return this.renderMoreOptionsModal(sid);
+    },
+  });
+  const SectionValue = AbstractValue.extend({
+    __name__: 'CBI.SectionValue',
+    __init__(map, section, option, SectionClass, sectionType, ...rest) {
+      this.super('__init__', [map, section, option]);
+      this.subsection = new SectionClass(map, sectionType, ...rest);
+      this.subsection.cfgsections = () =>
+        map.data
+          .sections(map.config, sectionType)
+          .map((entry) => entry['.name']);
+    },
+    load() {
+      return this.subsection.load();
+    },
+    cfgvalue() {
+      return null;
+    },
+    parse() {
+      return this.subsection.parse();
+    },
+  });
 
   const CBIMap = makeClass('CBI.Map', function (config, ...rest) {
     this.config = config;
@@ -548,6 +578,7 @@ function buildForm(uciData, dropDefaults) {
     TypedSection,
     TableSection,
     GridSection,
+    SectionValue,
     Value,
     ListValue,
     DynamicList,
@@ -622,6 +653,8 @@ export function createHarness(
     },
   };
   const uciData = {
+    add: (...args) => uci.add(...args),
+    remove: (...args) => uci.remove(...args),
     get: (...args) => uci.get(...args),
     set: (...args) => uci.set(...args),
     unset: (...args) => uci.unset(...args),
@@ -634,7 +667,8 @@ export function createHarness(
     },
   };
 
-  const form = buildForm(uciData, dropDefaults);
+  const dom = { content() {}, append() {}, findClassInstance: () => null };
+  const form = buildForm(uciData, dropDefaults, dom);
 
   const modal = new FakeNode('div');
   const activeMap = new FakeNode('div');
@@ -746,7 +780,7 @@ export function createHarness(
       },
     },
     poll: { add() {}, remove() {} },
-    dom: { content() {}, append() {}, findClassInstance: () => null },
+    dom,
     rpc: { declare: () => () => Promise.resolve({}) },
     console: {
       log: (...args) => messages.push(args.join(' ')),

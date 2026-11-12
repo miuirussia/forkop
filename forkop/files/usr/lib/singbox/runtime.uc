@@ -98,6 +98,7 @@ function check(text) {
 // The file is written only once the core accepted it. Returns whether it changed; a start
 // checks it regardless, since the core may have been replaced.
 function write_config(checked) {
+    require("geodata.service").prepare();
     let values = settings();
     let path = singbox_constants.config_path(values);
     if (path == "")

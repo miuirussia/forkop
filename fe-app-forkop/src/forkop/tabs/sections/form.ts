@@ -87,6 +87,7 @@ import {
   getBuiltInRulesetReferences,
   getCustomRulesetReferences,
   groupGeoRulesetChoices,
+  addDatRulesetPicker,
   loadGeoRulesetValues,
   loadRulesetValues,
   refuseHeldBuiltinLists,
@@ -674,6 +675,7 @@ export function createSectionContent(section: CBISection) {
       cfgvalue,
     );
     groupGeoRulesetChoices(node);
+    addDatRulesetPicker(node, this, section_id, false);
     return node;
   };
   dnsRuleSetOption.load = async function (section_id: string) {
@@ -712,6 +714,7 @@ export function createSectionContent(section: CBISection) {
       cfgvalue,
     );
     groupGeoRulesetChoices(node);
+    addDatRulesetPicker(node, this, section_id);
     return node;
   };
   ruleSetOption.renderItemSettingsModal = showRuleSetSettingsModal;

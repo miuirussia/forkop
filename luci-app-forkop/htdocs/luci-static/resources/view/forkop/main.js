@@ -1573,8 +1573,8 @@ async function callUbusOnce({
   try {
     const names = Object.keys(params);
     const request = rpc2.declare({ object, method, params: names, nobatch });
-    const call = request(...names.map((name) => params[name]));
-    const data = await withTimeout(call, timeoutMs, `${object}.${method}`);
+    const call2 = request(...names.map((name) => params[name]));
+    const data = await withTimeout(call2, timeoutMs, `${object}.${method}`);
     if (data === null || data === void 0) {
       return { success: false, message: "empty reply", unavailable: false };
     }
@@ -17256,6 +17256,1193 @@ function injectGlobalStyles() {
   );
 }
 
+// src/validators/validatePath.ts
+function validatePath(value) {
+  if (!value) {
+    return message.required();
+  }
+  return /^\/[a-zA-Z0-9_\-/.]+$/.test(value) ? true : message.invalidPath();
+}
+
+// src/validators/validateDomain.ts
+function asciiHostname(hostname) {
+  if (!hostname || /[\s@:/]/.test(hostname) || hostname.startsWith(".") || hostname.endsWith(".")) {
+    return null;
+  }
+  try {
+    return new URL(`http://${hostname}`).hostname;
+  } catch {
+    return null;
+  }
+}
+function validAsciiDomain(hostname, requireDot = true) {
+  if (!hostname || hostname.length > 253) {
+    return false;
+  }
+  const parts = hostname.split(".");
+  if (parts.some((part2) => !part2 || part2.length > 63)) {
+    return false;
+  }
+  if (parts.some((part2) => !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(part2))) {
+    return false;
+  }
+  if (!requireDot) {
+    return true;
+  }
+  if (parts.length < 2) {
+    return false;
+  }
+  const tld = parts[parts.length - 1];
+  return /^(?:[a-z]{2,}|xn--[a-z0-9-]{2,59})$/.test(tld);
+}
+function validateDomain(domain, allowDotTLD = false) {
+  const normalized = `${domain || ""}`.trim();
+  if (allowDotTLD) {
+    const dotTld = normalized.startsWith(".") ? normalized.slice(1) : "";
+    const ascii2 = asciiHostname(dotTld);
+    if (ascii2 && !ascii2.includes(".") && validAsciiDomain(ascii2, false)) {
+      return true;
+    }
+  }
+  const slashIndex = normalized.indexOf("/");
+  const hostname = slashIndex >= 0 ? normalized.slice(0, slashIndex) : normalized;
+  const path = slashIndex >= 0 ? normalized.slice(slashIndex) : "";
+  const ascii = asciiHostname(hostname);
+  return path && /\s/.test(path) || !ascii || !validAsciiDomain(ascii) ? message.invalidDomain() : true;
+}
+
+// src/validators/hostPort.ts
+function unbracketHost(host) {
+  if (host.startsWith("[") && host.endsWith("]")) {
+    return host.slice(1, -1);
+  }
+  return host;
+}
+function isValidHost(host) {
+  const normalizedHost = unbracketHost(host);
+  return isIPv4(normalizedHost) || isIPv6(normalizedHost) || validateDomain(normalizedHost) === true;
+}
+function isValidPort(port2) {
+  const normalized = String(port2 ?? "");
+  const value = Number(normalized);
+  return /^\d+$/.test(normalized) && value >= 1 && value <= 65535;
+}
+function parseHostPort(value) {
+  if (!value) {
+    return null;
+  }
+  if (value.startsWith("[")) {
+    const end = value.indexOf("]");
+    if (end <= 1 || value.slice(end + 1, end + 2) !== ":") {
+      return null;
+    }
+    const parsed2 = {
+      host: value.slice(1, end),
+      port: value.slice(end + 2)
+    };
+    return isValidHost(parsed2.host) ? parsed2 : null;
+  }
+  const firstColon = value.indexOf(":");
+  const lastColon = value.lastIndexOf(":");
+  if (firstColon < 0 || firstColon !== lastColon) {
+    return null;
+  }
+  const parsed = {
+    host: value.slice(0, firstColon),
+    port: value.slice(firstColon + 1)
+  };
+  return isValidHost(parsed.host) ? parsed : null;
+}
+
+// src/validators/validateUrl.ts
+function validateUrl(url, protocols = ["http:", "https:"]) {
+  if (!protocols.some((p) => url.indexOf(p + "//") === 0)) {
+    return url.length ? _("Only %s").format(protocols.map((p) => `${p}//`).join(", ")) : message.invalidUrl();
+  }
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.startsWith("[") ? parsed.hostname.slice(1, -1) : parsed.hostname;
+    return (isValidHost(host) || host === "localhost") && (!parsed.port || isValidPort(parsed.port)) ? true : message.invalidUrl();
+  } catch (_e) {
+    return message.invalidUrl();
+  }
+}
+function validateUrlField(value) {
+  const url = `${value || ""}`.trim();
+  return url ? validateUrl(url) : message.required();
+}
+
+// src/forkop/cbi/itemSettings.ts
+var sharedChildPendingSettings = /* @__PURE__ */ new Map();
+function readItemSettingsMap(section_id, settingsKey) {
+  const raw = uci.get(FORKOP_UCI_PACKAGE, section_id, settingsKey);
+  if (!raw) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(`${raw}`);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (_error) {
+    return {};
+  }
+}
+function itemSettingsFlag(settings, key, defaultValue) {
+  const value = settings ? settings[key] : null;
+  if (value === void 0 || value === null || value === "") {
+    return Boolean(defaultValue);
+  }
+  return value === true || `${value}` === "1";
+}
+function settingValueEquals(left, right) {
+  const normalize2 = (value) => {
+    if (Array.isArray(value)) {
+      return JSON.stringify(value.map((item) => `${item || ""}`));
+    }
+    return value === void 0 || value === null ? "" : `${value}`;
+  };
+  return normalize2(left) === normalize2(right);
+}
+function readChildSettings(itemId, keys, defaults) {
+  const result = Object.assign({}, defaults || {});
+  keys.forEach((key) => {
+    const value = uci.get(FORKOP_UCI_PACKAGE, itemId, key);
+    if (value !== null && value !== void 0) {
+      result[key] = Array.isArray(value) ? value.slice() : value;
+    }
+  });
+  return result;
+}
+function changedSettings(base, next, keys) {
+  const result = {};
+  keys.forEach((key) => {
+    if (!settingValueEquals(base ? base[key] : null, next ? next[key] : null)) {
+      result[key] = next ? next[key] : null;
+    }
+  });
+  return result;
+}
+function hasChangedSettings(settings) {
+  return Object.keys(settings || {}).length > 0;
+}
+function childPendingSettingsStore(option2, section_id) {
+  if (option2.sharedPendingSettingsKey) {
+    const key = `${option2.sharedPendingSettingsKey}:${section_id}`;
+    if (!sharedChildPendingSettings.has(key)) {
+      sharedChildPendingSettings.set(key, {});
+    }
+    return sharedChildPendingSettings.get(key);
+  }
+  if (!option2.pendingChildSettings) {
+    option2.pendingChildSettings = {};
+  }
+  if (!option2.pendingChildSettings[section_id]) {
+    option2.pendingChildSettings[section_id] = {};
+  }
+  return option2.pendingChildSettings[section_id];
+}
+function pendingChildSettings(option2, section_id, value, defaults) {
+  const itemValue = `${value || ""}`.trim();
+  const store2 = childPendingSettingsStore(option2, section_id);
+  store2[itemValue] = Object.assign({}, defaults || {}, store2[itemValue]);
+  return store2[itemValue];
+}
+function clearSharedChildPendingSettings() {
+  sharedChildPendingSettings.clear();
+}
+function clearChildPendingSettings(option2, section_id) {
+  if (option2.sharedPendingSettingsKey) {
+    sharedChildPendingSettings.delete(
+      `${option2.sharedPendingSettingsKey}:${section_id}`
+    );
+    return;
+  }
+  if (option2.pendingChildSettings) {
+    delete option2.pendingChildSettings[section_id];
+  }
+}
+
+// src/forkop/cbi/listItems.ts
+function itemValueInput(item) {
+  const hidden = item ? item.querySelector('input[type="hidden"]') : null;
+  return hidden && hidden.parentNode === item ? hidden : null;
+}
+function findDynamicListItemByValue(dl, value) {
+  const stringValue = `${value}`;
+  const items = dl.querySelectorAll(".item");
+  for (let i = 0; i < items.length; i += 1) {
+    const hidden = itemValueInput(items[i]);
+    if (hidden && hidden.value === stringValue) {
+      return items[i];
+    }
+  }
+  return null;
+}
+function dynamicListItemCurrentValue(item, fallback) {
+  const hidden = itemValueInput(item);
+  return hidden ? hidden.value : fallback;
+}
+function dynamicListItemValues(dl) {
+  return Array.from(dl.querySelectorAll(".item")).map((item) => {
+    const hidden = itemValueInput(item);
+    return hidden ? hidden.value : null;
+  }).filter((value) => value != null);
+}
+function renderChildItemLabel(option2, sectionId, itemId) {
+  return textE(
+    "span",
+    { class: "fkp-dynlist-label" },
+    option2.inputValueForItem(sectionId, itemId)
+  );
+}
+function updateDynamicListItemLabel(item, label) {
+  const labelNode = item ? item.querySelector(".fkp-dynlist-label") : null;
+  if (labelNode) {
+    labelNode.textContent = `${label || ""}`;
+  }
+}
+function addDynamicListItem(widget, value, text8) {
+  if (!widget || !widget.node) {
+    return null;
+  }
+  const normalized = `${value || ""}`.trim();
+  if (!normalized) {
+    return null;
+  }
+  const options = widget.options || {};
+  if (typeof options.hasEquivalentValue === "function" && options.hasEquivalentValue(normalized, widget.node)) {
+    widget.dispatchCbiDynlistChange(widget.node, normalized);
+    return null;
+  }
+  widget.addItem(widget.node, normalized, text8 || null, false);
+  widget.dispatchCbiDynlistChange(widget.node, normalized);
+  updateButtonAddDynamicListLayout(widget.node, options.addButtonLabel);
+  return findDynamicListItemByValue(widget.node, normalized);
+}
+function updateButtonAddDynamicListLayout(dl, label) {
+  const addButton = dl ? dl.querySelector(".add-item > .fkp-button-add-control") || dl.querySelector(".add-item > .cbi-button-add") : null;
+  if (!addButton) {
+    return;
+  }
+  if (!addButton.classList.contains("fkp-button-add-control")) {
+    addButton.className = "cbi-dropdown fkp-button-add-control";
+    addButton.replaceChildren(
+      textE(
+        "ul",
+        { tabindex: "-1" },
+        textE("li", { placeholder: "", selected: "", display: "0" })
+      ),
+      textE("span", { "aria-hidden": "true" }, "\u200B")
+    );
+  }
+  const buttonLabel = label || "+";
+  addButton.querySelector("li").textContent = buttonLabel;
+  addButton.setAttribute("role", "button");
+  addButton.setAttribute("tabindex", "0");
+  addButton.setAttribute("aria-label", buttonLabel);
+  addButton.setAttribute(
+    "aria-disabled",
+    dl.hasAttribute("disabled") ? "true" : "false"
+  );
+}
+function setDynamicListItemValue(item, value) {
+  const hidden = itemValueInput(item);
+  if (hidden) {
+    hidden.value = `${value || ""}`;
+  }
+}
+function dynamicListItemLabels(widget) {
+  return Array.from(widget?.node?.querySelectorAll(".fkp-dynlist-label") || []);
+}
+function dynamicListItemNames(widget) {
+  return dynamicListItemLabels(widget).map(
+    (label) => `${label.textContent || ""}`.trim()
+  );
+}
+function validateUniqueDynamicListItemName(widget, itemNode, value) {
+  const currentLabel = itemNode?.querySelector(".fkp-dynlist-label");
+  return dynamicListItemLabels(widget).some(
+    (label) => label !== currentLabel && `${label.textContent || ""}`.trim() === `${value || ""}`.trim()
+  ) ? message.nameTaken() : true;
+}
+
+// src/forkop/cbi/required.ts
+function isBlank(value) {
+  return `${value ?? ""}`.trim() === "";
+}
+function optionListValues(option2, sectionId) {
+  const formValue2 = option2.formvalue(sectionId);
+  return normalizeDynamicListItems(
+    formValue2 != null ? formValue2 : option2.cfgvalue(sectionId)
+  );
+}
+function required(check) {
+  return function(sectionId, value) {
+    if (isBlank(value)) {
+      return message.required();
+    }
+    return check ? check.call(this, sectionId, value) : true;
+  };
+}
+function requiredList(check) {
+  return function(sectionId, value) {
+    if (isBlank(value)) {
+      return optionListValues(this, sectionId).length ? true : message.required();
+    }
+    return check ? check.call(this, sectionId, value) : true;
+  };
+}
+
+// src/forkop/cbi/childItems.ts
+var SECTION_ID_PREFIXES = {
+  connection_link: "link",
+  fallback_group: "group",
+  fallback_level: "level",
+  section: "section",
+  section_interface: "iface",
+  server: "server",
+  server_client: "client",
+  subscription_url: "sub",
+  tunnel: "tunnel",
+  tunnel_peer: "peer",
+  urltest: "urltest"
+};
+var issuedSectionIds = /* @__PURE__ */ new Set();
+function nextSectionId(typeName) {
+  const prefix = SECTION_ID_PREFIXES[typeName] || typeName;
+  for (let i = 0; i < 100; i += 1) {
+    const id = `${prefix}_${Math.floor(Math.random() * 16777216).toString(16).padStart(6, "0")}`;
+    if (!issuedSectionIds.has(id) && !uci.get(FORKOP_UCI_PACKAGE, id)) {
+      issuedSectionIds.add(id);
+      return id;
+    }
+  }
+  return `${prefix}_${Date.now().toString(16)}`;
+}
+function childOwnerOption(ownerOption) {
+  return ownerOption || "section";
+}
+function childItemOrder(item) {
+  const value = item ? item.order : null;
+  const parsed = Number.parseInt(value == null ? "0" : `${value}`, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+function getChildItemIds(section_id, typeName, ownerOption) {
+  const ownerKey = childOwnerOption(ownerOption);
+  const items = uci.sections(FORKOP_UCI_PACKAGE, typeName).filter((item) => item[ownerKey] === section_id);
+  if (["connection_link", "fallback_level", "tunnel", "tunnel_peer"].includes(
+    typeName
+  )) {
+    items.sort((a, b) => {
+      const orderDiff = childItemOrder(a) - childItemOrder(b);
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
+      return `${a[".name"] || ""}`.localeCompare(`${b[".name"] || ""}`);
+    });
+  }
+  return items.map((item) => item[".name"]).filter(Boolean);
+}
+function childItemValue(itemId, valueOption, fallback) {
+  if (!valueOption) {
+    return itemId;
+  }
+  const value = uci.get(FORKOP_UCI_PACKAGE, itemId, valueOption);
+  return value == null || value === "" ? fallback || itemId : `${value}`;
+}
+function childItemInputValue(section_id, value, typeName, valueOption, ownerOption) {
+  const itemId = `${value || ""}`;
+  if (isExistingChildItem(section_id, itemId, typeName, ownerOption)) {
+    return childItemValue(itemId, valueOption, itemId);
+  }
+  return itemId;
+}
+function isExistingChildItem(section_id, itemId, typeName, ownerOption) {
+  const ownerKey = childOwnerOption(ownerOption);
+  return Boolean(
+    itemId && uci.get(FORKOP_UCI_PACKAGE, itemId, ".type") === typeName && uci.get(FORKOP_UCI_PACKAGE, itemId, ownerKey) === section_id
+  );
+}
+function createChildItem(section_id, options, inputValue) {
+  const rawValue = `${inputValue || ""}`.trim();
+  if (isExistingChildItem(
+    section_id,
+    rawValue,
+    options.typeName,
+    options.ownerOption
+  )) {
+    return {
+      value: rawValue,
+      text: options.valueOption ? childItemValue(rawValue, options.valueOption, rawValue) : rawValue,
+      created: false
+    };
+  }
+  const requestedId = typeof options.createId === "function" ? `${options.createId(rawValue, section_id) || ""}`.trim() : "";
+  const itemId = requestedId && uci.add(FORKOP_UCI_PACKAGE, options.typeName, requestedId) || requestedId || uci.add(FORKOP_UCI_PACKAGE, options.typeName);
+  uci.set(
+    FORKOP_UCI_PACKAGE,
+    itemId,
+    childOwnerOption(options.ownerOption),
+    section_id
+  );
+  if (options.valueOption) {
+    uci.set(FORKOP_UCI_PACKAGE, itemId, options.valueOption, rawValue);
+  }
+  if (options.defaults && typeof options.defaults === "object") {
+    Object.entries(options.defaults).forEach(([key, value]) => {
+      value = typeof value === "function" ? value(rawValue, section_id, itemId) : value;
+      if (value !== void 0 && value !== null && value !== "") {
+        uci.set(
+          FORKOP_UCI_PACKAGE,
+          itemId,
+          key,
+          Array.isArray(value) ? value.map((item) => `${item || ""}`).filter(Boolean) : `${value}`
+        );
+      }
+    });
+  }
+  return {
+    value: itemId,
+    text: options.valueOption ? rawValue : itemId,
+    created: true
+  };
+}
+function applyChildItemSettings(itemId, settings) {
+  Object.entries(settings || {}).forEach(([key, value]) => {
+    if (!key || key.charAt(0) === ".") {
+      return;
+    }
+    if (settingValueEquals(uci.get(FORKOP_UCI_PACKAGE, itemId, key), value)) {
+      return;
+    }
+    if (value === void 0 || value === null || value === "") {
+      uci.unset(FORKOP_UCI_PACKAGE, itemId, key);
+    } else if (Array.isArray(value)) {
+      const values = value.map((item) => `${item || ""}`.trim()).filter((item) => item.length);
+      if (values.length) {
+        uci.set(FORKOP_UCI_PACKAGE, itemId, key, values);
+      } else {
+        uci.unset(FORKOP_UCI_PACKAGE, itemId, key);
+      }
+    } else {
+      uci.set(FORKOP_UCI_PACKAGE, itemId, key, `${value}`);
+    }
+  });
+}
+function materializeChildItems(section_id, options, inputValue) {
+  const itemIds = [];
+  const seen = /* @__PURE__ */ new Set();
+  const resolved = /* @__PURE__ */ new Map();
+  normalizeDynamicListItems(inputValue).forEach((value) => {
+    let itemId = resolved.get(value);
+    if (itemId == null) {
+      const createdItem = createChildItem(section_id, options, value);
+      itemId = createdItem.value;
+      const stagedSettings = createdItem.created && typeof options.stagedSettings === "function" ? options.stagedSettings(value) : null;
+      if (stagedSettings) {
+        applyChildItemSettings(itemId, stagedSettings);
+      }
+      if (itemId) {
+        resolved.set(value, itemId);
+      }
+    }
+    if (itemId && !seen.has(itemId)) {
+      seen.add(itemId);
+      itemIds.push(itemId);
+    }
+  });
+  return { itemIds, resolved };
+}
+function adoptMaterializedChildItems(option2, section_id, resolved) {
+  let widget = null;
+  try {
+    widget = option2.getUIElement(section_id);
+  } catch (_error) {
+  }
+  if (!widget || !widget.node) {
+    return;
+  }
+  resolved.forEach((itemId, value) => {
+    if (itemId === value) {
+      return;
+    }
+    const item = findDynamicListItemByValue(widget.node, value);
+    if (item) {
+      setDynamicListItemValue(item, itemId);
+    }
+  });
+}
+function removeChildItemsOf(parentId, childType, ownerOption) {
+  getChildItemIds(parentId, childType, ownerOption).forEach(
+    (itemId) => {
+      uci.remove(FORKOP_UCI_PACKAGE, itemId);
+    }
+  );
+}
+function cleanupRemovedChildItems(section_id, typeName, keepValues, ownerOption, removeNested) {
+  const keep = new Set(normalizeDynamicListItems(keepValues));
+  getChildItemIds(section_id, typeName, ownerOption).forEach(
+    (itemId) => {
+      if (!keep.has(itemId)) {
+        removeNested?.(itemId);
+        uci.remove(FORKOP_UCI_PACKAGE, itemId);
+      }
+    }
+  );
+}
+function childItemNameCheck(dialog) {
+  return required((_itemId, value) => dialog.validateName?.(value) ?? true);
+}
+function orderChildItemsByPosition(_ownerId, itemIds) {
+  itemIds.forEach((itemId, index) => {
+    if (uci.get(FORKOP_UCI_PACKAGE, itemId, "order") !== `${index}`) {
+      uci.set(FORKOP_UCI_PACKAGE, itemId, "order", `${index}`);
+    }
+  });
+}
+function parentSectionIdForItem(itemId) {
+  return uci.get(FORKOP_UCI_PACKAGE, itemId, "section") || "";
+}
+
+// src/forkop/services/geodata.service.ts
+async function call(method, args = []) {
+  const response = await executeShellCommand({
+    command: "/usr/bin/forkop",
+    args: [method, ...args],
+    timeout: 15e3
+  });
+  const data = response.stdout ? JSON.parse(response.stdout) : null;
+  if (response.code || data?.success === false) {
+    throw new Error(
+      data?.message || response.stderr || _("Geodata operation failed")
+    );
+  }
+  return data;
+}
+var stateRequest = null;
+function getGeodataState() {
+  stateRequest ?? (stateRequest = call("geodata_status").finally(() => {
+    stateRequest = null;
+  }));
+  return stateRequest;
+}
+var updateGeodata = (id = "") => call("geodata_start", [id]);
+var getGeodataTags = (id, query = "", offset = 0) => call("geodata_tags", [
+  id,
+  query,
+  String(offset)
+]);
+function parseDatReference(value) {
+  const match = /^dat:([A-Za-z0-9_]+):([a-z0-9_.!+-]+(?:@!?[a-z0-9_.+-]+)?)$/.exec(value);
+  return match ? { source: match[1], tag: match[2] } : null;
+}
+function validateGeodataInterval(value) {
+  const match = /^([1-9][0-9]*)(m|h|d)$/.exec(value);
+  const seconds3 = match ? Number(match[1]) * ({ m: 60, h: 3600, d: 86400 }[match[2]] ?? 0) : 0;
+  return seconds3 >= 300 && seconds3 <= 31536e3 ? true : _("Use an interval from 5m to 365d, for example 12h or 1d");
+}
+
+// src/forkop/cbi/uci.ts
+function getUciSectionName(section2) {
+  return section2 && section2[".name"] ? section2[".name"] : "";
+}
+function getUciSectionLabel(section2) {
+  return section2 && section2.label || getUciSectionName(section2);
+}
+function plainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function getConfigListValues(section_id, key) {
+  return normalizeOptionValues(uci.get(FORKOP_UCI_PACKAGE, section_id, key));
+}
+function stringArraysEqual(left, right) {
+  const first = normalizeDynamicListItems(left);
+  const second = normalizeDynamicListItems(right);
+  return first.length === second.length && first.every((value, index) => value === second[index]);
+}
+function writeListOption(section_id, key, values) {
+  const normalized = normalizeOptionValues(values);
+  if (stringArraysEqual(getConfigListValues(section_id, key), normalized)) {
+    return;
+  }
+  if (normalized.length) {
+    uci.set(FORKOP_UCI_PACKAGE, section_id, key, normalized);
+  } else {
+    uci.unset(FORKOP_UCI_PACKAGE, section_id, key);
+  }
+}
+
+// src/forkop/cbi/choices.ts
+function keepUnavailableSectionChoice(option2, storedValue) {
+  const value = `${storedValue || ""}`.trim();
+  if (!value || (option2.keylist || []).includes(value)) {
+    option2.unavailableChoice = "";
+    return;
+  }
+  const target2 = (uci.sections(FORKOP_UCI_PACKAGE, "section") || []).find(
+    (section2) => getUciSectionName(section2) === value
+  );
+  option2.unavailableChoice = value;
+  option2.value(
+    value,
+    _("%s (section is unavailable)").format(
+      target2 ? getUciSectionLabel(target2) : value
+    )
+  );
+}
+function validateSectionChoice(option2, value, ownSection) {
+  const section2 = `${value || ""}`.trim();
+  if (!section2) {
+    return message.required();
+  }
+  if (section2 === ownSection) {
+    return message.sectionSelf();
+  }
+  return option2.unavailableChoice && section2 === option2.unavailableChoice ? message.sectionUnavailable() : true;
+}
+function refreshOptionChoices(option2, choices) {
+  delete option2.keylist;
+  delete option2.vallist;
+  (choices || []).forEach((choice) => {
+    if (typeof choice === "object") {
+      option2.value(choice.value, choice.label);
+    } else {
+      option2.value(choice);
+    }
+  });
+}
+
+// src/forkop/tabs/settings/sectionChoices.ts
+function isDownloadSectionAction(action) {
+  return action === "connection";
+}
+function refreshDownloadSectionChoices(option2) {
+  const sections = option2.map?.data?.state?.values?.[FORKOP_UCI_PACKAGE] ?? {};
+  option2.keylist = [];
+  option2.vallist = [];
+  for (const secName in sections) {
+    const sec = sections[secName];
+    if (sec[".type"] === "section" && sec.enabled !== "0" && isDownloadSectionAction(sec.action)) {
+      option2.value(secName, sec.label || secName);
+    }
+  }
+}
+function configureDownloadSectionOption(option2, sectionOption) {
+  option2.default = "";
+  option2.rmempty = false;
+  option2.cfgvalue = function(section_id) {
+    return uci.get(FORKOP_UCI_PACKAGE, section_id, sectionOption) || "";
+  };
+  option2.load = function(section_id) {
+    refreshDownloadSectionChoices(this);
+    const value = this.cfgvalue(section_id);
+    keepUnavailableSectionChoice(this, value);
+    return value;
+  };
+  option2.write = function(section_id, value) {
+    const normalized = value ? `${value}`.trim() : "";
+    if (normalized) {
+      uci.set(FORKOP_UCI_PACKAGE, section_id, sectionOption, normalized);
+    } else {
+      uci.unset(FORKOP_UCI_PACKAGE, section_id, sectionOption);
+    }
+  };
+  option2.remove = function(section_id) {
+    uci.unset(FORKOP_UCI_PACKAGE, section_id, sectionOption);
+  };
+  option2.validate = function(_section_id, value) {
+    return validateSectionChoice(this, value);
+  };
+}
+function configureDownloadViaProxyFlag(option2, sectionOption) {
+  option2.default = "0";
+  option2.rmempty = false;
+  option2.write = function(section_id, value) {
+    const enabled = value === "1" || value === true;
+    uci.set(FORKOP_UCI_PACKAGE, section_id, this.option, enabled ? "1" : "0");
+    if (!enabled) {
+      uci.unset(FORKOP_UCI_PACKAGE, section_id, sectionOption);
+    }
+  };
+}
+
+// src/validators/validateSingBoxDuration.ts
+function isSingBoxDuration(value) {
+  return /^(?=.*[1-9])([0-9]+(?:\.[0-9]+)?(?:ns|us|ms|s|m|h|d))+$/.test(value);
+}
+var UNIT_SECONDS = {
+  ns: 1e-9,
+  us: 1e-6,
+  ms: 1e-3,
+  s: 1,
+  m: 60,
+  h: 3600,
+  d: 86400
+};
+function singBoxDurationSeconds(value) {
+  const text8 = `${value ?? ""}`.trim();
+  if (!isSingBoxDuration(text8)) {
+    return null;
+  }
+  return [...text8.matchAll(/([0-9]+(?:\.[0-9]+)?)(ns|us|ms|s|m|h|d)/g)].reduce(
+    (total, [, amount, unit]) => total + Number(amount) * UNIT_SECONDS[unit],
+    0
+  );
+}
+function validateOptionalSingBoxDuration(value) {
+  const normalized = value ? `${value}`.trim() : "";
+  return !normalized || isSingBoxDuration(normalized) ? true : message.duration();
+}
+function validateRequiredSingBoxDuration(value) {
+  const normalized = value ? `${value}`.trim() : "";
+  return normalized ? validateOptionalSingBoxDuration(normalized) : message.required();
+}
+
+// src/forkop/tabs/settings/form/updates.ts
+function addRuleSetUpdateOptions(section2) {
+  let o = section2.option(
+    form.Flag,
+    "list_update_enabled",
+    _("Rule set auto update"),
+    _("Update remote lists and rule sets on a schedule")
+  );
+  o.default = "1";
+  o.rmempty = false;
+  o = section2.option(form.Value, "update_interval", _("List update interval"));
+  o.depends("list_update_enabled", "1");
+  o.retain = true;
+  o.placeholder = "1d";
+  o.default = "1d";
+  o.cfgvalue = function(section_id) {
+    return uci.get(FORKOP_UCI_PACKAGE, section_id, "update_interval") || "1d";
+  };
+  o.write = function(section_id, value) {
+    const normalized = value ? `${value}`.trim() : "";
+    if (normalized.length) {
+      uci.set(FORKOP_UCI_PACKAGE, section_id, "update_interval", normalized);
+    } else {
+      uci.set(FORKOP_UCI_PACKAGE, section_id, "update_interval", "1d");
+    }
+  };
+  o.validate = function(_section_id, value) {
+    return validateRequiredSingBoxDuration(value);
+  };
+  o = section2.option(
+    form.Flag,
+    "download_lists_via_proxy",
+    _("Download lists through a section"),
+    _(
+      "Download the built-in lists and remote rule sets through the selected section"
+    )
+  );
+  configureDownloadViaProxyFlag(o, "download_lists_via_proxy_section");
+  o = section2.option(
+    form.ListValue,
+    "download_lists_via_proxy_section",
+    _("Download lists through")
+  );
+  o.depends("download_lists_via_proxy", "1");
+  o.retain = true;
+  configureDownloadSectionOption(o, "download_lists_via_proxy_section");
+}
+function addUpdateOptions(section2) {
+  let o = section2.option(
+    form.Flag,
+    "unified_delay",
+    _("Accurate latency measurement"),
+    _("Includes connection setup and the TLS handshake")
+  );
+  o.default = "1";
+  o.rmempty = false;
+  o = section2.option(
+    form.Value,
+    "latency_test_url",
+    _("Latency test URL"),
+    _("URL for the shared latency test of section nodes")
+  );
+  LATENCY_TEST_URL_OPTIONS.forEach((value) => o.value(value));
+  o.default = DEFAULT_LATENCY_TEST_URL || "https://www.gstatic.com/generate_204";
+  o.validate = function(_section_id, value) {
+    return validateUrlField(value);
+  };
+  o = section2.option(
+    form.Flag,
+    "warp_profiles_via_proxy",
+    _("Request WARP through a section"),
+    _(
+      "Create and fetch Cloudflare WARP profiles through the selected section. The tunnels' own traffic does not go through it"
+    )
+  );
+  configureDownloadViaProxyFlag(o, "warp_profiles_via_proxy_section");
+  o.checkDepends = function(sectionId) {
+    return coreHas("wireguard") || this.cfgvalue(sectionId) === "1";
+  };
+  o.validate = (_sectionId, value) => value === "1" ? validateCoreFeature("wireguard") : true;
+  o = section2.option(
+    form.ListValue,
+    "warp_profiles_via_proxy_section",
+    _("Request WARP through")
+  );
+  o.depends("warp_profiles_via_proxy", "1");
+  o.retain = true;
+  configureDownloadSectionOption(o, "warp_profiles_via_proxy_section");
+}
+
+// src/forkop/tabs/geodata/catalog.ts
+async function showGeodataCatalog(includeGeoip = true, select, sourceId = "") {
+  const state = await getGeodataState();
+  const sources = state.sources.filter(
+    (source2) => source2.ready && (includeGeoip || source2.kind === "geosite")
+  );
+  const source = textE(
+    "select",
+    { class: "cbi-input-select", "aria-label": _("Geodata source") },
+    sources.map(
+      (item) => textE("option", { value: item.id }, `${item.label} (${item.kind})`)
+    )
+  );
+  if (sourceId) source.value = sourceId;
+  const search = textE("input", {
+    type: "search",
+    class: "cbi-input-text",
+    placeholder: _("Search tags"),
+    "aria-label": _("Search tags")
+  });
+  const status = textE("p", { role: "status", "aria-live": "polite" });
+  const list3 = textE("div", { style: "max-height:45vh;overflow:auto" });
+  const previous = textE(
+    "button",
+    { class: "cbi-button", type: "button" },
+    _("Previous")
+  );
+  const next = textE(
+    "button",
+    { class: "cbi-button", type: "button" },
+    _("Next")
+  );
+  let offset = 0;
+  let request = 0;
+  let timer;
+  let close = () => ui.hideModal();
+  const refresh = async () => {
+    const current = ++request;
+    if (!source.value) {
+      status.textContent = _(
+        "Add and download a DAT source on the Geodata tab first"
+      );
+      previous.disabled = next.disabled = true;
+      return;
+    }
+    status.textContent = _("Loading\u2026");
+    previous.disabled = next.disabled = true;
+    try {
+      const response = await getGeodataTags(
+        source.value,
+        search.value.trim(),
+        offset
+      );
+      if (current !== request || !list3.isConnected) return;
+      list3.replaceChildren(
+        ...response.tags.map(
+          (tag) => textE(
+            "div",
+            { style: "display:flex;align-items:center;gap:1em;padding:.4em 0" },
+            [
+              textE("code", { style: "flex:1;overflow-wrap:anywhere" }, tag.name),
+              textE("span", {}, String(tag.count)),
+              textE(
+                "button",
+                {
+                  type: "button",
+                  class: "cbi-button cbi-button-add",
+                  click: () => {
+                    if (select) {
+                      select(tag.reference);
+                      close();
+                    } else void copyToClipboard(tag.reference);
+                  }
+                },
+                select ? _("Add") : _("Copy reference")
+              )
+            ]
+          )
+        )
+      );
+      status.textContent = `${response.total ? offset + 1 : 0}\u2013${offset + response.tags.length} / ${response.total}`;
+      previous.disabled = offset === 0;
+      next.disabled = offset + response.tags.length >= response.total;
+    } catch (error) {
+      if (current === request)
+        status.textContent = String(
+          error instanceof Error ? error.message : error
+        );
+    }
+  };
+  search.addEventListener("input", () => {
+    offset = 0;
+    ++request;
+    clearTimeout(timer);
+    timer = setTimeout(() => void refresh(), 250);
+  });
+  source.addEventListener("change", () => {
+    offset = 0;
+    void refresh();
+  });
+  previous.addEventListener("click", () => {
+    offset = Math.max(0, offset - 200);
+    void refresh();
+  });
+  next.addEventListener("click", () => {
+    offset += 200;
+    void refresh();
+  });
+  const content = textE("div", {}, [
+    source,
+    search,
+    status,
+    list3,
+    textE("div", { class: "right" }, [
+      previous,
+      next,
+      textE(
+        "button",
+        {
+          type: "button",
+          class: "cbi-button",
+          click: () => {
+            ++request;
+            clearTimeout(timer);
+            close();
+          }
+        },
+        _("Close")
+      )
+    ])
+  ]);
+  const modal = select ? document.querySelector("#modal_overlay > .modal.cbi-modal") : null;
+  const active = modal?.querySelector(".cbi-map:not(.hidden)");
+  const buttons = modal?.querySelector("div.button-row");
+  if (active && buttons) {
+    active.classList.add("hidden");
+    buttons.hidden = true;
+    buttons.before(content);
+    close = () => {
+      ++request;
+      clearTimeout(timer);
+      content.remove();
+      active.classList.remove("hidden");
+      buttons.hidden = false;
+    };
+  } else {
+    ui.showModal(_("DAT tags"), [content]);
+  }
+  void refresh();
+}
+
+// src/forkop/tabs/geodata/index.ts
+var phases = {
+  queued: () => _("Starting\u2026"),
+  download: () => _("Downloading"),
+  validate: () => _("Validating"),
+  compile: () => _("Compiling rule sets"),
+  idle: () => _("Completed"),
+  error: () => _("Failed")
+};
+async function startUpdate(id = "") {
+  try {
+    await updateGeodata(id);
+    const status = textE(
+      "p",
+      { role: "status", "aria-live": "polite" },
+      _("Starting\u2026")
+    );
+    let closed = false;
+    ui.showModal(_("Update geodata"), [
+      status,
+      textE(
+        "div",
+        { class: "right" },
+        textE(
+          "button",
+          {
+            type: "button",
+            class: "cbi-button",
+            click: () => {
+              closed = true;
+              ui.hideModal();
+            }
+          },
+          _("Close")
+        )
+      )
+    ]);
+    const started2 = Date.now();
+    const poll = async () => {
+      if (closed || !status.isConnected) return;
+      try {
+        const state = await getGeodataState();
+        if (closed) return;
+        const job = state.job;
+        status.textContent = job?.error || (job ? `${job.source ? `${job.source}: ` : ""}${phases[job.phase]?.() || job.phase}` : _("Starting\u2026"));
+        if (job && (job.phase === "error" || job.phase === "idle") && Date.now() - started2 > 1500)
+          return;
+        setTimeout(() => void poll(), 1e3);
+      } catch (error) {
+        status.textContent = String(
+          error instanceof Error ? error.message : error
+        );
+      }
+    };
+    setTimeout(() => void poll(), 300);
+  } catch (error) {
+    showToast(String(error instanceof Error ? error.message : error), "error");
+  }
+}
+function createGeodataContent(map) {
+  const section2 = map.section(
+    form.TypedSection,
+    "geodata_settings",
+    _("Geodata")
+  );
+  section2.anonymous = true;
+  section2.addremove = false;
+  section2.cfgsections = () => ["settings"];
+  let o = section2.option(
+    form.Value,
+    "geodata_path",
+    _("Geodata storage directory"),
+    _(
+      "/tmp uses RAM and is cleared on reboot. Use external storage for large DAT files. An update temporarily needs space for both versions"
+    )
+  );
+  o.default = "/tmp/forkop-geodata";
+  o.rmempty = false;
+  o.validate = (_id, value) => value === "/" || /(^|\/)\.\.?($|\/)/.test(value) ? _("Choose a dedicated absolute directory") : validatePath(value);
+  o = section2.option(
+    form.ListValue,
+    "geodata_download_section",
+    _("Download DAT through")
+  );
+  configureDownloadSectionOption(o, "geodata_download_section");
+  o.rmempty = true;
+  const validate = o.validate;
+  o.validate = function(id, value) {
+    return value === "" ? true : validate.call(this, id, value);
+  };
+  const load = o.load;
+  o.load = function(id) {
+    const value = load.call(this, id);
+    this.value("", _("Directly"));
+    return value;
+  };
+  o = section2.option(
+    form.DummyValue,
+    "_geodata_actions",
+    "",
+    _("Save & Apply before downloading newly added or changed sources")
+  );
+  o.cfgvalue = () => textE(
+    "button",
+    {
+      type: "button",
+      class: "cbi-button cbi-button-action",
+      click: () => void startUpdate()
+    },
+    _("Update all DAT sources")
+  );
+  const holder = section2.option(
+    form.SectionValue,
+    "_dat_sources",
+    form.GridSection,
+    "geodata",
+    _("DAT sources")
+  );
+  const grid = holder.subsection;
+  grid.anonymous = true;
+  grid.addremove = true;
+  grid.sortable = false;
+  grid.nodescriptions = true;
+  grid.handleAdd = function(event) {
+    return form.GridSection.prototype.handleAdd.call(
+      this,
+      event,
+      nextSectionId("geodata")
+    );
+  };
+  grid.modaltitle = _("DAT source");
+  o = grid.option(form.Value, "label", _("Name"));
+  o.rmempty = false;
+  o = grid.option(form.ListValue, "kind", _("Type"));
+  o.value("geosite", "Geosite");
+  o.value("geoip", "GeoIP");
+  o.default = "geosite";
+  o.rmempty = false;
+  o = grid.option(form.Value, "input", _("DAT URL or local path"));
+  o.rmempty = false;
+  o.validate = (_id, value) => /^https?:\/\//.test(value) ? validateUrl(value) : validatePath(value);
+  o = grid.option(form.Flag, "auto_update", _("Auto update"));
+  o.default = "1";
+  o.rmempty = false;
+  o = grid.option(form.Value, "update_interval", _("Update interval"));
+  o.default = "1d";
+  o.rmempty = false;
+  o.modalonly = true;
+  o.validate = (_id, value) => validateGeodataInterval(value);
+  o = grid.option(form.DummyValue, "_state", _("State"));
+  o.cfgvalue = function(id) {
+    const text8 = textE("span", {}, _("Loading\u2026"));
+    void getGeodataState().then((state) => {
+      const source = state.sources.find((item) => item.id === id);
+      text8.textContent = source?.error || (source?.ready ? `${prettyBytes(source.size)} \xB7 ${source.tag_count} ${_("tags")} \xB7 ${new Date(source.updated_at * 1e3).toLocaleString()}` : _("Not downloaded"));
+    }).catch(() => {
+      text8.textContent = _("Unavailable");
+    });
+    return text8;
+  };
+  o = grid.option(form.DummyValue, "_actions", _("Actions"));
+  o.cfgvalue = (id) => textE("div", {}, [
+    textE(
+      "button",
+      {
+        type: "button",
+        class: "cbi-button cbi-button-action",
+        click: () => void startUpdate(id)
+      },
+      _("Update")
+    ),
+    textE(
+      "button",
+      {
+        type: "button",
+        class: "cbi-button",
+        click: () => void showGeodataCatalog(true, void 0, id).catch(
+          (error) => showToast(error.message, "error")
+        )
+      },
+      _("Tags")
+    )
+  ]);
+  const remove = grid.handleRemove;
+  grid.handleRemove = function(id, event) {
+    const sections = uci.sections("forkop", "section") || [];
+    if (sections.some(
+      (item) => ["rule_set", "rule_set_with_subnets"].some((key) => {
+        const value = item[key];
+        return (Array.isArray(value) ? value : value ? [value] : []).some(
+          (reference) => String(reference).startsWith(`dat:${id}:`)
+        );
+      })
+    )) {
+      showToast(
+        _("Remove this source from routing and DNS rules first"),
+        "error"
+      );
+      return;
+    }
+    return remove?.call(this, id, event);
+  };
+  addRuleSetUpdateOptions(section2);
+}
+
 // src/forkop/tabs/mountTab.ts
 var mountNodes = /* @__PURE__ */ new Map();
 function mountTab(key, render6, initController6) {
@@ -17766,437 +18953,6 @@ function withPhobosLinkMasking(input, masking) {
     Array.from(bytes, (byte) => String.fromCharCode(byte)).join("")
   ).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
   return `${parsed.scheme}${payload}${parsed.fragment}`;
-}
-
-// src/forkop/cbi/listItems.ts
-function itemValueInput(item) {
-  const hidden = item ? item.querySelector('input[type="hidden"]') : null;
-  return hidden && hidden.parentNode === item ? hidden : null;
-}
-function findDynamicListItemByValue(dl, value) {
-  const stringValue = `${value}`;
-  const items = dl.querySelectorAll(".item");
-  for (let i = 0; i < items.length; i += 1) {
-    const hidden = itemValueInput(items[i]);
-    if (hidden && hidden.value === stringValue) {
-      return items[i];
-    }
-  }
-  return null;
-}
-function dynamicListItemCurrentValue(item, fallback) {
-  const hidden = itemValueInput(item);
-  return hidden ? hidden.value : fallback;
-}
-function dynamicListItemValues(dl) {
-  return Array.from(dl.querySelectorAll(".item")).map((item) => {
-    const hidden = itemValueInput(item);
-    return hidden ? hidden.value : null;
-  }).filter((value) => value != null);
-}
-function renderChildItemLabel(option2, sectionId, itemId) {
-  return textE(
-    "span",
-    { class: "fkp-dynlist-label" },
-    option2.inputValueForItem(sectionId, itemId)
-  );
-}
-function updateDynamicListItemLabel(item, label) {
-  const labelNode = item ? item.querySelector(".fkp-dynlist-label") : null;
-  if (labelNode) {
-    labelNode.textContent = `${label || ""}`;
-  }
-}
-function addDynamicListItem(widget, value, text8) {
-  if (!widget || !widget.node) {
-    return null;
-  }
-  const normalized = `${value || ""}`.trim();
-  if (!normalized) {
-    return null;
-  }
-  const options = widget.options || {};
-  if (typeof options.hasEquivalentValue === "function" && options.hasEquivalentValue(normalized, widget.node)) {
-    widget.dispatchCbiDynlistChange(widget.node, normalized);
-    return null;
-  }
-  widget.addItem(widget.node, normalized, text8 || null, false);
-  widget.dispatchCbiDynlistChange(widget.node, normalized);
-  updateButtonAddDynamicListLayout(widget.node, options.addButtonLabel);
-  return findDynamicListItemByValue(widget.node, normalized);
-}
-function updateButtonAddDynamicListLayout(dl, label) {
-  const addButton = dl ? dl.querySelector(".add-item > .fkp-button-add-control") || dl.querySelector(".add-item > .cbi-button-add") : null;
-  if (!addButton) {
-    return;
-  }
-  if (!addButton.classList.contains("fkp-button-add-control")) {
-    addButton.className = "cbi-dropdown fkp-button-add-control";
-    addButton.replaceChildren(
-      textE(
-        "ul",
-        { tabindex: "-1" },
-        textE("li", { placeholder: "", selected: "", display: "0" })
-      ),
-      textE("span", { "aria-hidden": "true" }, "\u200B")
-    );
-  }
-  const buttonLabel = label || "+";
-  addButton.querySelector("li").textContent = buttonLabel;
-  addButton.setAttribute("role", "button");
-  addButton.setAttribute("tabindex", "0");
-  addButton.setAttribute("aria-label", buttonLabel);
-  addButton.setAttribute(
-    "aria-disabled",
-    dl.hasAttribute("disabled") ? "true" : "false"
-  );
-}
-function setDynamicListItemValue(item, value) {
-  const hidden = itemValueInput(item);
-  if (hidden) {
-    hidden.value = `${value || ""}`;
-  }
-}
-function dynamicListItemLabels(widget) {
-  return Array.from(widget?.node?.querySelectorAll(".fkp-dynlist-label") || []);
-}
-function dynamicListItemNames(widget) {
-  return dynamicListItemLabels(widget).map(
-    (label) => `${label.textContent || ""}`.trim()
-  );
-}
-function validateUniqueDynamicListItemName(widget, itemNode, value) {
-  const currentLabel = itemNode?.querySelector(".fkp-dynlist-label");
-  return dynamicListItemLabels(widget).some(
-    (label) => label !== currentLabel && `${label.textContent || ""}`.trim() === `${value || ""}`.trim()
-  ) ? message.nameTaken() : true;
-}
-
-// src/forkop/cbi/itemSettings.ts
-var sharedChildPendingSettings = /* @__PURE__ */ new Map();
-function readItemSettingsMap(section_id, settingsKey) {
-  const raw = uci.get(FORKOP_UCI_PACKAGE, section_id, settingsKey);
-  if (!raw) {
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(`${raw}`);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-  } catch (_error) {
-    return {};
-  }
-}
-function itemSettingsFlag(settings, key, defaultValue) {
-  const value = settings ? settings[key] : null;
-  if (value === void 0 || value === null || value === "") {
-    return Boolean(defaultValue);
-  }
-  return value === true || `${value}` === "1";
-}
-function settingValueEquals(left, right) {
-  const normalize2 = (value) => {
-    if (Array.isArray(value)) {
-      return JSON.stringify(value.map((item) => `${item || ""}`));
-    }
-    return value === void 0 || value === null ? "" : `${value}`;
-  };
-  return normalize2(left) === normalize2(right);
-}
-function readChildSettings(itemId, keys, defaults) {
-  const result = Object.assign({}, defaults || {});
-  keys.forEach((key) => {
-    const value = uci.get(FORKOP_UCI_PACKAGE, itemId, key);
-    if (value !== null && value !== void 0) {
-      result[key] = Array.isArray(value) ? value.slice() : value;
-    }
-  });
-  return result;
-}
-function changedSettings(base, next, keys) {
-  const result = {};
-  keys.forEach((key) => {
-    if (!settingValueEquals(base ? base[key] : null, next ? next[key] : null)) {
-      result[key] = next ? next[key] : null;
-    }
-  });
-  return result;
-}
-function hasChangedSettings(settings) {
-  return Object.keys(settings || {}).length > 0;
-}
-function childPendingSettingsStore(option2, section_id) {
-  if (option2.sharedPendingSettingsKey) {
-    const key = `${option2.sharedPendingSettingsKey}:${section_id}`;
-    if (!sharedChildPendingSettings.has(key)) {
-      sharedChildPendingSettings.set(key, {});
-    }
-    return sharedChildPendingSettings.get(key);
-  }
-  if (!option2.pendingChildSettings) {
-    option2.pendingChildSettings = {};
-  }
-  if (!option2.pendingChildSettings[section_id]) {
-    option2.pendingChildSettings[section_id] = {};
-  }
-  return option2.pendingChildSettings[section_id];
-}
-function pendingChildSettings(option2, section_id, value, defaults) {
-  const itemValue = `${value || ""}`.trim();
-  const store2 = childPendingSettingsStore(option2, section_id);
-  store2[itemValue] = Object.assign({}, defaults || {}, store2[itemValue]);
-  return store2[itemValue];
-}
-function clearSharedChildPendingSettings() {
-  sharedChildPendingSettings.clear();
-}
-function clearChildPendingSettings(option2, section_id) {
-  if (option2.sharedPendingSettingsKey) {
-    sharedChildPendingSettings.delete(
-      `${option2.sharedPendingSettingsKey}:${section_id}`
-    );
-    return;
-  }
-  if (option2.pendingChildSettings) {
-    delete option2.pendingChildSettings[section_id];
-  }
-}
-
-// src/forkop/cbi/required.ts
-function isBlank(value) {
-  return `${value ?? ""}`.trim() === "";
-}
-function optionListValues(option2, sectionId) {
-  const formValue2 = option2.formvalue(sectionId);
-  return normalizeDynamicListItems(
-    formValue2 != null ? formValue2 : option2.cfgvalue(sectionId)
-  );
-}
-function required(check) {
-  return function(sectionId, value) {
-    if (isBlank(value)) {
-      return message.required();
-    }
-    return check ? check.call(this, sectionId, value) : true;
-  };
-}
-function requiredList(check) {
-  return function(sectionId, value) {
-    if (isBlank(value)) {
-      return optionListValues(this, sectionId).length ? true : message.required();
-    }
-    return check ? check.call(this, sectionId, value) : true;
-  };
-}
-
-// src/forkop/cbi/childItems.ts
-var SECTION_ID_PREFIXES = {
-  connection_link: "link",
-  fallback_group: "group",
-  fallback_level: "level",
-  section: "section",
-  section_interface: "iface",
-  server: "server",
-  server_client: "client",
-  subscription_url: "sub",
-  tunnel: "tunnel",
-  tunnel_peer: "peer",
-  urltest: "urltest"
-};
-var issuedSectionIds = /* @__PURE__ */ new Set();
-function nextSectionId(typeName) {
-  const prefix = SECTION_ID_PREFIXES[typeName] || typeName;
-  for (let i = 0; i < 100; i += 1) {
-    const id = `${prefix}_${Math.floor(Math.random() * 16777216).toString(16).padStart(6, "0")}`;
-    if (!issuedSectionIds.has(id) && !uci.get(FORKOP_UCI_PACKAGE, id)) {
-      issuedSectionIds.add(id);
-      return id;
-    }
-  }
-  return `${prefix}_${Date.now().toString(16)}`;
-}
-function childOwnerOption(ownerOption) {
-  return ownerOption || "section";
-}
-function childItemOrder(item) {
-  const value = item ? item.order : null;
-  const parsed = Number.parseInt(value == null ? "0" : `${value}`, 10);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-function getChildItemIds(section_id, typeName, ownerOption) {
-  const ownerKey = childOwnerOption(ownerOption);
-  const items = uci.sections(FORKOP_UCI_PACKAGE, typeName).filter((item) => item[ownerKey] === section_id);
-  if (["connection_link", "fallback_level", "tunnel", "tunnel_peer"].includes(
-    typeName
-  )) {
-    items.sort((a, b) => {
-      const orderDiff = childItemOrder(a) - childItemOrder(b);
-      if (orderDiff !== 0) {
-        return orderDiff;
-      }
-      return `${a[".name"] || ""}`.localeCompare(`${b[".name"] || ""}`);
-    });
-  }
-  return items.map((item) => item[".name"]).filter(Boolean);
-}
-function childItemValue(itemId, valueOption, fallback) {
-  if (!valueOption) {
-    return itemId;
-  }
-  const value = uci.get(FORKOP_UCI_PACKAGE, itemId, valueOption);
-  return value == null || value === "" ? fallback || itemId : `${value}`;
-}
-function childItemInputValue(section_id, value, typeName, valueOption, ownerOption) {
-  const itemId = `${value || ""}`;
-  if (isExistingChildItem(section_id, itemId, typeName, ownerOption)) {
-    return childItemValue(itemId, valueOption, itemId);
-  }
-  return itemId;
-}
-function isExistingChildItem(section_id, itemId, typeName, ownerOption) {
-  const ownerKey = childOwnerOption(ownerOption);
-  return Boolean(
-    itemId && uci.get(FORKOP_UCI_PACKAGE, itemId, ".type") === typeName && uci.get(FORKOP_UCI_PACKAGE, itemId, ownerKey) === section_id
-  );
-}
-function createChildItem(section_id, options, inputValue) {
-  const rawValue = `${inputValue || ""}`.trim();
-  if (isExistingChildItem(
-    section_id,
-    rawValue,
-    options.typeName,
-    options.ownerOption
-  )) {
-    return {
-      value: rawValue,
-      text: options.valueOption ? childItemValue(rawValue, options.valueOption, rawValue) : rawValue,
-      created: false
-    };
-  }
-  const requestedId = typeof options.createId === "function" ? `${options.createId(rawValue, section_id) || ""}`.trim() : "";
-  const itemId = requestedId && uci.add(FORKOP_UCI_PACKAGE, options.typeName, requestedId) || requestedId || uci.add(FORKOP_UCI_PACKAGE, options.typeName);
-  uci.set(
-    FORKOP_UCI_PACKAGE,
-    itemId,
-    childOwnerOption(options.ownerOption),
-    section_id
-  );
-  if (options.valueOption) {
-    uci.set(FORKOP_UCI_PACKAGE, itemId, options.valueOption, rawValue);
-  }
-  if (options.defaults && typeof options.defaults === "object") {
-    Object.entries(options.defaults).forEach(([key, value]) => {
-      value = typeof value === "function" ? value(rawValue, section_id, itemId) : value;
-      if (value !== void 0 && value !== null && value !== "") {
-        uci.set(
-          FORKOP_UCI_PACKAGE,
-          itemId,
-          key,
-          Array.isArray(value) ? value.map((item) => `${item || ""}`).filter(Boolean) : `${value}`
-        );
-      }
-    });
-  }
-  return {
-    value: itemId,
-    text: options.valueOption ? rawValue : itemId,
-    created: true
-  };
-}
-function applyChildItemSettings(itemId, settings) {
-  Object.entries(settings || {}).forEach(([key, value]) => {
-    if (!key || key.charAt(0) === ".") {
-      return;
-    }
-    if (settingValueEquals(uci.get(FORKOP_UCI_PACKAGE, itemId, key), value)) {
-      return;
-    }
-    if (value === void 0 || value === null || value === "") {
-      uci.unset(FORKOP_UCI_PACKAGE, itemId, key);
-    } else if (Array.isArray(value)) {
-      const values = value.map((item) => `${item || ""}`.trim()).filter((item) => item.length);
-      if (values.length) {
-        uci.set(FORKOP_UCI_PACKAGE, itemId, key, values);
-      } else {
-        uci.unset(FORKOP_UCI_PACKAGE, itemId, key);
-      }
-    } else {
-      uci.set(FORKOP_UCI_PACKAGE, itemId, key, `${value}`);
-    }
-  });
-}
-function materializeChildItems(section_id, options, inputValue) {
-  const itemIds = [];
-  const seen = /* @__PURE__ */ new Set();
-  const resolved = /* @__PURE__ */ new Map();
-  normalizeDynamicListItems(inputValue).forEach((value) => {
-    let itemId = resolved.get(value);
-    if (itemId == null) {
-      const createdItem = createChildItem(section_id, options, value);
-      itemId = createdItem.value;
-      const stagedSettings = createdItem.created && typeof options.stagedSettings === "function" ? options.stagedSettings(value) : null;
-      if (stagedSettings) {
-        applyChildItemSettings(itemId, stagedSettings);
-      }
-      if (itemId) {
-        resolved.set(value, itemId);
-      }
-    }
-    if (itemId && !seen.has(itemId)) {
-      seen.add(itemId);
-      itemIds.push(itemId);
-    }
-  });
-  return { itemIds, resolved };
-}
-function adoptMaterializedChildItems(option2, section_id, resolved) {
-  let widget = null;
-  try {
-    widget = option2.getUIElement(section_id);
-  } catch (_error) {
-  }
-  if (!widget || !widget.node) {
-    return;
-  }
-  resolved.forEach((itemId, value) => {
-    if (itemId === value) {
-      return;
-    }
-    const item = findDynamicListItemByValue(widget.node, value);
-    if (item) {
-      setDynamicListItemValue(item, itemId);
-    }
-  });
-}
-function removeChildItemsOf(parentId, childType, ownerOption) {
-  getChildItemIds(parentId, childType, ownerOption).forEach(
-    (itemId) => {
-      uci.remove(FORKOP_UCI_PACKAGE, itemId);
-    }
-  );
-}
-function cleanupRemovedChildItems(section_id, typeName, keepValues, ownerOption, removeNested) {
-  const keep = new Set(normalizeDynamicListItems(keepValues));
-  getChildItemIds(section_id, typeName, ownerOption).forEach(
-    (itemId) => {
-      if (!keep.has(itemId)) {
-        removeNested?.(itemId);
-        uci.remove(FORKOP_UCI_PACKAGE, itemId);
-      }
-    }
-  );
-}
-function childItemNameCheck(dialog) {
-  return required((_itemId, value) => dialog.validateName?.(value) ?? true);
-}
-function orderChildItemsByPosition(_ownerId, itemIds) {
-  itemIds.forEach((itemId, index) => {
-    if (uci.get(FORKOP_UCI_PACKAGE, itemId, "order") !== `${index}`) {
-      uci.set(FORKOP_UCI_PACKAGE, itemId, "order", `${index}`);
-    }
-  });
-}
-function parentSectionIdForItem(itemId) {
-  return uci.get(FORKOP_UCI_PACKAGE, itemId, "section") || "";
 }
 
 // src/forkop/cbi/validation.ts
@@ -18927,192 +19683,6 @@ function nextNumberedName(prefix, taken, separator = " #") {
     })
   );
   return `${marker}${highest + 1}`;
-}
-
-// src/forkop/cbi/uci.ts
-function getUciSectionName(section2) {
-  return section2 && section2[".name"] ? section2[".name"] : "";
-}
-function getUciSectionLabel(section2) {
-  return section2 && section2.label || getUciSectionName(section2);
-}
-function plainObject(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-function getConfigListValues(section_id, key) {
-  return normalizeOptionValues(uci.get(FORKOP_UCI_PACKAGE, section_id, key));
-}
-function stringArraysEqual(left, right) {
-  const first = normalizeDynamicListItems(left);
-  const second = normalizeDynamicListItems(right);
-  return first.length === second.length && first.every((value, index) => value === second[index]);
-}
-function writeListOption(section_id, key, values) {
-  const normalized = normalizeOptionValues(values);
-  if (stringArraysEqual(getConfigListValues(section_id, key), normalized)) {
-    return;
-  }
-  if (normalized.length) {
-    uci.set(FORKOP_UCI_PACKAGE, section_id, key, normalized);
-  } else {
-    uci.unset(FORKOP_UCI_PACKAGE, section_id, key);
-  }
-}
-
-// src/forkop/cbi/choices.ts
-function keepUnavailableSectionChoice(option2, storedValue) {
-  const value = `${storedValue || ""}`.trim();
-  if (!value || (option2.keylist || []).includes(value)) {
-    option2.unavailableChoice = "";
-    return;
-  }
-  const target2 = (uci.sections(FORKOP_UCI_PACKAGE, "section") || []).find(
-    (section2) => getUciSectionName(section2) === value
-  );
-  option2.unavailableChoice = value;
-  option2.value(
-    value,
-    _("%s (section is unavailable)").format(
-      target2 ? getUciSectionLabel(target2) : value
-    )
-  );
-}
-function validateSectionChoice(option2, value, ownSection) {
-  const section2 = `${value || ""}`.trim();
-  if (!section2) {
-    return message.required();
-  }
-  if (section2 === ownSection) {
-    return message.sectionSelf();
-  }
-  return option2.unavailableChoice && section2 === option2.unavailableChoice ? message.sectionUnavailable() : true;
-}
-function refreshOptionChoices(option2, choices) {
-  delete option2.keylist;
-  delete option2.vallist;
-  (choices || []).forEach((choice) => {
-    if (typeof choice === "object") {
-      option2.value(choice.value, choice.label);
-    } else {
-      option2.value(choice);
-    }
-  });
-}
-
-// src/validators/validatePath.ts
-function validatePath(value) {
-  if (!value) {
-    return message.required();
-  }
-  return /^\/[a-zA-Z0-9_\-/.]+$/.test(value) ? true : message.invalidPath();
-}
-
-// src/validators/validateDomain.ts
-function asciiHostname(hostname) {
-  if (!hostname || /[\s@:/]/.test(hostname) || hostname.startsWith(".") || hostname.endsWith(".")) {
-    return null;
-  }
-  try {
-    return new URL(`http://${hostname}`).hostname;
-  } catch {
-    return null;
-  }
-}
-function validAsciiDomain(hostname, requireDot = true) {
-  if (!hostname || hostname.length > 253) {
-    return false;
-  }
-  const parts = hostname.split(".");
-  if (parts.some((part2) => !part2 || part2.length > 63)) {
-    return false;
-  }
-  if (parts.some((part2) => !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(part2))) {
-    return false;
-  }
-  if (!requireDot) {
-    return true;
-  }
-  if (parts.length < 2) {
-    return false;
-  }
-  const tld = parts[parts.length - 1];
-  return /^(?:[a-z]{2,}|xn--[a-z0-9-]{2,59})$/.test(tld);
-}
-function validateDomain(domain, allowDotTLD = false) {
-  const normalized = `${domain || ""}`.trim();
-  if (allowDotTLD) {
-    const dotTld = normalized.startsWith(".") ? normalized.slice(1) : "";
-    const ascii2 = asciiHostname(dotTld);
-    if (ascii2 && !ascii2.includes(".") && validAsciiDomain(ascii2, false)) {
-      return true;
-    }
-  }
-  const slashIndex = normalized.indexOf("/");
-  const hostname = slashIndex >= 0 ? normalized.slice(0, slashIndex) : normalized;
-  const path = slashIndex >= 0 ? normalized.slice(slashIndex) : "";
-  const ascii = asciiHostname(hostname);
-  return path && /\s/.test(path) || !ascii || !validAsciiDomain(ascii) ? message.invalidDomain() : true;
-}
-
-// src/validators/hostPort.ts
-function unbracketHost(host) {
-  if (host.startsWith("[") && host.endsWith("]")) {
-    return host.slice(1, -1);
-  }
-  return host;
-}
-function isValidHost(host) {
-  const normalizedHost = unbracketHost(host);
-  return isIPv4(normalizedHost) || isIPv6(normalizedHost) || validateDomain(normalizedHost) === true;
-}
-function isValidPort(port2) {
-  const normalized = String(port2 ?? "");
-  const value = Number(normalized);
-  return /^\d+$/.test(normalized) && value >= 1 && value <= 65535;
-}
-function parseHostPort(value) {
-  if (!value) {
-    return null;
-  }
-  if (value.startsWith("[")) {
-    const end = value.indexOf("]");
-    if (end <= 1 || value.slice(end + 1, end + 2) !== ":") {
-      return null;
-    }
-    const parsed2 = {
-      host: value.slice(1, end),
-      port: value.slice(end + 2)
-    };
-    return isValidHost(parsed2.host) ? parsed2 : null;
-  }
-  const firstColon = value.indexOf(":");
-  const lastColon = value.lastIndexOf(":");
-  if (firstColon < 0 || firstColon !== lastColon) {
-    return null;
-  }
-  const parsed = {
-    host: value.slice(0, firstColon),
-    port: value.slice(firstColon + 1)
-  };
-  return isValidHost(parsed.host) ? parsed : null;
-}
-
-// src/validators/validateUrl.ts
-function validateUrl(url, protocols = ["http:", "https:"]) {
-  if (!protocols.some((p) => url.indexOf(p + "//") === 0)) {
-    return url.length ? _("Only %s").format(protocols.map((p) => `${p}//`).join(", ")) : message.invalidUrl();
-  }
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.startsWith("[") ? parsed.hostname.slice(1, -1) : parsed.hostname;
-    return (isValidHost(host) || host === "localhost") && (!parsed.port || isValidPort(parsed.port)) ? true : message.invalidUrl();
-  } catch (_e) {
-    return message.invalidUrl();
-  }
-}
-function validateUrlField(value) {
-  const url = `${value || ""}`.trim();
-  return url ? validateUrl(url) : message.required();
 }
 
 // src/forkop/tabs/sections/validators.ts
@@ -24195,38 +24765,6 @@ function addServerFilterOptions(itemSection, parentSectionForItem, options = {})
   };
 }
 
-// src/validators/validateSingBoxDuration.ts
-function isSingBoxDuration(value) {
-  return /^(?=.*[1-9])([0-9]+(?:\.[0-9]+)?(?:ns|us|ms|s|m|h|d))+$/.test(value);
-}
-var UNIT_SECONDS = {
-  ns: 1e-9,
-  us: 1e-6,
-  ms: 1e-3,
-  s: 1,
-  m: 60,
-  h: 3600,
-  d: 86400
-};
-function singBoxDurationSeconds(value) {
-  const text8 = `${value ?? ""}`.trim();
-  if (!isSingBoxDuration(text8)) {
-    return null;
-  }
-  return [...text8.matchAll(/([0-9]+(?:\.[0-9]+)?)(ns|us|ms|s|m|h|d)/g)].reduce(
-    (total, [, amount, unit]) => total + Number(amount) * UNIT_SECONDS[unit],
-    0
-  );
-}
-function validateOptionalSingBoxDuration(value) {
-  const normalized = value ? `${value}`.trim() : "";
-  return !normalized || isSingBoxDuration(normalized) ? true : message.duration();
-}
-function validateRequiredSingBoxDuration(value) {
-  const normalized = value ? `${value}`.trim() : "";
-  return normalized ? validateOptionalSingBoxDuration(normalized) : message.required();
-}
-
 // src/forkop/tabs/sections/healthCheck.ts
 function validateExpectedStatus(value) {
   const normalized = `${value || ""}`.trim();
@@ -25131,7 +25669,37 @@ var loadSingGeositeFiles = createCatalogLoader("geosite");
 var loadSingGeoipFiles = createCatalogLoader("geoip");
 
 // src/forkop/tabs/sections/ruleSets.ts
+function addDatRulesetPicker(node, option2, sectionId, includeGeoip = true) {
+  node.appendChild(
+    textE(
+      "button",
+      {
+        type: "button",
+        class: "cbi-button",
+        click: () => {
+          void showGeodataCatalog(includeGeoip, (reference) => {
+            const widget = option2.getUIElement(sectionId);
+            if (widget)
+              widget.setValue(
+                uniqueDynamicListItems([
+                  ...normalizeDynamicListItems(widget.getValue()),
+                  reference
+                ])
+              );
+            node.dispatchEvent(
+              new CustomEvent("cbi-dynlist-change", { bubbles: true })
+            );
+          }).catch((error) => showToast(error.message, "error"));
+        }
+      },
+      _("Choose DAT tag")
+    )
+  );
+}
 function ruleSetIncludesSubnets(section_id, value) {
+  const dat = parseDatReference(value);
+  if (dat && uci.get(FORKOP_UCI_PACKAGE, dat.source, "kind") === "geoip")
+    return true;
   const settings = readItemSettingsMap(section_id, RULE_SET_ITEM_SETTINGS_KEY);
   const itemSettings = settings && settings[value];
   if (itemSettings && typeof itemSettings === "object" && itemSettings.include_subnets != null) {
@@ -25165,6 +25733,8 @@ function showRuleSetSettingsModal(section_id, itemValue, option2, widget) {
   );
   includeSubnets.default = "0";
   includeSubnets.rmempty = false;
+  const dat = parseDatReference(`${itemValue ?? ""}`);
+  includeSubnets.readonly = !!dat && uci.get(FORKOP_UCI_PACKAGE, dat.source, "kind") === "geoip";
   const name = ruleSetFileName(`${itemValue ?? ""}`);
   return renderStackedJsonSettingsModal(
     name ? _("Rule set: %s").format(name) : _("Rule set settings"),
@@ -25456,6 +26026,7 @@ function validateCustomRulesetReference(value) {
   if (!value) {
     return true;
   }
+  if (parseDatReference(value)) return true;
   if (/\.ya?ml$/i.test(value.replace(/[?#].*$/, ""))) {
     return _("YAML is not supported");
   }
@@ -28595,6 +29166,7 @@ function createSectionContent(section2) {
       cfgvalue
     );
     groupGeoRulesetChoices(node);
+    addDatRulesetPicker(node, this, section_id, false);
     return node;
   };
   dnsRuleSetOption.load = async function(section_id) {
@@ -28628,6 +29200,7 @@ function createSectionContent(section2) {
       cfgvalue
     );
     groupGeoRulesetChoices(node);
+    addDatRulesetPicker(node, this, section_id);
     return node;
   };
   ruleSetOption.renderItemSettingsModal = showRuleSetSettingsModal;
@@ -30105,60 +30678,6 @@ function configureServerSection(sectionRef) {
   };
 }
 
-// src/forkop/tabs/settings/sectionChoices.ts
-function isDownloadSectionAction(action) {
-  return action === "connection";
-}
-function refreshDownloadSectionChoices(option2) {
-  const sections = option2.map?.data?.state?.values?.[FORKOP_UCI_PACKAGE] ?? {};
-  option2.keylist = [];
-  option2.vallist = [];
-  for (const secName in sections) {
-    const sec = sections[secName];
-    if (sec[".type"] === "section" && sec.enabled !== "0" && isDownloadSectionAction(sec.action)) {
-      option2.value(secName, sec.label || secName);
-    }
-  }
-}
-function configureDownloadSectionOption(option2, sectionOption) {
-  option2.default = "";
-  option2.rmempty = false;
-  option2.cfgvalue = function(section_id) {
-    return uci.get(FORKOP_UCI_PACKAGE, section_id, sectionOption) || "";
-  };
-  option2.load = function(section_id) {
-    refreshDownloadSectionChoices(this);
-    const value = this.cfgvalue(section_id);
-    keepUnavailableSectionChoice(this, value);
-    return value;
-  };
-  option2.write = function(section_id, value) {
-    const normalized = value ? `${value}`.trim() : "";
-    if (normalized) {
-      uci.set(FORKOP_UCI_PACKAGE, section_id, sectionOption, normalized);
-    } else {
-      uci.unset(FORKOP_UCI_PACKAGE, section_id, sectionOption);
-    }
-  };
-  option2.remove = function(section_id) {
-    uci.unset(FORKOP_UCI_PACKAGE, section_id, sectionOption);
-  };
-  option2.validate = function(_section_id, value) {
-    return validateSectionChoice(this, value);
-  };
-}
-function configureDownloadViaProxyFlag(option2, sectionOption) {
-  option2.default = "0";
-  option2.rmempty = false;
-  option2.write = function(section_id, value) {
-    const enabled = value === "1" || value === true;
-    uci.set(FORKOP_UCI_PACKAGE, section_id, this.option, enabled ? "1" : "0");
-    if (!enabled) {
-      uci.unset(FORKOP_UCI_PACKAGE, section_id, sectionOption);
-    }
-  };
-}
-
 // src/validators/validateStaticHosts.ts
 function lineFields(line, offset) {
   const commentIndex = line.search(/\/\/|#/);
@@ -30643,94 +31162,6 @@ function addTrafficOptions(section2) {
   o.rmempty = false;
 }
 
-// src/forkop/tabs/settings/form/updates.ts
-function addUpdateOptions(section2) {
-  let o = section2.option(
-    form.Flag,
-    "list_update_enabled",
-    _("Rule set auto update"),
-    _("Update remote lists and rule sets on a schedule")
-  );
-  o.default = "1";
-  o.rmempty = false;
-  o = section2.option(form.Value, "update_interval", _("List update interval"));
-  o.depends("list_update_enabled", "1");
-  o.retain = true;
-  o.placeholder = "1d";
-  o.default = "1d";
-  o.cfgvalue = function(section_id) {
-    return uci.get(FORKOP_UCI_PACKAGE, section_id, "update_interval") || "1d";
-  };
-  o.write = function(section_id, value) {
-    const normalized = value ? `${value}`.trim() : "";
-    if (normalized.length) {
-      uci.set(FORKOP_UCI_PACKAGE, section_id, "update_interval", normalized);
-    } else {
-      uci.set(FORKOP_UCI_PACKAGE, section_id, "update_interval", "1d");
-    }
-  };
-  o.validate = function(_section_id, value) {
-    return validateRequiredSingBoxDuration(value);
-  };
-  o = section2.option(
-    form.Flag,
-    "unified_delay",
-    _("Accurate latency measurement"),
-    _("Includes connection setup and the TLS handshake")
-  );
-  o.default = "1";
-  o.rmempty = false;
-  o = section2.option(
-    form.Value,
-    "latency_test_url",
-    _("Latency test URL"),
-    _("URL for the shared latency test of section nodes")
-  );
-  LATENCY_TEST_URL_OPTIONS.forEach((value) => o.value(value));
-  o.default = DEFAULT_LATENCY_TEST_URL || "https://www.gstatic.com/generate_204";
-  o.validate = function(_section_id, value) {
-    return validateUrlField(value);
-  };
-  o = section2.option(
-    form.Flag,
-    "download_lists_via_proxy",
-    _("Download lists through a section"),
-    _(
-      "Download the built-in lists and remote rule sets through the selected section"
-    )
-  );
-  configureDownloadViaProxyFlag(o, "download_lists_via_proxy_section");
-  o = section2.option(
-    form.ListValue,
-    "download_lists_via_proxy_section",
-    _("Download lists through")
-  );
-  o.depends("download_lists_via_proxy", "1");
-  o.retain = true;
-  configureDownloadSectionOption(o, "download_lists_via_proxy_section");
-  o = section2.option(
-    form.Flag,
-    "warp_profiles_via_proxy",
-    _("Request WARP through a section"),
-    _(
-      "Create and fetch Cloudflare WARP profiles through the selected section. The tunnels' own traffic does not go through it"
-    )
-  );
-  configureDownloadViaProxyFlag(o, "warp_profiles_via_proxy_section");
-  o.checkDepends = function(sectionId) {
-    return coreHas("wireguard") || this.cfgvalue(sectionId) === "1";
-  };
-  o.validate = (_sectionId, value) => value === "1" ? validateCoreFeature("wireguard") : true;
-  o = section2.option(
-    form.ListValue,
-    "warp_profiles_via_proxy_section",
-    _("Request WARP through")
-  );
-  o.depends("warp_profiles_via_proxy", "1");
-  o.retain = true;
-  configureDownloadSectionOption(o, "warp_profiles_via_proxy_section");
-}
-
 // src/forkop/tabs/settings/form.ts
 function createSettingsContent(section2) {
   addDnsOptions(section2);
@@ -31015,6 +31446,7 @@ var ForkopView = {
       return ["settings"];
     };
     createSettingsContent(settingsSection);
+    createGeodataContent(forkopMap);
     addMountedTab(forkopMap, "diagnostic", _("Status"), DiagnosticTab);
     addMountedTab(forkopMap, "dashboard", _("Dashboard"), DashboardTab);
     addMountedTab(forkopMap, "monitoring", _("Monitoring"), MonitoringTab);
@@ -31028,8 +31460,10 @@ var ForkopView = {
 };
 return baseclass.extend({
   ForkopView,
+  addRuleSetUpdateOptions,
   configureSectionSection,
   configureServerSection,
+  createGeodataContent,
   createSectionContent,
   createServerContent,
   createSettingsContent,

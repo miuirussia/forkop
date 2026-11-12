@@ -137,7 +137,10 @@ describe('the tables the page carries', () => {
       harness.form.NamedSection,
       'settings',
       {},
-      harness.bundle.createSettingsContent,
+      (section) => {
+        harness.bundle.createSettingsContent(section);
+        harness.bundle.addRuleSetUpdateOptions(section);
+      },
     );
     await page(
       'section',

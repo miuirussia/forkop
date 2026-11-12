@@ -220,6 +220,7 @@ function cleanup_network() {
 
 function stop_runtime(keep_watcher) {
     let ok = true;
+    require("geodata.service").stop_worker();
     if (!keep_watcher)
         watch.stop_worker();
     rulesets.stop_worker();
@@ -314,6 +315,10 @@ function start_runtime() {
     }
     if (!rulesets.start_worker()) {
         log("error", "Failed to start the rule-set sync worker");
+        return false;
+    }
+    if (!require("geodata.service").start_worker()) {
+        log("error", "Failed to start the geodata update worker");
         return false;
     }
 
@@ -582,6 +587,8 @@ function reload_runtime(reason) {
     let worker_changed = nft_changed || !rulesets.worker_current();
     if (worker_changed && !rulesets.start_worker())
         return abort_reload("Failed to start the rule-set sync worker", true);
+    if (!require("geodata.service").start_worker())
+        return abort_reload("Failed to start the geodata update worker", true);
 
     if (nft_changed || config_changed || forced || worker_changed)
         log("info", "Configuration applied");

@@ -9,7 +9,7 @@ let core_url = require("core.url");
 
 const TYPES = [
     "settings", "section", "server", "server_client", "subscription_url", "section_interface",
-    "connection_link", "urltest", "fallback_group", "fallback_level", "tunnel", "tunnel_peer"
+    "connection_link", "urltest", "fallback_group", "fallback_level", "tunnel", "tunnel_peer", "geodata"
 ];
 
 // Named as the page names a pasted link: after the link, or "Node #N", numbered on a clash.

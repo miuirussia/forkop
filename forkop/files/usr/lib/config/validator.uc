@@ -93,6 +93,10 @@ function absolute_reference(value) {
 
 function ruleset_reference_valid(reference) {
     reference = as_string(reference);
+    if (substr(reference, 0, 4) == "dat:") {
+        let ref = require("geodata.sources").parse(reference);
+        return ref != null && require("geodata.sources").get(ref.source) != null;
+    }
     let path = lc(replace(reference, /[?#].*$/, ""));
     if (match(path, /\.ya?ml$/) != null)
         return false;
@@ -1736,6 +1740,23 @@ function validate_runtime_config(context) {
     let settings = settings_section();
     let sections = sections_by_type("section");
     let servers = sections_by_type("server");
+
+    let geodata = require("geodata.sources");
+    geodata.root();
+    for (let source in geodata.all()) {
+        geodata.directory(source[".name"]);
+        if (source.kind != "geosite" && source.kind != "geoip")
+            fail_validation("Geodata source must have kind geosite or geoip");
+        let input = as_string(source.input);
+        if (remote_reference(input))
+            validate_http_url_option(input, "Geodata source");
+        else if (substr(input, 0, 1) != "/" || match(input, /[\r\n]/))
+            fail_validation("Geodata source must be an HTTP(S) URL or an absolute DAT path");
+        require("geodata.service").interval(source.update_interval || "1d");
+    }
+    let geodata_detour = option(settings, "geodata_download_section", "");
+    if (geodata_detour != "")
+        validate_download_section(sections, geodata_detour);
 
     let display_names = {};
     validate_runtime_display_names(sections, "Section", display_names);

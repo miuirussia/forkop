@@ -67,6 +67,7 @@ export default defineConfig({
             { text: 'DNS', link: '/dns/' },
             { text: 'VPN-сервер', link: '/servers/' },
             { text: 'Настройки', link: '/settings' },
+            { text: 'Геоданные', link: '/geodata' },
             { text: 'Ошибки диагностики', link: '/troubleshooting/diagnostics' },
           ],
         },

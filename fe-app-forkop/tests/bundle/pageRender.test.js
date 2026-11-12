@@ -128,6 +128,7 @@ const EXPECTED_TABS = [
   'section',
   'server',
   'settings',
+  'geodata_settings',
   'diagnostic',
   'dashboard',
   'monitoring',

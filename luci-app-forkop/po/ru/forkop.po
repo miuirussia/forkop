@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 14:58+0300\n"
-"PO-Revision-Date: 2026-11-12 14:58+0300\n"
+"POT-Creation-Date: 2026-11-12 21:13+0300\n"
+"PO-Revision-Date: 2026-11-12 21:13+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -25,6 +25,9 @@ msgstr "[Peer] без AllowedIPs"
 
 msgid "[Peer] without PublicKey or Endpoint"
 msgstr "[Peer] без PublicKey или Endpoint"
+
+msgid "/tmp uses RAM and is cleared on reboot. Use external storage for large DAT files. An update temporarily needs space for both versions"
+msgstr "/tmp занимает оперативную память и очищается при перезагрузке. Для больших DAT используйте внешний накопитель. При обновлении временно требуется место для двух версий"
 
 msgid "%d d"
 msgstr "%d д"
@@ -212,6 +215,9 @@ msgstr "Точное измерение задержки"
 msgid "Action"
 msgstr "Действие"
 
+msgid "Actions"
+msgstr "Действия"
+
 msgid "Active"
 msgstr "Активные"
 
@@ -241,6 +247,9 @@ msgstr "Добавьте имя пользователя, сертификат �
 
 msgid "Add AmneziaWG junk and signature packets. Makes the traffic harder to recognize"
 msgstr "Добавить мусорные и сигнатурные пакеты AmneziaWG. Затрудняет распознавание трафика"
+
+msgid "Add and download a DAT source on the Geodata tab first"
+msgstr "Сначала добавьте и скачайте DAT на вкладке «Геоданные»"
 
 msgid "Add at least one AmneziaWG parameter"
 msgstr "Добавьте хотя бы один параметр AmneziaWG"
@@ -359,6 +368,9 @@ msgstr "Ключ авторизации"
 msgid "Auto refresh"
 msgstr "Автообновление"
 
+msgid "Auto update"
+msgstr "Автообновление"
+
 msgid "Availability check for every server"
 msgstr "Проверка доступности каждого сервера"
 
@@ -470,11 +482,17 @@ msgstr "Проверки не пройдены"
 msgid "Checks passed"
 msgstr "Проверки пройдены"
 
+msgid "Choose a dedicated absolute directory"
+msgstr "Укажите отдельную папку полным путём"
+
 msgid "Choose a sing-geosite list, or enter a URL or local path. The format is detected automatically"
 msgstr "Выберите список sing-geosite или введите URL либо локальный путь. Формат определяется автоматически"
 
 msgid "Choose a sing-geosite or sing-geoip list, or enter a URL or local path. The format is detected automatically"
 msgstr "Выберите список sing-geosite или sing-geoip либо введите URL или локальный путь. Формат определяется автоматически"
+
+msgid "Choose DAT tag"
+msgstr "Выбрать тег DAT"
 
 msgid "Cipher"
 msgstr "Шифр"
@@ -544,6 +562,12 @@ msgstr "Имя CN (name)"
 
 msgid "comp-lzo: unsupported mode %s"
 msgstr "comp-lzo: режим %s не поддерживается"
+
+msgid "Compiling rule sets"
+msgstr "Преобразование наборов правил"
+
+msgid "Completed"
+msgstr "Завершено"
 
 msgid "Components"
 msgstr "Компоненты"
@@ -632,6 +656,9 @@ msgstr "Копировать найденное"
 msgid "Copy proxy link"
 msgstr "Скопировать ссылку прокси"
 
+msgid "Copy reference"
+msgstr "Скопировать ссылку на тег"
+
 msgid "Copy the output"
 msgstr "Копировать вывод"
 
@@ -679,6 +706,18 @@ msgstr "Дашборд"
 
 msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
+
+msgid "DAT source"
+msgstr "Источник DAT"
+
+msgid "DAT sources"
+msgstr "Источники DAT"
+
+msgid "DAT tags"
+msgstr "Теги DAT"
+
+msgid "DAT URL or local path"
+msgstr "Ссылка на DAT или путь к файлу"
 
 msgid "Data ciphers"
 msgstr "Шифры канала данных"
@@ -735,6 +774,9 @@ msgid "Diagnostic report"
 msgstr "Отчёт диагностики"
 
 msgid "Direct"
+msgstr "Напрямую"
+
+msgid "Directly"
 msgstr "Напрямую"
 
 msgid "Disable autostart"
@@ -809,6 +851,9 @@ msgstr "Входящий"
 msgid "Download"
 msgstr "Скачать"
 
+msgid "Download DAT through"
+msgstr "Скачивать DAT через секцию"
+
 msgid "Download lists through"
 msgstr "Скачивать списки через"
 
@@ -829,6 +874,9 @@ msgstr "Загружать подписку через другую секцию
 
 msgid "Downloaded"
 msgstr "Загружено"
+
+msgid "Downloading"
+msgstr "Загрузка"
 
 msgid "Drop every active connection when the selected server changes"
 msgstr "Сбрасывать все активные соединения при переключении сервера"
@@ -913,6 +961,9 @@ msgstr "Истекает %s"
 
 msgid "failed"
 msgstr "ошибка"
+
+msgid "Failed"
+msgstr "Ошибка"
 
 msgid "Failed to close connection"
 msgstr "Не удалось закрыть подключение"
@@ -1099,6 +1150,18 @@ msgstr "Сгенерировать параметры"
 
 msgid "Generate profile"
 msgstr "Сгенерировать профиль"
+
+msgid "Geodata"
+msgstr "Геоданные"
+
+msgid "Geodata operation failed"
+msgstr "Не удалось обработать геоданные"
+
+msgid "Geodata source"
+msgstr "Источник геоданных"
+
+msgid "Geodata storage directory"
+msgstr "Папка хранения геоданных"
 
 msgid "Get report"
 msgstr "Получить отчёт"
@@ -1604,6 +1667,9 @@ msgstr "Настройки сетевого интерфейса"
 msgid "Network interface: %s"
 msgstr "Сетевой интерфейс: %s"
 
+msgid "Next"
+msgstr "Далее"
+
 msgid "No"
 msgstr "Нет"
 
@@ -1717,6 +1783,9 @@ msgstr "не проверено: Clash API не ответил"
 
 msgid "Not checked: the Clash API did not answer"
 msgstr "Не проверено: Clash API не ответил"
+
+msgid "Not downloaded"
+msgstr "Не загружено"
 
 msgid "not in the running configuration"
 msgstr "нет в рабочей конфигурации"
@@ -1958,6 +2027,9 @@ msgstr "Длина префикса от %d до %d"
 msgid "Prefixes: full:, keyword:, regex:"
 msgstr "Префиксы: full:, keyword:, regex:"
 
+msgid "Previous"
+msgstr "Назад"
+
 msgid "Private key"
 msgstr "Приватный ключ"
 
@@ -2047,6 +2119,9 @@ msgstr "Удалять устройство из сети после отклю�
 
 msgid "Remove the key passphrase: openssl pkey -in key.pem -out plain.pem"
 msgstr "Снимите пароль с ключа: openssl pkey -in key.pem -out plain.pem"
+
+msgid "Remove this source from routing and DNS rules first"
+msgstr "Сначала удалите этот источник из правил маршрутизации и DNS"
 
 msgid "Remove with settings"
 msgstr "Удалить с настройками"
@@ -2165,11 +2240,17 @@ msgstr "Тот же файл, что и сертификат"
 msgid "Save"
 msgstr "Сохранить"
 
+msgid "Save & Apply before downloading newly added or changed sources"
+msgstr "Сохраните и примените настройки перед загрузкой новых или изменённых источников"
+
 msgid "Search"
 msgstr "Поиск"
 
 msgid "Search rule sets"
 msgstr "Поиск наборов правил"
+
+msgid "Search tags"
+msgstr "Поиск тегов"
 
 msgid "Seconds, or a range such as 25-35"
 msgstr "Секунды или диапазон, например 25-35"
@@ -2414,6 +2495,12 @@ msgstr "запускается..."
 msgid "Starting..."
 msgstr "Запуск..."
 
+msgid "Starting…"
+msgstr "Запуск…"
+
+msgid "State"
+msgstr "Состояние"
+
 msgid "Stateless (lz4, lzs)"
 msgstr "Без состояния (lz4, lzs)"
 
@@ -2485,6 +2572,12 @@ msgstr "Система"
 
 msgid "System information"
 msgstr "Системная информация"
+
+msgid "tags"
+msgstr "тегов"
+
+msgid "Tags"
+msgstr "Теги"
 
 msgid "Tailnet"
 msgstr "Сеть"
@@ -2747,6 +2840,9 @@ msgstr "Туннель: %s"
 msgid "Type"
 msgstr "Тип"
 
+msgid "Unavailable"
+msgstr "Недоступно"
+
 msgid "unknown"
 msgstr "неизвестно"
 
@@ -2785,6 +2881,15 @@ msgstr "Ссылка не поддерживается"
 
 msgid "Up to %d characters"
 msgstr "Не длиннее %d символов"
+
+msgid "Update"
+msgstr "Обновить"
+
+msgid "Update all DAT sources"
+msgstr "Обновить все источники DAT"
+
+msgid "Update geodata"
+msgstr "Обновление геоданных"
 
 msgid "Update interval"
 msgstr "Интервал обновления"
@@ -2840,6 +2945,9 @@ msgstr "Настройки URLTest"
 msgid "URLTest: %s"
 msgstr "URLTest: %s"
 
+msgid "Use an interval from 5m to 365d, for example 12h or 1d"
+msgstr "Укажите интервал от 5m до 365d, например 12h или 1d"
+
 msgid "Use pin-sha256 instead of a certificate SHA-256"
 msgstr "Нужен pin-sha256, а не SHA-256 сертификата"
 
@@ -2863,6 +2971,9 @@ msgstr "Имя пользователя и пароль"
 
 msgid "UUID"
 msgstr "UUID"
+
+msgid "Validating"
+msgstr "Проверка"
 
 msgid "verify-x509-name in the profile"
 msgstr "verify-x509-name в профиле"

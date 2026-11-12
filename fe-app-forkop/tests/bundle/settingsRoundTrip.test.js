@@ -220,6 +220,7 @@ function buildSettings() {
   const map = new harness.form.Map('forkop');
   const settings = map.section(harness.form.NamedSection, 'settings');
   view.createSettingsContent(settings);
+  view.addRuleSetUpdateOptions(settings);
   return { section: settings, sid: 'settings' };
 }
 
@@ -330,6 +331,7 @@ function loadShippedConfig() {
   const map = new harness.form.Map('forkop');
   const section = map.section(harness.form.NamedSection, 'settings');
   harness.bundle.createSettingsContent(section);
+  harness.bundle.addRuleSetUpdateOptions(section);
   return section;
 }
 
@@ -525,6 +527,7 @@ describe('a value behind a switch that is off', () => {
     const map = new harness.form.Map('forkop');
     const section = map.section(harness.form.NamedSection, 'settings');
     harness.bundle.createSettingsContent(section);
+    harness.bundle.addRuleSetUpdateOptions(section);
     section.cfgsections = () => ['settings'];
     await section.load();
     await parseEveryOption(section, 'settings');
@@ -546,6 +549,7 @@ describe('a number the backend reads as digits only', () => {
     const map = new harness.form.Map('forkop');
     const section = map.section(harness.form.NamedSection, 'settings');
     harness.bundle.createSettingsContent(section);
+    harness.bundle.addRuleSetUpdateOptions(section);
     return section.children.find((option) => option.option === name);
   }
 
@@ -567,6 +571,7 @@ describe('the Clash API key', () => {
     const map = new harness.form.Map('forkop');
     const section = map.section(harness.form.NamedSection, 'settings');
     harness.bundle.createSettingsContent(section);
+    harness.bundle.addRuleSetUpdateOptions(section);
     section.cfgsections = () => ['settings'];
     await section.load();
     return section.children.find(
