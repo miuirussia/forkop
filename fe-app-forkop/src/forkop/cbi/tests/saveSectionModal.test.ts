@@ -8,7 +8,7 @@ vi.mock('../../../helpers/showToast', () => ({
   },
 }));
 
-import { saveSectionModal } from '../modal';
+import { reportRefusedSave, saveSectionModal } from '../modal';
 
 function dialog(save: () => Promise<void>, markedField: unknown = null) {
   const calls: string[] = [];
@@ -81,13 +81,19 @@ describe('saving a section dialog', () => {
     expect(toasts).toEqual([['Option "Port" must not be empty.', 'error']]);
   });
 
-  it('leaves a field that marked itself to say it', async () => {
+  it('shows the reason even when LuCI already marked the field', async () => {
+    const reason = 'Idle timeout must be at least the check interval (1d)';
+    const field = {
+      getAttribute: (name: string) => (name === 'data-tooltip' ? reason : null),
+      focus: vi.fn(),
+      closest: () => null,
+    };
     const { modalMap, sectionRef } = dialog(
       () =>
         Promise.reject(
           new TypeError('Option "Port" contains an invalid input value.'),
         ),
-      {},
+      field,
     );
 
     const saved = await saveSectionModal(
@@ -97,6 +103,26 @@ describe('saving a section dialog', () => {
     );
 
     expect(saved).toBe(false);
-    expect(toasts).toEqual([]);
+    expect(toasts).toEqual([[reason, 'error']]);
+    expect(field.focus).toHaveBeenCalledOnce();
+  });
+
+  it('shows a fallback when the save refuses without a reason', () => {
+    reportRefusedSave(undefined);
+
+    expect(toasts).toEqual([['Settings not saved', 'error']]);
+  });
+
+  it('keeps the save error when the marked field has no tooltip', () => {
+    const field = {
+      getAttribute: () => null,
+      focus: vi.fn(),
+      closest: () => null,
+    };
+    const node = { querySelector: () => field } as unknown as ParentNode;
+
+    reportRefusedSave(new Error('Invalid idle timeout'), node);
+
+    expect(toasts).toEqual([['Invalid idle timeout', 'error']]);
   });
 });

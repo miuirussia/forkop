@@ -226,6 +226,14 @@ ${PartialStyles}
     }
 }
 /* Toast */
+.fkp-field-error {
+    color: var(--error-color-medium, #d32f2f);
+    margin-block-start: 0.4em;
+    line-height: 1.4;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
 .toast-container {
     position: fixed;
     bottom: 30px;

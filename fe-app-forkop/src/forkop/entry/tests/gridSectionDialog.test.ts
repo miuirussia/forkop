@@ -47,6 +47,7 @@ function grid(map: object = {}) {
     titleFn: () => '',
     sectiontype: 'section',
     getPreviousModalMap: () => null,
+    getActiveModalMap: () => null,
   } as unknown as CBISection;
   configureGridSection(sectionRef, 'section', 'Section', 'Add');
   return sectionRef as CBISection & {

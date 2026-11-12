@@ -17191,6 +17191,14 @@ ${PartialStyles}
     }
 }
 /* Toast */
+.fkp-field-error {
+    color: var(--error-color-medium, #d32f2f);
+    margin-block-start: 0.4em;
+    line-height: 1.4;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
 .toast-container {
     position: fixed;
     bottom: 30px;
@@ -18191,13 +18199,71 @@ function parentSectionIdForItem(itemId) {
   return uci.get(FORKOP_UCI_PACKAGE, itemId, "section") || "";
 }
 
-// src/forkop/cbi/modal.ts
-function reportRefusedSave(error, dialog) {
-  if (dialog?.querySelector(".cbi-input-invalid")) {
+// src/forkop/cbi/validation.ts
+var boundMaps = /* @__PURE__ */ new WeakSet();
+var errorId = 0;
+function renderFieldErrors(field2) {
+  const invalid = Array.from(
+    field2.querySelectorAll(".cbi-input-invalid[data-tooltip]")
+  );
+  const messages = [
+    ...new Set(
+      invalid.map((node) => node.getAttribute("data-tooltip")?.trim()).filter(Boolean)
+    )
+  ];
+  let error = field2.querySelector(".fkp-field-error");
+  if (!error && !messages.length) return;
+  if (!error) {
+    error = document.createElement("div");
+    error.id = `fkp-field-error-${++errorId}`;
+    error.className = "fkp-field-error";
+    error.setAttribute("aria-live", "polite");
+    error.setAttribute("aria-atomic", "true");
+    (field2.querySelector(".cbi-value-field") || field2).appendChild(error);
+  }
+  field2.querySelectorAll(`[aria-errormessage="${error.id}"]`).forEach((node) => {
+    if (!invalid.includes(node)) {
+      node.removeAttribute("aria-invalid");
+      node.removeAttribute("aria-errormessage");
+    }
+  });
+  if (!messages.length) {
+    error.remove();
     return;
   }
+  const text8 = messages.join("\n");
+  if (error.textContent !== text8) error.textContent = text8;
+  invalid.forEach((node) => {
+    node.setAttribute("aria-invalid", "true");
+    node.setAttribute("aria-errormessage", error.id);
+  });
+}
+function bindInlineValidation(root, map) {
+  if (boundMaps.has(root)) return;
+  boundMaps.add(root);
+  const update = (event) => {
+    const field2 = event.target.closest(
+      "[data-field]"
+    );
+    if (field2 && root.contains(field2)) renderFieldErrors(field2);
+  };
+  root.addEventListener("validation-failure", update);
+  root.addEventListener("validation-success", update);
+  root.addEventListener("input", (event) => {
+    if (event.target.closest("[data-field]")) map.checkDepends();
+  });
+  root.querySelectorAll("[data-field]").forEach(renderFieldErrors);
+}
+
+// src/forkop/cbi/modal.ts
+function reportRefusedSave(error, dialog) {
+  const invalidField = dialog?.querySelector(".cbi-input-invalid");
   const message2 = error instanceof Error ? error.message : `${error ?? ""}`;
-  showToast(message2.trim() || _("Settings not saved"), "error");
+  const reason = invalidField?.getAttribute("data-tooltip")?.trim();
+  const field2 = invalidField?.closest("[data-field]");
+  if (field2) renderFieldErrors(field2);
+  invalidField?.focus();
+  showToast(reason || message2.trim() || _("Settings not saved"), "error", 6e3);
 }
 function saveSectionModal(sectionRef, modalMap, ev) {
   const mapNode = sectionRef.getActiveModalMap();
@@ -18295,11 +18361,14 @@ function renderStackedJsonSettingsModal(title, map, onSave, options = {}) {
       }
       activeMap.classList.remove("hidden");
       restoreButtonRow();
+      const parentMap = dom.findClassInstance(activeMap);
+      parentMap?.checkDepends();
     };
     const save = () => {
       if (saveButton) {
         saveButton.disabled = true;
       }
+      map.checkDepends();
       return map.parse().then(
         () => Promise.resolve(
           onSave(cleanFormSectionData(map.data.get(map.config, "settings")))
@@ -18355,6 +18424,7 @@ function renderStackedJsonSettingsModal(title, map, onSave, options = {}) {
     heading.appendChild(titleNode);
     activeMap.classList.add("hidden");
     activeMap.parentNode.insertBefore(nodes, activeMap.nextElementSibling);
+    bindInlineValidation(nodes, map);
   });
 }
 function showChildItemSettingsModal(section_id, itemValue, option2, settings) {
@@ -23447,6 +23517,15 @@ var ButtonAddSettingsUIDynamicList = SettingsUIDynamicList.extend({
     return ui.DynamicList.prototype.handleKeydown.call(this, event);
   }
 });
+function validateSettingsList(option2, sectionId, value) {
+  const result = option2.validate(sectionId, value);
+  return result === true && typeof option2.validateItemsOnSave === "function" ? option2.validateItemsOnSave(
+    option2.childType ? option2.childOwner(sectionId) : sectionId,
+    option2.formvalue(sectionId) ?? option2.cfgvalue(sectionId),
+    option2,
+    sectionId
+  ) : result;
+}
 var SettingsDynamicList = form.DynamicList.extend({
   // ------------------------------------------------ what one entry is called
   //
@@ -23522,7 +23601,7 @@ var SettingsDynamicList = form.DynamicList.extend({
       optional: this.optional || this.rmempty,
       datatype: this.datatype,
       placeholder: this.placeholder,
-      validate: L.bind(this.validate, this, section_id),
+      validate: (value2) => validateSettingsList(this, section_id, value2),
       disabled: this.readonly != null ? this.readonly : this.map.readonly,
       addButtonLabel: typeof this.addButtonLabel === "function" ? this.addButtonLabel(section_id) : this.addButtonLabel,
       addable: typeof this.addable === "function" ? this.addable(section_id) : true,
@@ -24098,6 +24177,9 @@ function addServerFilterOptions(itemSection, parentSectionForItem, options = {})
       }
     }
   );
+  modeOption.validate = function(itemId) {
+    return missingFilterSelectionMessage(this, itemId) || true;
+  };
   const modeOptionParse = modeOption.parse;
   modeOption.parse = function(itemId) {
     const message2 = missingFilterSelectionMessage(this, itemId);
@@ -24190,10 +24272,11 @@ function addGroupHealthCheckTailOptions(itemSection, idleTimeoutDefault, interva
     if (duration !== true) {
       return duration;
     }
-    const interval = singBoxDurationSeconds(
-      currentOptionValue(this, itemId, intervalOption)
-    );
-    return interval != null && interval > singBoxDurationSeconds(value) ? _("Shorter than the check interval") : true;
+    const intervalValue = currentOptionValue(this, itemId, intervalOption);
+    const interval = singBoxDurationSeconds(intervalValue);
+    return interval != null && interval > singBoxDurationSeconds(value) ? _("Idle timeout must be at least the check interval (%s)").format(
+      intervalValue
+    ) : true;
   };
   o = itemSection.option(
     form.Flag,
@@ -28098,6 +28181,11 @@ function createSectionContent(section2) {
     populateActionOptionValues(this, value);
     return value;
   };
+  o.validate = function(sectionId) {
+    return missingConnectionOutbound(this.map, sectionId) ? _(
+      "Add a connection URI, subscription, interface, tunnel or JSON outbound"
+    ) : missingDnsMatcher(this.map, sectionId) ? _("Add a domain, built-in list, rule set or device") : true;
+  };
   const dnsServerOption = section2.taboption(
     "settings",
     form.DynamicList,
@@ -30772,11 +30860,11 @@ function configureGridSection(sectionRef, type, title, addTitle, onSectionAdded)
   let unsaved = null;
   sectionRef.renderMoreOptionsModal = function(section_id, ev) {
     unsaved = captureUnsavedUci();
-    return form.GridSection.prototype.renderMoreOptionsModal.call(
-      this,
-      section_id,
-      ev
-    );
+    return form.GridSection.prototype.renderMoreOptionsModal.call(this, section_id, ev).then(() => {
+      const node = this.getActiveModalMap();
+      if (node)
+        bindInlineValidation(node, dom.findClassInstance(node));
+    });
   };
   sectionRef.handleModalCancel = function(modalMap, ev, isSaving) {
     if (!isSaving && unsaved) {
@@ -30933,6 +31021,7 @@ var ForkopView = {
     addMountedTab(forkopMap, "logs", _("Logs"), LogsTab);
     addMountedTab(forkopMap, "components", _("Components"), ComponentsTab);
     const rendered = await forkopMap.render();
+    bindInlineValidation(rendered, forkopMap);
     coreService();
     return rendered;
   }

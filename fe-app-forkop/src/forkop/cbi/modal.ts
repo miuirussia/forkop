@@ -14,15 +14,18 @@ import { setDynamicListItemValue } from './listItems';
 import { E } from '../../helpers/element';
 import { showToast } from '../../helpers/showToast';
 import { renderButton } from '../../partials';
+import { bindInlineValidation, renderFieldErrors } from './validation';
 
-// LuCI keeps a refused dialog open and says nothing. A field whose widget checks itself is
-// already marked; any other refusal is shown.
+// LuCI keeps a refused dialog open. Its invalid-field tooltip may be the only place
+// with the reason, so show it explicitly as well as focusing the field.
 export function reportRefusedSave(error: unknown, dialog?: ParentNode | null) {
-  if (dialog?.querySelector('.cbi-input-invalid')) {
-    return;
-  }
+  const invalidField = dialog?.querySelector<HTMLElement>('.cbi-input-invalid');
   const message = error instanceof Error ? error.message : `${error ?? ''}`;
-  showToast(message.trim() || _('Settings not saved'), 'error');
+  const reason = invalidField?.getAttribute('data-tooltip')?.trim();
+  const field = invalidField?.closest<HTMLElement>('[data-field]');
+  if (field) renderFieldErrors(field);
+  invalidField?.focus();
+  showToast(reason || message.trim() || _('Settings not saved'), 'error', 6000);
 }
 
 // LuCI's section dialog save, with its error dialog off. Answers whether it saved.
@@ -165,6 +168,8 @@ export function renderStackedJsonSettingsModal(
 
       activeMap.classList.remove('hidden');
       restoreButtonRow();
+      const parentMap = dom.findClassInstance(activeMap) as CBIMap | null;
+      parentMap?.checkDepends();
     };
 
     const save = () => {
@@ -172,6 +177,7 @@ export function renderStackedJsonSettingsModal(
         saveButton.disabled = true;
       }
 
+      map.checkDepends();
       return map
         .parse()
         .then(() =>
@@ -236,6 +242,7 @@ export function renderStackedJsonSettingsModal(
     heading.appendChild(titleNode);
     activeMap.classList.add('hidden');
     activeMap.parentNode!.insertBefore(nodes, activeMap.nextElementSibling);
+    bindInlineValidation(nodes, map);
   });
 }
 

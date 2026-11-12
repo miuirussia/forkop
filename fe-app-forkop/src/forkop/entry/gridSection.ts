@@ -6,6 +6,7 @@ import { captureUnsavedUci, restoreUnsavedUci } from '../cbi/unsavedUci';
 import type { UnsavedUci } from '../cbi/unsavedUci';
 import { E } from '../../helpers/element';
 import { nextNumberedName } from '../../helpers/nextNumberedName';
+import { bindInlineValidation } from '../cbi/validation';
 
 // LuCI's Add control asks for a name first; both grids name a section themselves.
 function renderSectionAdd(sectionRef: CBISection, extraClass?: string) {
@@ -106,11 +107,13 @@ export function configureGridSection(
     ev?: Event,
   ) {
     unsaved = captureUnsavedUci();
-    return form.GridSection.prototype.renderMoreOptionsModal.call(
-      this,
-      section_id,
-      ev,
-    );
+    return form.GridSection.prototype.renderMoreOptionsModal
+      .call(this, section_id, ev)
+      .then(() => {
+        const node = this.getActiveModalMap() as HTMLElement | null;
+        if (node)
+          bindInlineValidation(node, dom.findClassInstance(node) as CBIMap);
+      });
   };
   sectionRef.handleModalCancel = function (
     modalMap: unknown,

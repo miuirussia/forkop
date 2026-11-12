@@ -276,6 +276,9 @@ export function addServerFilterOptions(
     },
   );
 
+  modeOption.validate = function (itemId: string) {
+    return missingFilterSelectionMessage(this, itemId) || true;
+  };
   const modeOptionParse = modeOption.parse;
   modeOption.parse = function (itemId: string) {
     const message = missingFilterSelectionMessage(this, itemId);

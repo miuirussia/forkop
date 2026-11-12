@@ -21,6 +21,7 @@ import { createSettingsContent } from '../tabs/settings';
 import { configureGridSection } from './gridSection';
 import { createPageStatus } from './pageStatus';
 import { pageTitle } from './pageTitle';
+import { bindInlineValidation } from '../cbi/validation';
 
 // A tab that renders itself: one anonymous section holding the node its controller binds to.
 function addMountedTab(
@@ -114,6 +115,7 @@ export const ForkopView = {
     addMountedTab(forkopMap, 'components', _('Components'), ComponentsTab);
 
     const rendered = await forkopMap.render();
+    bindInlineValidation(rendered, forkopMap);
     coreService();
 
     return rendered;

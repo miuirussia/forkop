@@ -79,6 +79,8 @@ import {
 import {
   dependsOnRoutingAction,
   dependsOnRuleConditions,
+  missingConnectionOutbound,
+  missingDnsMatcher,
   refreshDnsDetourSectionOptionValues,
 } from './references';
 import {
@@ -188,6 +190,15 @@ export function createSectionContent(section: CBISection) {
     const value = this.cfgvalue(section_id);
     populateActionOptionValues(this, value);
     return value;
+  };
+  o.validate = function (sectionId: string) {
+    return missingConnectionOutbound(this.map, sectionId)
+      ? _(
+          'Add a connection URI, subscription, interface, tunnel or JSON outbound',
+        )
+      : missingDnsMatcher(this.map, sectionId)
+        ? _('Add a domain, built-in list, rule set or device')
+        : true;
   };
 
   const dnsServerOption = section.taboption(

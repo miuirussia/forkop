@@ -69,11 +69,12 @@ export function addGroupHealthCheckTailOptions(
     if (duration !== true) {
       return duration;
     }
-    const interval = singBoxDurationSeconds(
-      currentOptionValue(this, itemId, intervalOption),
-    );
+    const intervalValue = currentOptionValue(this, itemId, intervalOption);
+    const interval = singBoxDurationSeconds(intervalValue);
     return interval != null && interval > singBoxDurationSeconds(value)!
-      ? _('Shorter than the check interval')
+      ? _('Idle timeout must be at least the check interval (%s)').format(
+          intervalValue,
+        )
       : true;
   };
 

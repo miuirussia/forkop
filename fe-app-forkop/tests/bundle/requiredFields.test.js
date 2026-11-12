@@ -169,3 +169,64 @@ describe('a value LuCI used to check', () => {
     expect(keepalive('a-b')).toBe('Number or range from 0 to 4294967295');
   });
 });
+
+describe('checks that used to run only on Save', () => {
+  it.each(['urltest', 'level'])(
+    '%s explains an empty include filter while editing',
+    async (name) => {
+      const forms = await everyForm();
+      const section = forms[name];
+      const mode = option(section, 'server_filter_mode');
+      mode.formvalue = () => 'include';
+      option(section, 'include_outbounds').formvalue = () => [];
+      option(section, 'include_regex').formvalue = () => '';
+
+      expect(mode.validate('settings', 'include')).toBe(
+        'Select a server or set a pattern',
+      );
+
+      option(section, 'include_regex').formvalue = () => '^DE';
+      expect(mode.validate('settings', 'include')).toBe(true);
+    },
+  );
+
+  it.each([
+    [
+      'connection',
+      'connection_link',
+      ['link1'],
+      'Add a connection URI, subscription, interface, tunnel or JSON outbound',
+    ],
+    [
+      'dns',
+      '_dns_destinations',
+      'example.com',
+      'Add a domain, built-in list, rule set or device',
+    ],
+  ])(
+    'explains a %s section with no input while editing',
+    async (actionName, source, value, reason) => {
+      const { sections } = await everyForm();
+      const action = option(sections, 'action');
+      action.formvalue = () => actionName;
+      for (const name of [
+        'connection_link',
+        'subscription_url',
+        'interfaces',
+        'tunnels',
+        'outbound_jsons',
+        '_dns_destinations',
+        'community_lists',
+        '_dns_rule_set',
+        'fully_routed_ips',
+      ]) {
+        option(sections, name).formvalue = () => '';
+      }
+
+      expect(action.validate('sec', actionName)).toBe(reason);
+
+      option(sections, source).formvalue = () => value;
+      expect(action.validate('sec', actionName)).toBe(true);
+    },
+  );
+});

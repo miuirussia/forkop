@@ -160,6 +160,7 @@ class FakeNode {
   querySelectorAll() {
     return [];
   }
+  addEventListener() {}
   insertAdjacentHTML() {}
   get nextElementSibling() {
     return null;
@@ -745,7 +746,7 @@ export function createHarness(
       },
     },
     poll: { add() {}, remove() {} },
-    dom: { content() {}, append() {} },
+    dom: { content() {}, append() {}, findClassInstance: () => null },
     rpc: { declare: () => () => Promise.resolve({}) },
     console: {
       log: (...args) => messages.push(args.join(' ')),

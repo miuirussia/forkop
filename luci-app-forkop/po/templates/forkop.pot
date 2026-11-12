@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-10 09:41+0300\n"
-"PO-Revision-Date: 2026-11-10 09:41+0300\n"
+"POT-Creation-Date: 2026-11-12 14:58+0300\n"
+"PO-Revision-Date: 2026-11-12 14:58+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -291,10 +291,12 @@ msgstr ""
 msgid "Add a client to this server to get a link."
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/form.ts
 #: fe-app-forkop/src/forkop/tabs/sections/table.ts
 msgid "Add a connection URI, subscription, interface, tunnel or JSON outbound"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/form.ts
 #: fe-app-forkop/src/forkop/tabs/sections/table.ts
 msgid "Add a domain, built-in list, rule set or device"
 msgstr ""
@@ -1639,6 +1641,10 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
 #: fe-app-forkop/src/forkop/tabs/sections/healthCheck.ts
 msgid "Idle timeout"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/healthCheck.ts
+msgid "Idle timeout must be at least the check interval (%s)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
@@ -3230,10 +3236,6 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/sections/interfaces.ts
 #: fe-app-forkop/src/forkop/tabs/settings/form/dns.ts
 msgid "Several servers give automatic failover. The protocol is set by a prefix: %s"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/sections/healthCheck.ts
-msgid "Shorter than the check interval"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/details.ts

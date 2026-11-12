@@ -342,6 +342,24 @@ const ButtonAddSettingsUIDynamicList = SettingsUIDynamicList.extend({
   },
 });
 
+// The widget validates individual entries; child settings also need checking while
+// the list is edited, rather than only when parse() runs on Save.
+export function validateSettingsList(
+  option: CBIOption & { childOwner(sectionId: string): string },
+  sectionId: string,
+  value: string,
+) {
+  const result = option.validate(sectionId, value);
+  return result === true && typeof option.validateItemsOnSave === 'function'
+    ? option.validateItemsOnSave(
+        option.childType ? option.childOwner(sectionId) : sectionId,
+        option.formvalue(sectionId) ?? option.cfgvalue(sectionId),
+        option,
+        sectionId,
+      )
+    : result;
+}
+
 export const SettingsDynamicList = form.DynamicList.extend({
   // ------------------------------------------------ what one entry is called
   //
@@ -438,7 +456,8 @@ export const SettingsDynamicList = form.DynamicList.extend({
       optional: this.optional || this.rmempty,
       datatype: this.datatype,
       placeholder: this.placeholder,
-      validate: L.bind(this.validate, this, section_id),
+      validate: (value: string) =>
+        validateSettingsList(this, section_id, value),
       disabled: this.readonly != null ? this.readonly : this.map.readonly,
       addButtonLabel:
         typeof this.addButtonLabel === 'function'
