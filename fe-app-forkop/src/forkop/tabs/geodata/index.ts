@@ -194,6 +194,7 @@ export function createGeodataContent(map: CBIMap) {
       });
     return text;
   };
+  o.textvalue = o.cfgvalue;
   o = grid.option(form.DummyValue, '_actions', _('Actions'));
   o.cfgvalue = (id: string) =>
     E('div', {}, [
@@ -219,6 +220,7 @@ export function createGeodataContent(map: CBIMap) {
         _('Tags'),
       ),
     ]);
+  o.textvalue = o.cfgvalue;
   const remove = grid.handleRemove;
   grid.handleRemove = function (id: string, event: Event) {
     const sections = uci.sections('forkop', 'section') || [];

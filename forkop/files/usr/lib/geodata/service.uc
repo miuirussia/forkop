@@ -52,6 +52,12 @@ function download(source, path) {
     let reply = api.exchange(api.controller(), "POST", "/geodata/download", {
         seconds: 610, body: sprintf("%J", { url: source.input, detour }),
         decode: function(reader) {
+            if (reader.status != 200) {
+                let message = "";
+                for (let chunk = reader.read(); chunk != "" && length(message) < 4096; chunk = reader.read())
+                    message += substr(chunk, 0, 4096 - length(message));
+                return { error: trim(message) };
+            }
             let size = 0;
             let tail = "";
             const footer = "\nFORKOP-GEODATA-DONE\n";
@@ -61,14 +67,21 @@ function download(source, path) {
                 tail = substr(data, count);
                 size += count;
                 if (size > MAX_SIZE || (count > 0 && file.write(substr(data, 0, count)) != count))
-                    die("Geodata exceeds the download limit or storage is full");
+                    return { error: "Geodata exceeds the download limit or storage is full" };
             }
             return tail == footer ? size : null;
         }
     });
     file.close();
-    if (!reply || reply.status != 200 || reply.value == null || reply.value == 0)
+    if (!reply)
         die("Geodata download through the section failed; the core must be running");
+    if (reply.status != 200)
+        die(sprintf("Geodata download through the section failed: HTTP %d%s", reply.status,
+            reply.value?.error ? ": " + reply.value.error : ""));
+    if (reply.value?.error)
+        die(reply.value.error);
+    if (reply.value == null || reply.value == 0)
+        die("Geodata download through the section was incomplete");
 }
 
 function compile(source, dat, index_path, directory, tags) {

@@ -55,18 +55,16 @@ describe('sing-geosite rule choices', () => {
     expect(set).toHaveBeenCalledWith('forkop', 'dns', 'rule_set', [url]);
   });
 
-  it('leaves manual input available and explains a missing catalog', async () => {
+  it('leaves manual input available without explanatory text when a catalog is missing', async () => {
     vi.mocked(loadSingGeositeFiles).mockResolvedValue([]);
     const option = { value: vi.fn(), description: '' };
     await loadGeoRulesetValues(option as unknown as CBIOption);
     expect(option.value).not.toHaveBeenCalled();
-    expect(option.description).toContain(
-      'Could not load the rule set catalogs',
-    );
+    expect(option.description).toBe('');
     expect(validateCustomRulesetReference('/etc/forkop/custom.srs')).toBe(true);
   });
 
-  it('offers GeoIP for routing with the subnet setting explained, but only geosite for DNS', async () => {
+  it('offers GeoIP for routing, but only geosite for DNS, without explanatory text', async () => {
     vi.mocked(loadSingGeositeFiles).mockResolvedValue(['geosite-youtube.srs']);
     vi.mocked(loadSingGeoipFiles).mockResolvedValue(['geoip-ru.srs']);
     const route = { value: vi.fn(), description: '' };
@@ -75,13 +73,13 @@ describe('sing-geosite rule choices', () => {
       'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs',
       'geoip: ru',
     );
-    expect(route.description).toContain('Include IP addresses and subnets');
+    expect(route.description).toBe('');
     vi.mocked(loadSingGeoipFiles).mockClear();
     const dns = { value: vi.fn(), description: '' };
     await loadGeoRulesetValues(dns as unknown as CBIOption, false);
     expect(loadSingGeoipFiles).not.toHaveBeenCalled();
     expect(dns.value).toHaveBeenCalledTimes(1);
-    expect(dns.description).not.toContain('sing-geoip');
+    expect(dns.description).toBe('');
   });
 
   it('still offers the available catalog if the other source fails', async () => {
@@ -90,6 +88,6 @@ describe('sing-geosite rule choices', () => {
     const option = { value: vi.fn(), description: '' };
     await loadGeoRulesetValues(option as unknown as CBIOption);
     expect(option.value).toHaveBeenCalledTimes(1);
-    expect(option.description).not.toContain('Could not load');
+    expect(option.description).toBe('');
   });
 });

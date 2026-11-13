@@ -27,6 +27,23 @@ import { RULE_SET_ITEM_SETTINGS_KEY } from './constants';
 import { parseDatReference } from '../../services/geodata.service';
 import { showGeodataCatalog } from '../geodata/catalog';
 
+function datRulesetLabel(reference: string) {
+  const dat = parseDatReference(reference);
+  if (!dat) return null;
+  const source =
+    `${uci.get(FORKOP_UCI_PACKAGE, dat.source, 'label') || ''}`.trim();
+  return source ? `${dat.tag} (${source})` : dat.tag;
+}
+
+export function renderRulesetItemLabel(
+  _sectionId: string,
+  value: string,
+  text?: string | null,
+) {
+  const label = datRulesetLabel(value);
+  return label ? E('span', { title: value }, label) : (text ?? value);
+}
+
 export function addDatRulesetPicker(
   node: HTMLElement,
   option: CBIOption,
@@ -39,6 +56,7 @@ export function addDatRulesetPicker(
       {
         type: 'button',
         class: 'cbi-button',
+        style: 'display:block;width:100%;box-sizing:border-box',
         click: () => {
           void showGeodataCatalog(includeGeoip, (reference) => {
             const widget = option.getUIElement(sectionId);
@@ -55,7 +73,7 @@ export function addDatRulesetPicker(
           }).catch((error: Error) => showToast(error.message, 'error'));
         },
       },
-      _('Choose DAT tag'),
+      _('Choose Geodata tag'),
     ),
   );
 }
@@ -118,7 +136,8 @@ export function showRuleSetSettingsModal(
   includeSubnets.readonly =
     !!dat && uci.get(FORKOP_UCI_PACKAGE, dat.source, 'kind') === 'geoip';
 
-  const name = ruleSetFileName(`${itemValue ?? ''}`);
+  const reference = `${itemValue ?? ''}`;
+  const name = datRulesetLabel(reference) ?? ruleSetFileName(reference);
   return renderStackedJsonSettingsModal(
     name ? _('Rule set: %s').format(name) : _('Rule set settings'),
     map,
@@ -179,25 +198,6 @@ export async function loadGeoRulesetValues(
   geoipFiles.forEach((file) => {
     option.value(SING_GEOIP_URL + file, `geoip: ${file.slice(6, -4)}`);
   });
-  option.description =
-    geositeFiles.length + geoipFiles.length
-      ? includeGeoip
-        ? _(
-            'Choose a sing-geosite or sing-geoip list, or enter a URL or local path. The format is detected automatically',
-          )
-        : _(
-            'Choose a sing-geosite list, or enter a URL or local path. The format is detected automatically',
-          )
-      : _(
-          'Could not load the rule set catalogs. Enter a URL or local path, or reopen this dialog to retry',
-        );
-  if (includeGeoip) {
-    option.description +=
-      ' ' +
-      _(
-        'For GeoIP, enable "Include IP addresses and subnets" in the list settings',
-      );
-  }
 }
 
 export function groupGeoRulesetChoices(node: HTMLElement) {

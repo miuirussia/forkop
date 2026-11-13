@@ -18,15 +18,21 @@ export async function showGeodataCatalog(
   );
   const source = E(
     'select',
-    { class: 'cbi-input-select', 'aria-label': _('Geodata source') },
+    {
+      class: 'cbi-input-select',
+      'aria-label': _('Geodata source'),
+      style: 'flex:1 1 20em;min-width:0;width:100%',
+    },
     sources.map((item) =>
       E('option', { value: item.id }, `${item.label} (${item.kind})`),
     ),
   ) as HTMLSelectElement;
   if (sourceId) source.value = sourceId;
   const search = E('input', {
-    type: 'search',
+    type: 'text',
     class: 'cbi-input-text',
+    style: 'flex:1 1 14em;min-width:0;width:100%;box-sizing:border-box',
+    autocomplete: 'off',
     placeholder: _('Search tags'),
     'aria-label': _('Search tags'),
   }) as HTMLInputElement;
@@ -119,8 +125,11 @@ export async function showGeodataCatalog(
     void refresh();
   });
   const content = E('div', {}, [
-    source,
-    search,
+    E(
+      'div',
+      { style: 'display:flex;flex-wrap:wrap;gap:.75em;align-items:center' },
+      [source, search],
+    ),
     status,
     list,
     E('div', { class: 'right' }, [

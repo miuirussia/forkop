@@ -42,7 +42,7 @@ for (let count = 0; fs.access("/proc/" + owner); ) {
     let reply = json(fs.readfile(dir + "/reply") ?? "{}");
     if (reply.delay_ms)
         sleep(reply.delay_ms);
-    let text = reply.raw ?? sprintf("HTTP/1.0 %d Reply\r\nContent-Type: application/json\r\n\r\n%s", reply.status ?? 200, reply.body ?? "");
+    let text = reply.raw ?? (sprintf("HTTP/1.0 %d Reply\r\nContent-Type: application/json\r\n\r\n", reply.status ?? 200) + (reply.body ?? ""));
     while (length(text) > 0) {
         let sent = conn.send(text);
         if (sent == null || sent <= 0)

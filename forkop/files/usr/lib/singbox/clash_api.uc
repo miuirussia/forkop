@@ -149,7 +149,7 @@ function exchange(api, method, path, options) {
         if (status != null && options.decode != null) {
             let value = null;
             try {
-                value = options.decode({ read: () => { let chunk = rest; rest = ""; return chunk != "" ? chunk : reader.read(); } });
+                value = options.decode({ status: int(status), read: () => { let chunk = rest; rest = ""; return chunk != "" ? chunk : reader.read(); } });
             }
             catch (e) {
             }

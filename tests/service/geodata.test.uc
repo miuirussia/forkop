@@ -218,7 +218,7 @@ t.test("downloads through the core stream chunks and reject a missing completion
         t.eq(json(options.body).detour, "proxy");
         let chunks = complete ? [ "valid-", "dat\nFORKOP-", "GEODATA-DONE\n" ] : [ "truncated-dat" ];
         let position = 0;
-        return { status: 200, value: options.decode({ read: () => chunks[position++] ?? "" }) };
+        return { status: 200, value: options.decode({ status: 200, read: () => chunks[position++] ?? "" }) };
     };
     service.prepare();
     let previous = sources.active("sites");
@@ -232,21 +232,56 @@ t.test("downloads through the core stream chunks and reject a missing completion
     stub.restore();
 });
 
+t.test("core downloads preserve HTTP errors and accept a complete binary stream over a real socket", () => {
+    let run = setup();
+    let controller = require("controller").start();
+    let config_path = run.root + "/config.json";
+    fs.writefile(config_path, sprintf("%J", { experimental: { clash_api: { external_controller: controller.endpoint } } }));
+    run.config.settings.config_path = config_path;
+    run.config.settings.geodata_download_section = "proxy";
+    run.config.geodata[0].input = "https://example.com/geosite.dat";
+    push(run.config.section, { ".name": "proxy", action: "connection", enabled: "1", label: "Selected VPN" });
+    fixture.seed(run.config);
+    connections.load();
+    for (let reply in [
+        { status: 400, body: "missing outbound manager\n" },
+        { status: 502, body: "upstream failed\n" }
+    ]) {
+        controller.reply(reply);
+        t.eq(service.run("sites", false), false);
+        t.contains(service.status().sources[0].error, "HTTP " + reply.status + ": " + trim(reply.body));
+        t.eq(fs.stat(sources.directory("sites") + "/candidate.dat"), null);
+    }
+    let dat = join("", map([ 0, 1, 2, 3 ], () => sprintf("%040000d", 0))) + "\u0000\xff";
+    controller.reply({ status: 200, body: dat + "\nFORKOP-GEODATA-DONE\n" });
+    t.eq(service.run("sites", false), true, service.status().sources[0].error);
+    t.eq(fs.readfile(sources.active("sites").dat), dat);
+    t.eq(service.status().sources[0].error, "");
+    let request = controller.requests()[0];
+    t.contains(request, '"detour": "Selected VPN"');
+    stub.restore();
+});
+
 t.test("GeoIP references automatically export subnets and are refused in DNS rules", () => {
     let run = setup();
+    let features = require("singbox.features");
+    let binary = features.paths.binary;
+    features.paths.binary = run.root + "/no-installed-core";
     run.config.geodata[0].kind = "geoip";
     fixture.seed(run.config);
     let section = run.config.section[0];
     t.eq(connections.rule_sets(section), []);
     t.eq(connections.rule_sets_with_subnets(section), [ "dat:sites:youtube" ]);
     stub.restore();
-    validation.accepts(run.config);
+    let core = { core_tags: [ "with_clash_api" ] };
+    validation.accepts(run.config, core);
     run.config.section[0].action = "dns";
     run.config.section[0].dns_server = "1.1.1.1";
-    validation.refuses(run.config, "can use domain-only rule sets");
+    validation.refuses(run.config, "can use domain-only rule sets", core);
     run.config.section[0].action = "bypass";
     run.config.section[0].rule_set = [ "dat:missing:youtube" ];
-    validation.refuses(run.config, "is neither an http(s) URL");
+    validation.refuses(run.config, "is neither an http(s) URL", core);
+    features.paths.binary = binary;
 });
 
 t.done();

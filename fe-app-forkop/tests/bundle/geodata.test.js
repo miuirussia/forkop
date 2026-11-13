@@ -16,6 +16,41 @@ function geodata() {
 }
 
 describe('the Geodata tab', () => {
+  it('renders source state and action buttons through the grid text renderer', async () => {
+    harness.commands.geodata_status = async () => ({
+      code: 0,
+      stdout: JSON.stringify({
+        sources: [
+          {
+            id: 'sites',
+            ready: true,
+            size: 1024,
+            tag_count: 12,
+            updated_at: 1,
+          },
+          { id: 'failed', error: 'HTTP 400: missing outbound manager' },
+        ],
+        job: null,
+      }),
+    });
+    const grid = geodata().children.find(
+      (option) => option.option === '_dat_sources',
+    ).subsection;
+    const state = grid.children.find((option) => option.option === '_state');
+    const ready = state.textvalue('sites');
+    const missing = state.textvalue('missing');
+    const failed = state.textvalue('failed');
+    await vi.waitFor(() => expect(ready.textContent).toContain('12 tags'));
+    expect(missing.textContent).toBe('Not downloaded');
+    expect(failed.textContent).toBe('HTTP 400: missing outbound manager');
+    const actions = grid.children.find(
+      (option) => option.option === '_actions',
+    );
+    expect(
+      actions.textvalue('sites').childNodes.map((node) => node.textContent),
+    ).toEqual(['Update', 'Tags']);
+  });
+
   it('accepts and saves direct downloads without a connection section', async () => {
     const option = geodata().children.find(
       (item) => item.option === 'geodata_download_section',

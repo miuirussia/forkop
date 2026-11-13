@@ -783,6 +783,7 @@ export function createHarness(
     dom,
     rpc: { declare: () => () => Promise.resolve({}) },
     console: {
+      debug: (...args) => messages.push(args.join(' ')),
       log: (...args) => messages.push(args.join(' ')),
       info: (...args) => messages.push(args.join(' ')),
       warn: (...args) => messages.push(args.join(' ')),

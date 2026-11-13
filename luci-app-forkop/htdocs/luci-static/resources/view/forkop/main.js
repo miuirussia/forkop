@@ -18095,15 +18095,21 @@ async function showGeodataCatalog(includeGeoip = true, select, sourceId = "") {
   );
   const source = textE(
     "select",
-    { class: "cbi-input-select", "aria-label": _("Geodata source") },
+    {
+      class: "cbi-input-select",
+      "aria-label": _("Geodata source"),
+      style: "flex:1 1 20em;min-width:0;width:100%"
+    },
     sources.map(
       (item) => textE("option", { value: item.id }, `${item.label} (${item.kind})`)
     )
   );
   if (sourceId) source.value = sourceId;
   const search = textE("input", {
-    type: "search",
+    type: "text",
     class: "cbi-input-text",
+    style: "flex:1 1 14em;min-width:0;width:100%;box-sizing:border-box",
+    autocomplete: "off",
     placeholder: _("Search tags"),
     "aria-label": _("Search tags")
   });
@@ -18196,8 +18202,11 @@ async function showGeodataCatalog(includeGeoip = true, select, sourceId = "") {
     void refresh();
   });
   const content = textE("div", {}, [
-    source,
-    search,
+    textE(
+      "div",
+      { style: "display:flex;flex-wrap:wrap;gap:.75em;align-items:center" },
+      [source, search]
+    ),
     status,
     list3,
     textE("div", { class: "right" }, [
@@ -18398,6 +18407,7 @@ function createGeodataContent(map) {
     });
     return text8;
   };
+  o.textvalue = o.cfgvalue;
   o = grid.option(form.DummyValue, "_actions", _("Actions"));
   o.cfgvalue = (id) => textE("div", {}, [
     textE(
@@ -18421,6 +18431,7 @@ function createGeodataContent(map) {
       _("Tags")
     )
   ]);
+  o.textvalue = o.cfgvalue;
   const remove = grid.handleRemove;
   grid.handleRemove = function(id, event) {
     const sections = uci.sections("forkop", "section") || [];
@@ -25669,6 +25680,16 @@ var loadSingGeositeFiles = createCatalogLoader("geosite");
 var loadSingGeoipFiles = createCatalogLoader("geoip");
 
 // src/forkop/tabs/sections/ruleSets.ts
+function datRulesetLabel(reference) {
+  const dat = parseDatReference(reference);
+  if (!dat) return null;
+  const source = `${uci.get(FORKOP_UCI_PACKAGE, dat.source, "label") || ""}`.trim();
+  return source ? `${dat.tag} (${source})` : dat.tag;
+}
+function renderRulesetItemLabel(_sectionId, value, text8) {
+  const label = datRulesetLabel(value);
+  return label ? textE("span", { title: value }, label) : text8 ?? value;
+}
 function addDatRulesetPicker(node, option2, sectionId, includeGeoip = true) {
   node.appendChild(
     textE(
@@ -25676,6 +25697,7 @@ function addDatRulesetPicker(node, option2, sectionId, includeGeoip = true) {
       {
         type: "button",
         class: "cbi-button",
+        style: "display:block;width:100%;box-sizing:border-box",
         click: () => {
           void showGeodataCatalog(includeGeoip, (reference) => {
             const widget = option2.getUIElement(sectionId);
@@ -25692,7 +25714,7 @@ function addDatRulesetPicker(node, option2, sectionId, includeGeoip = true) {
           }).catch((error) => showToast(error.message, "error"));
         }
       },
-      _("Choose DAT tag")
+      _("Choose Geodata tag")
     )
   );
 }
@@ -25735,7 +25757,8 @@ function showRuleSetSettingsModal(section_id, itemValue, option2, widget) {
   includeSubnets.rmempty = false;
   const dat = parseDatReference(`${itemValue ?? ""}`);
   includeSubnets.readonly = !!dat && uci.get(FORKOP_UCI_PACKAGE, dat.source, "kind") === "geoip";
-  const name = ruleSetFileName(`${itemValue ?? ""}`);
+  const reference = `${itemValue ?? ""}`;
+  const name = datRulesetLabel(reference) ?? ruleSetFileName(reference);
   return renderStackedJsonSettingsModal(
     name ? _("Rule set: %s").format(name) : _("Rule set settings"),
     map,
@@ -25786,18 +25809,6 @@ async function loadGeoRulesetValues(option2, includeGeoip = true) {
   geoipFiles.forEach((file) => {
     option2.value(SING_GEOIP_URL + file, `geoip: ${file.slice(6, -4)}`);
   });
-  option2.description = geositeFiles.length + geoipFiles.length ? includeGeoip ? _(
-    "Choose a sing-geosite or sing-geoip list, or enter a URL or local path. The format is detected automatically"
-  ) : _(
-    "Choose a sing-geosite list, or enter a URL or local path. The format is detected automatically"
-  ) : _(
-    "Could not load the rule set catalogs. Enter a URL or local path, or reopen this dialog to retry"
-  );
-  if (includeGeoip) {
-    option2.description += " " + _(
-      'For GeoIP, enable "Include IP addresses and subnets" in the list settings'
-    );
-  }
 }
 function groupGeoRulesetChoices(node) {
   const dropdown = node.querySelector(".add-item .cbi-dropdown");
@@ -29150,16 +29161,17 @@ function createSectionContent(section2) {
   };
   const dnsRuleSetOption = section2.taboption(
     "conditions",
-    form.DynamicList,
+    SettingsDynamicList,
     "_dns_rule_set",
-    _("Rule sets"),
-    _("A URL or local path. The format is detected automatically")
+    _("Rule sets")
   );
   dnsRuleSetOption.depends("action", "dns");
   dnsRuleSetOption.modalonly = true;
   dnsRuleSetOption.retain = true;
+  dnsRuleSetOption.renderListItemLabel = renderRulesetItemLabel;
+  dnsRuleSetOption.hasItemSettings = () => false;
   dnsRuleSetOption.renderWidget = function(section_id, option_index, cfgvalue) {
-    const node = form.DynamicList.prototype.renderWidget.call(
+    const node = SettingsDynamicList.prototype.renderWidget.call(
       this,
       section_id,
       option_index,
@@ -29186,12 +29198,12 @@ function createSectionContent(section2) {
     "conditions",
     SettingsDynamicList,
     "rule_set",
-    _("Rule sets"),
-    _("A URL or local path. The format is detected automatically")
+    _("Rule sets")
   );
   dependsOnRoutingAction(ruleSetOption);
   ruleSetOption.modalonly = true;
   ruleSetOption.retain = true;
+  ruleSetOption.renderListItemLabel = renderRulesetItemLabel;
   ruleSetOption.renderWidget = function(section_id, option_index, cfgvalue) {
     const node = SettingsDynamicList.prototype.renderWidget.call(
       this,

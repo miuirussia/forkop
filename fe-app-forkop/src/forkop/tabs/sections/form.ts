@@ -91,6 +91,7 @@ import {
   loadGeoRulesetValues,
   loadRulesetValues,
   refuseHeldBuiltinLists,
+  renderRulesetItemLabel,
   showRuleSetSettingsModal,
   validateCustomRulesetReference,
   writeBuiltInRulesetReferences,
@@ -653,22 +654,23 @@ export function createSectionContent(section: CBISection) {
 
   const dnsRuleSetOption = section.taboption(
     'conditions',
-    form.DynamicList,
+    SettingsDynamicList,
     '_dns_rule_set',
     _('Rule sets'),
-    _('A URL or local path. The format is detected automatically'),
   );
   dnsRuleSetOption.depends('action', 'dns');
   dnsRuleSetOption.modalonly = true;
   // Both rule set fields edit one list and this one shows only for a DNS rule; without retain LuCI
   // would call its remove() under every other action and clear the list and its settings.
   dnsRuleSetOption.retain = true;
+  dnsRuleSetOption.renderListItemLabel = renderRulesetItemLabel;
+  dnsRuleSetOption.hasItemSettings = () => false;
   dnsRuleSetOption.renderWidget = function (
     section_id: string,
     option_index: string,
     cfgvalue: unknown,
   ) {
-    const node = form.DynamicList.prototype.renderWidget.call(
+    const node = SettingsDynamicList.prototype.renderWidget.call(
       this,
       section_id,
       option_index,
@@ -697,11 +699,11 @@ export function createSectionContent(section: CBISection) {
     SettingsDynamicList,
     'rule_set',
     _('Rule sets'),
-    _('A URL or local path. The format is detected automatically'),
   );
   dependsOnRoutingAction(ruleSetOption);
   ruleSetOption.modalonly = true;
   ruleSetOption.retain = true;
+  ruleSetOption.renderListItemLabel = renderRulesetItemLabel;
   ruleSetOption.renderWidget = function (
     section_id: string,
     option_index: string,
