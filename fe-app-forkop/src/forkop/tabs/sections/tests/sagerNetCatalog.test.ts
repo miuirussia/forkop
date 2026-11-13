@@ -105,6 +105,8 @@ describe('SagerNet catalog', () => {
     expect(content.rows).toHaveLength(0);
     resolve(['geosite-reddit.srs']);
     await pending;
+    // LuCI stringifies false attributes, so disabled must be omitted with null.
+    expect(content.rows[0].children[1].attrs.disabled).toBeNull();
     click(content.rows[0].children[1]);
     expect(select).toHaveBeenCalledWith(
       SING_GEOSITE_URL + 'geosite-reddit.srs',
@@ -118,7 +120,7 @@ describe('SagerNet catalog', () => {
     await showSagerNetCatalog(true, select, () => [
       SING_GEOSITE_URL + 'geosite-reddit.srs',
     ]);
-    expect(content.rows[0].children[1].attrs.disabled).toBe(true);
+    expect(content.rows[0].children[1].attrs.disabled).toBe('');
     search('TELE');
     expect(content.rows).toHaveLength(1);
     expect(content.rows[0].children[0].children).toEqual(['telegram']);

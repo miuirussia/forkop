@@ -250,10 +250,6 @@ declare global {
     addedSection?: string;
   }
 
-  interface CBIWidget {
-    settingsButtonResizeObserver?: ResizeObserver | null;
-  }
-
   interface Element {
     fkpDynamicListSettingsButton?: HTMLElement;
   }

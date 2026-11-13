@@ -36,8 +36,14 @@ export async function showGeodataCatalog(
     placeholder: _('Search tags'),
     'aria-label': _('Search tags'),
   }) as HTMLInputElement;
-  const status = E('p', { role: 'status', 'aria-live': 'polite' });
-  const list = E('div', { style: 'max-height:45vh;overflow:auto' });
+  const status = E('p', {
+    class: 'fkp-catalog__status',
+    role: 'status',
+    'aria-live': 'polite',
+  });
+  const list = E('div', {
+    class: 'fkp-catalog__list fkp-catalog__list--counts',
+  });
   const previous = E(
     'button',
     { class: 'cbi-button', type: 'button' },
@@ -72,28 +78,24 @@ export async function showGeodataCatalog(
       if (current !== request || !list.isConnected) return;
       list.replaceChildren(
         ...response.tags.map((tag) =>
-          E(
-            'div',
-            { style: 'display:flex;align-items:center;gap:1em;padding:.4em 0' },
-            [
-              E('code', { style: 'flex:1;overflow-wrap:anywhere' }, tag.name),
-              E('span', {}, String(tag.count)),
-              E(
-                'button',
-                {
-                  type: 'button',
-                  class: 'cbi-button cbi-button-add',
-                  click: () => {
-                    if (select) {
-                      select(tag.reference);
-                      close();
-                    } else void copyToClipboard(tag.reference);
-                  },
+          E('div', { class: 'fkp-catalog__row' }, [
+            E('code', { class: 'fkp-catalog__name' }, tag.name),
+            E('span', { class: 'fkp-catalog__count' }, String(tag.count)),
+            E(
+              'button',
+              {
+                type: 'button',
+                class: 'cbi-button cbi-button-add fkp-catalog__action',
+                click: () => {
+                  if (select) {
+                    select(tag.reference);
+                    close();
+                  } else void copyToClipboard(tag.reference);
                 },
-                select ? _('Add') : _('Copy reference'),
-              ),
-            ],
-          ),
+              },
+              select ? _('Add') : _('Copy reference'),
+            ),
+          ]),
         ),
       );
       status.textContent = `${response.total ? offset + 1 : 0}–${offset + response.tags.length} / ${response.total}`;
@@ -124,7 +126,7 @@ export async function showGeodataCatalog(
     offset += 200;
     void refresh();
   });
-  const content = E('div', {}, [
+  const content = E('div', { class: 'fkp-catalog' }, [
     E(
       'div',
       { style: 'display:flex;flex-wrap:wrap;gap:.75em;align-items:center' },
@@ -132,7 +134,7 @@ export async function showGeodataCatalog(
     ),
     status,
     list,
-    E('div', { class: 'right' }, [
+    E('div', { class: 'fkp-catalog__footer' }, [
       previous,
       next,
       E(

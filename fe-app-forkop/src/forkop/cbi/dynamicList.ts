@@ -45,8 +45,8 @@ function ensureConnectionsDynamicListStyles() {
 
 .fkp-connections-dynlist > .fkp-dynlist-settings {
   align-items: center;
-  align-self: start;
-  block-size: var(--fkp-dynlist-row-size, auto);
+  align-self: stretch;
+  height: auto;
   box-sizing: border-box;
   display: inline-flex;
   grid-column: 2;
@@ -54,7 +54,7 @@ function ensureConnectionsDynamicListStyles() {
   justify-content: center;
   line-height: 1;
   margin: 0;
-  min-block-size: 0;
+  min-height: 0;
   min-inline-size: 0;
   padding: 0;
   user-select: none;
@@ -111,16 +111,6 @@ body.modal-overlay-active > #modal_overlay > .modal.cbi-modal > .cbi-map.flash {
 const SettingsUIDynamicList = ui.DynamicList.extend({
   render() {
     ensureConnectionsDynamicListStyles();
-    this.settingsButtonResizeObserver?.disconnect();
-    this.settingsButtonResizeObserver =
-      typeof ResizeObserver === 'function'
-        ? new ResizeObserver((entries) => {
-            entries.forEach((entry) => {
-              this.syncSettingsButtonSize(entry.target);
-            });
-          })
-        : null;
-
     const node = ui.DynamicList.prototype.render.call(this);
     node.classList.add('fkp-connections-dynlist');
     node.addEventListener('cbi-dynlist-change', () => {
@@ -129,14 +119,6 @@ const SettingsUIDynamicList = ui.DynamicList.extend({
     node.addEventListener('touchstart', () => this.syncSettingsButtons(node));
     node.addEventListener('touchmove', () => this.syncSettingsButtons(node));
     return node;
-  },
-
-  syncSettingsButtonSize(item: Element | null) {
-    const button = item && item.fkpDynamicListSettingsButton;
-    const height = (item as HTMLElement | null)?.offsetHeight;
-    if (button && (height as number) > 0) {
-      button.style.setProperty('--fkp-dynlist-row-size', `${height}px`);
-    }
   },
 
   syncSettingsButtons(dl: HTMLElement) {
@@ -219,13 +201,10 @@ const SettingsUIDynamicList = ui.DynamicList.extend({
     );
     item.fkpDynamicListSettingsButton = settingsButton;
     item.after(settingsButton);
-    this.settingsButtonResizeObserver?.observe(item);
-    this.syncSettingsButtonSize(item);
   },
 
   removeItem(dl: HTMLElement, item: Element) {
     const settingsButton = item && item.fkpDynamicListSettingsButton;
-    this.settingsButtonResizeObserver?.unobserve(item);
     if (settingsButton && settingsButton.parentNode === dl) {
       settingsButton.remove();
     }

@@ -26,7 +26,8 @@ export async function showSagerNetCatalog(
     ],
   ) as HTMLSelectElement;
   const search = E('input', {
-    type: 'search',
+    type: 'text',
+    role: 'searchbox',
     class: 'cbi-input-text',
     style: 'flex:2 1 14em;min-width:0;width:100%;box-sizing:border-box',
     autocomplete: 'off',
@@ -35,10 +36,14 @@ export async function showSagerNetCatalog(
   }) as HTMLInputElement;
   const status = E(
     'p',
-    { role: 'status', 'aria-live': 'polite' },
+    {
+      class: 'fkp-catalog__status',
+      role: 'status',
+      'aria-live': 'polite',
+    },
     _('Loading…'),
   );
-  const list = E('div', { style: 'max-height:45vh;overflow:auto' });
+  const list = E('div', { class: 'fkp-catalog__list' });
   const previous = E(
     'button',
     { class: 'cbi-button', type: 'button', disabled: true },
@@ -76,36 +81,32 @@ export async function showSagerNetCatalog(
       ...page.map((file) => {
         const reference = url + file;
         const added = selectedRefs.has(reference);
-        return E(
-          'div',
-          { style: 'display:flex;align-items:center;gap:1em;padding:.4em 0' },
-          [
-            E(
-              'span',
-              {
-                style: 'flex:1;min-width:0;overflow-wrap:anywhere',
-                title: reference,
+        return E('div', { class: 'fkp-catalog__row' }, [
+          E(
+            'span',
+            {
+              class: 'fkp-catalog__name',
+              title: reference,
+            },
+            file.slice(kind.length + 1, -4),
+          ),
+          E(
+            'button',
+            {
+              type: 'button',
+              class: 'cbi-button cbi-button-add fkp-catalog__action',
+              disabled: added ? '' : null,
+              'aria-label': added
+                ? _('Selected: %s').format(file.slice(kind.length + 1, -4))
+                : _('Add %s').format(file.slice(kind.length + 1, -4)),
+              click: () => {
+                select(reference);
+                close();
               },
-              file.slice(kind.length + 1, -4),
-            ),
-            E(
-              'button',
-              {
-                type: 'button',
-                class: 'cbi-button cbi-button-add',
-                disabled: added,
-                'aria-label': added
-                  ? _('Selected: %s').format(file.slice(kind.length + 1, -4))
-                  : _('Add %s').format(file.slice(kind.length + 1, -4)),
-                click: () => {
-                  select(reference);
-                  close();
-                },
-              },
-              added ? _('Selected') : _('Add'),
-            ),
-          ],
-        );
+            },
+            added ? _('Selected') : _('Add'),
+          ),
+        ]);
       }),
     );
     status.textContent = files.length
@@ -133,7 +134,7 @@ export async function showSagerNetCatalog(
     offset += PAGE_SIZE;
     refresh();
   });
-  const content = E('div', { class: 'fkp-sagernet-catalog' }, [
+  const content = E('div', { class: 'fkp-catalog fkp-sagernet-catalog' }, [
     E('h4', {}, _('Choose SagerNet rule-set')),
     E(
       'div',
@@ -145,8 +146,7 @@ export async function showSagerNetCatalog(
     E(
       'div',
       {
-        class: 'right',
-        style: 'display:flex;justify-content:flex-end;gap:.5em;flex-wrap:wrap',
+        class: 'fkp-catalog__footer',
       },
       [
         previous,

@@ -17008,6 +17008,84 @@ ${PartialStyles}
     flex: 0 0 auto;
 }
 
+.cbi-dynlist.fkp-ruleset-list > .fkp-ruleset-picker {
+    display: block;
+    grid-column: 1 / -1;
+    box-sizing: border-box;
+    width: 100% !important;
+    margin: 0;
+}
+
+.fkp-catalog {
+    min-width: 0;
+}
+
+.fkp-catalog__status {
+    margin: 0.5em 0 0.75em;
+    font-variant-numeric: tabular-nums;
+}
+
+.fkp-catalog__list {
+    --fkp-catalog-columns: minmax(0, 1fr) 7em;
+    max-height: 45vh;
+    overflow: auto;
+    scrollbar-gutter: stable;
+}
+
+.fkp-catalog__list--counts {
+    --fkp-catalog-columns: minmax(0, 1fr) 6ch 7em;
+}
+
+.fkp-catalog__row {
+    display: grid;
+    grid-template-columns: var(--fkp-catalog-columns);
+    align-items: center;
+    gap: 0.75em;
+    padding: 0.5em 0.75em;
+}
+
+.fkp-catalog__row:nth-child(even) {
+    background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+.fkp-catalog__row > .fkp-catalog__name {
+    display: block;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.fkp-catalog__count {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.fkp-catalog__row > .fkp-catalog__action {
+    box-sizing: border-box;
+    width: 100% !important;
+    min-width: 0;
+    margin: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.fkp-catalog__footer {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    margin-top: 1em;
+}
+
+.fkp-catalog__footer > .cbi-button {
+    margin: 0;
+}
+
 .cbi-dropdown > ul > li.fkp-builtin-list-unavailable {
     flex-direction: column;
     align-items: stretch;
@@ -18081,8 +18159,14 @@ async function showGeodataCatalog(includeGeoip = true, select, sourceId = "") {
     placeholder: _("Search tags"),
     "aria-label": _("Search tags")
   });
-  const status = textE("p", { role: "status", "aria-live": "polite" });
-  const list3 = textE("div", { style: "max-height:45vh;overflow:auto" });
+  const status = textE("p", {
+    class: "fkp-catalog__status",
+    role: "status",
+    "aria-live": "polite"
+  });
+  const list3 = textE("div", {
+    class: "fkp-catalog__list fkp-catalog__list--counts"
+  });
   const previous = textE(
     "button",
     { class: "cbi-button", type: "button" },
@@ -18117,28 +18201,24 @@ async function showGeodataCatalog(includeGeoip = true, select, sourceId = "") {
       if (current !== request || !list3.isConnected) return;
       list3.replaceChildren(
         ...response.tags.map(
-          (tag) => textE(
-            "div",
-            { style: "display:flex;align-items:center;gap:1em;padding:.4em 0" },
-            [
-              textE("code", { style: "flex:1;overflow-wrap:anywhere" }, tag.name),
-              textE("span", {}, String(tag.count)),
-              textE(
-                "button",
-                {
-                  type: "button",
-                  class: "cbi-button cbi-button-add",
-                  click: () => {
-                    if (select) {
-                      select(tag.reference);
-                      close();
-                    } else void copyToClipboard(tag.reference);
-                  }
-                },
-                select ? _("Add") : _("Copy reference")
-              )
-            ]
-          )
+          (tag) => textE("div", { class: "fkp-catalog__row" }, [
+            textE("code", { class: "fkp-catalog__name" }, tag.name),
+            textE("span", { class: "fkp-catalog__count" }, String(tag.count)),
+            textE(
+              "button",
+              {
+                type: "button",
+                class: "cbi-button cbi-button-add fkp-catalog__action",
+                click: () => {
+                  if (select) {
+                    select(tag.reference);
+                    close();
+                  } else void copyToClipboard(tag.reference);
+                }
+              },
+              select ? _("Add") : _("Copy reference")
+            )
+          ])
         )
       );
       status.textContent = `${response.total ? offset + 1 : 0}\u2013${offset + response.tags.length} / ${response.total}`;
@@ -18169,7 +18249,7 @@ async function showGeodataCatalog(includeGeoip = true, select, sourceId = "") {
     offset += 200;
     void refresh();
   });
-  const content = textE("div", {}, [
+  const content = textE("div", { class: "fkp-catalog" }, [
     textE(
       "div",
       { style: "display:flex;flex-wrap:wrap;gap:.75em;align-items:center" },
@@ -18177,7 +18257,7 @@ async function showGeodataCatalog(includeGeoip = true, select, sourceId = "") {
     ),
     status,
     list3,
-    textE("div", { class: "right" }, [
+    textE("div", { class: "fkp-catalog__footer" }, [
       previous,
       next,
       textE(
@@ -18224,7 +18304,12 @@ var phases = {
   idle: () => _("Completed"),
   error: () => _("Failed")
 };
-async function startUpdate(id = "") {
+function renderSourceState(text8, id, state) {
+  const source = state.sources.find((item) => item.id === id);
+  const job = state.job;
+  text8.textContent = job?.source === id && job.phase !== "idle" && job.phase !== "error" ? phases[job.phase]?.() || job.phase : source?.error || (source?.ready ? `${prettyBytes(source.size)} \xB7 ${source.tag_count} ${_("tags")} \xB7 ${new Date(source.updated_at * 1e3).toLocaleString()}` : _("Not downloaded"));
+}
+async function startUpdate(id, rows) {
   try {
     await updateGeodata(id);
     const status = textE(
@@ -18254,12 +18339,17 @@ async function startUpdate(id = "") {
     ]);
     const started2 = Date.now();
     const poll = async () => {
-      if (closed || !status.isConnected) return;
+      if ((closed || !status.isConnected) && !Array.from(rows.keys()).some((text8) => text8.isConnected))
+        return;
       try {
         const state = await getGeodataState();
-        if (closed) return;
+        for (const [text8, sourceId] of rows) {
+          if (text8.isConnected) renderSourceState(text8, sourceId, state);
+          else rows.delete(text8);
+        }
         const job = state.job;
-        status.textContent = job?.error || (job ? `${job.source ? `${job.source}: ` : ""}${phases[job.phase]?.() || job.phase}` : _("Starting\u2026"));
+        if (!closed && status.isConnected)
+          status.textContent = job?.error || (job ? `${job.source ? `${job.source}: ` : ""}${phases[job.phase]?.() || job.phase}` : _("Starting\u2026"));
         if (job && (job.phase === "error" || job.phase === "idle") && Date.now() - started2 > 1500)
           return;
         setTimeout(() => void poll(), 1e3);
@@ -18275,6 +18365,7 @@ async function startUpdate(id = "") {
   }
 }
 function createGeodataContent(map) {
+  const stateRows = /* @__PURE__ */ new Map();
   const section2 = map.section(
     form.TypedSection,
     "geodata_settings",
@@ -18291,6 +18382,8 @@ function createGeodataContent(map) {
       "/tmp uses RAM and is cleared on reboot. Use external storage for large DAT files. An update temporarily needs space for both versions"
     )
   );
+  o.value("/tmp/forkop-geodata", "RAM (/tmp/forkop-geodata)");
+  o.value("/usr/share/forkop-geodata", "Flash (/usr/share/forkop-geodata)");
   o.default = "/tmp/forkop-geodata";
   o.rmempty = false;
   o.validate = (_id, value) => value === "/" || /(^|\/)\.\.?($|\/)/.test(value) ? _("Choose a dedicated absolute directory") : validatePath(value);
@@ -18322,7 +18415,7 @@ function createGeodataContent(map) {
     {
       type: "button",
       class: "cbi-button cbi-button-action",
-      click: () => void startUpdate()
+      click: () => void startUpdate("", stateRows)
     },
     _("Update all DAT sources")
   );
@@ -18367,9 +18460,9 @@ function createGeodataContent(map) {
   o = grid.option(form.DummyValue, "_state", _("State"));
   o.cfgvalue = function(id) {
     const text8 = textE("span", {}, _("Loading\u2026"));
+    stateRows.set(text8, id);
     void getGeodataState().then((state) => {
-      const source = state.sources.find((item) => item.id === id);
-      text8.textContent = source?.error || (source?.ready ? `${prettyBytes(source.size)} \xB7 ${source.tag_count} ${_("tags")} \xB7 ${new Date(source.updated_at * 1e3).toLocaleString()}` : _("Not downloaded"));
+      renderSourceState(text8, id, state);
     }).catch(() => {
       text8.textContent = _("Unavailable");
     });
@@ -18383,7 +18476,7 @@ function createGeodataContent(map) {
       {
         type: "button",
         class: "cbi-button cbi-button-action",
-        click: () => void startUpdate(id)
+        click: () => void startUpdate(id, stateRows)
       },
       _("Update")
     ),
@@ -23843,8 +23936,8 @@ function ensureConnectionsDynamicListStyles() {
 
 .fkp-connections-dynlist > .fkp-dynlist-settings {
   align-items: center;
-  align-self: start;
-  block-size: var(--fkp-dynlist-row-size, auto);
+  align-self: stretch;
+  height: auto;
   box-sizing: border-box;
   display: inline-flex;
   grid-column: 2;
@@ -23852,7 +23945,7 @@ function ensureConnectionsDynamicListStyles() {
   justify-content: center;
   line-height: 1;
   margin: 0;
-  min-block-size: 0;
+  min-height: 0;
   min-inline-size: 0;
   padding: 0;
   user-select: none;
@@ -23908,12 +24001,6 @@ body.modal-overlay-active > #modal_overlay > .modal.cbi-modal > .cbi-map.flash {
 var SettingsUIDynamicList = ui.DynamicList.extend({
   render() {
     ensureConnectionsDynamicListStyles();
-    this.settingsButtonResizeObserver?.disconnect();
-    this.settingsButtonResizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver((entries) => {
-      entries.forEach((entry) => {
-        this.syncSettingsButtonSize(entry.target);
-      });
-    }) : null;
     const node = ui.DynamicList.prototype.render.call(this);
     node.classList.add("fkp-connections-dynlist");
     node.addEventListener("cbi-dynlist-change", () => {
@@ -23922,13 +24009,6 @@ var SettingsUIDynamicList = ui.DynamicList.extend({
     node.addEventListener("touchstart", () => this.syncSettingsButtons(node));
     node.addEventListener("touchmove", () => this.syncSettingsButtons(node));
     return node;
-  },
-  syncSettingsButtonSize(item) {
-    const button = item && item.fkpDynamicListSettingsButton;
-    const height = item?.offsetHeight;
-    if (button && height > 0) {
-      button.style.setProperty("--fkp-dynlist-row-size", `${height}px`);
-    }
   },
   syncSettingsButtons(dl) {
     Array.from(dl.children).forEach((item) => {
@@ -23982,12 +24062,9 @@ var SettingsUIDynamicList = ui.DynamicList.extend({
     );
     item.fkpDynamicListSettingsButton = settingsButton;
     item.after(settingsButton);
-    this.settingsButtonResizeObserver?.observe(item);
-    this.syncSettingsButtonSize(item);
   },
   removeItem(dl, item) {
     const settingsButton = item && item.fkpDynamicListSettingsButton;
-    this.settingsButtonResizeObserver?.unobserve(item);
     if (settingsButton && settingsButton.parentNode === dl) {
       settingsButton.remove();
     }
@@ -25663,7 +25740,8 @@ async function showSagerNetCatalog(includeGeoip, select, selected) {
     ]
   );
   const search = textE("input", {
-    type: "search",
+    type: "text",
+    role: "searchbox",
     class: "cbi-input-text",
     style: "flex:2 1 14em;min-width:0;width:100%;box-sizing:border-box",
     autocomplete: "off",
@@ -25672,10 +25750,14 @@ async function showSagerNetCatalog(includeGeoip, select, selected) {
   });
   const status = textE(
     "p",
-    { role: "status", "aria-live": "polite" },
+    {
+      class: "fkp-catalog__status",
+      role: "status",
+      "aria-live": "polite"
+    },
     _("Loading\u2026")
   );
-  const list3 = textE("div", { style: "max-height:45vh;overflow:auto" });
+  const list3 = textE("div", { class: "fkp-catalog__list" });
   const previous = textE(
     "button",
     { class: "cbi-button", type: "button", disabled: true },
@@ -25710,34 +25792,30 @@ async function showSagerNetCatalog(includeGeoip, select, selected) {
       ...page.map((file) => {
         const reference = url + file;
         const added = selectedRefs.has(reference);
-        return textE(
-          "div",
-          { style: "display:flex;align-items:center;gap:1em;padding:.4em 0" },
-          [
-            textE(
-              "span",
-              {
-                style: "flex:1;min-width:0;overflow-wrap:anywhere",
-                title: reference
-              },
-              file.slice(kind.length + 1, -4)
-            ),
-            textE(
-              "button",
-              {
-                type: "button",
-                class: "cbi-button cbi-button-add",
-                disabled: added,
-                "aria-label": added ? _("Selected: %s").format(file.slice(kind.length + 1, -4)) : _("Add %s").format(file.slice(kind.length + 1, -4)),
-                click: () => {
-                  select(reference);
-                  close();
-                }
-              },
-              added ? _("Selected") : _("Add")
-            )
-          ]
-        );
+        return textE("div", { class: "fkp-catalog__row" }, [
+          textE(
+            "span",
+            {
+              class: "fkp-catalog__name",
+              title: reference
+            },
+            file.slice(kind.length + 1, -4)
+          ),
+          textE(
+            "button",
+            {
+              type: "button",
+              class: "cbi-button cbi-button-add fkp-catalog__action",
+              disabled: added ? "" : null,
+              "aria-label": added ? _("Selected: %s").format(file.slice(kind.length + 1, -4)) : _("Add %s").format(file.slice(kind.length + 1, -4)),
+              click: () => {
+                select(reference);
+                close();
+              }
+            },
+            added ? _("Selected") : _("Add")
+          )
+        ]);
       })
     );
     status.textContent = files.length ? `${offset + 1}\u2013${offset + page.length} / ${files.length}` : catalogs[kind]?.length ? _("No matching rule sets") : _("Could not load the SagerNet catalog. Close and try again");
@@ -25761,7 +25839,7 @@ async function showSagerNetCatalog(includeGeoip, select, selected) {
     offset += PAGE_SIZE;
     refresh();
   });
-  const content = textE("div", { class: "fkp-sagernet-catalog" }, [
+  const content = textE("div", { class: "fkp-catalog fkp-sagernet-catalog" }, [
     textE("h4", {}, _("Choose SagerNet rule-set")),
     textE(
       "div",
@@ -25773,8 +25851,7 @@ async function showSagerNetCatalog(includeGeoip, select, selected) {
     textE(
       "div",
       {
-        class: "right",
-        style: "display:flex;justify-content:flex-end;gap:.5em;flex-wrap:wrap"
+        class: "fkp-catalog__footer"
       },
       [
         previous,
@@ -25852,13 +25929,13 @@ function addRulesetReference(node, option2, sectionId, reference) {
   node.dispatchEvent(new CustomEvent("cbi-dynlist-change", { bubbles: true }));
 }
 function addDatRulesetPicker(node, option2, sectionId, includeGeoip = true) {
+  node.classList.add("fkp-ruleset-list");
   node.appendChild(
     textE(
       "button",
       {
         type: "button",
-        class: "cbi-button",
-        style: "display:block;width:100%;box-sizing:border-box;grid-column:1 / -1",
+        class: "cbi-button fkp-ruleset-picker",
         click: () => {
           void showGeodataCatalog(
             includeGeoip,
@@ -25876,8 +25953,7 @@ function addSagerNetRulesetPicker(node, option2, sectionId, includeGeoip = true)
     "button",
     {
       type: "button",
-      class: "cbi-button",
-      style: "display:block;width:100%;box-sizing:border-box;grid-column:1 / -1",
+      class: "cbi-button fkp-ruleset-picker",
       click: () => {
         void showSagerNetCatalog(
           includeGeoip,

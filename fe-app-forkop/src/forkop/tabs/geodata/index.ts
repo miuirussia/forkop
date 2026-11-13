@@ -5,6 +5,7 @@ import { validatePath } from '../../../validators/validatePath';
 import { validateUrl } from '../../../validators/validateUrl';
 import { nextSectionId } from '../../cbi/childItems';
 import {
+  type GeodataState,
   getGeodataState,
   updateGeodata,
   validateGeodataInterval,
@@ -22,7 +23,19 @@ const phases: Record<string, () => string> = {
   error: () => _('Failed'),
 };
 
-async function startUpdate(id = '') {
+function renderSourceState(text: HTMLElement, id: string, state: GeodataState) {
+  const source = state.sources.find((item) => item.id === id);
+  const job = state.job;
+  text.textContent =
+    job?.source === id && job.phase !== 'idle' && job.phase !== 'error'
+      ? phases[job.phase]?.() || job.phase
+      : source?.error ||
+        (source?.ready
+          ? `${prettyBytes(source.size)} · ${source.tag_count} ${_('tags')} · ${new Date(source.updated_at * 1000).toLocaleString()}`
+          : _('Not downloaded'));
+}
+
+async function startUpdate(id: string, rows: Map<HTMLElement, string>) {
   try {
     await updateGeodata(id);
     const status = E(
@@ -52,16 +65,24 @@ async function startUpdate(id = '') {
     ]);
     const started = Date.now();
     const poll = async () => {
-      if (closed || !status.isConnected) return;
+      if (
+        (closed || !status.isConnected) &&
+        !Array.from(rows.keys()).some((text) => text.isConnected)
+      )
+        return;
       try {
         const state = await getGeodataState();
-        if (closed) return;
+        for (const [text, sourceId] of rows) {
+          if (text.isConnected) renderSourceState(text, sourceId, state);
+          else rows.delete(text);
+        }
         const job = state.job;
-        status.textContent =
-          job?.error ||
-          (job
-            ? `${job.source ? `${job.source}: ` : ''}${phases[job.phase]?.() || job.phase}`
-            : _('Starting…'));
+        if (!closed && status.isConnected)
+          status.textContent =
+            job?.error ||
+            (job
+              ? `${job.source ? `${job.source}: ` : ''}${phases[job.phase]?.() || job.phase}`
+              : _('Starting…'));
         if (
           job &&
           (job.phase === 'error' || job.phase === 'idle') &&
@@ -82,6 +103,7 @@ async function startUpdate(id = '') {
 }
 
 export function createGeodataContent(map: CBIMap) {
+  const stateRows = new Map<HTMLElement, string>();
   const section = map.section(
     form.TypedSection,
     'geodata_settings',
@@ -98,6 +120,8 @@ export function createGeodataContent(map: CBIMap) {
       '/tmp uses RAM and is cleared on reboot. Use external storage for large DAT files. An update temporarily needs space for both versions',
     ),
   );
+  o.value('/tmp/forkop-geodata', 'RAM (/tmp/forkop-geodata)');
+  o.value('/usr/share/forkop-geodata', 'Flash (/usr/share/forkop-geodata)');
   o.default = '/tmp/forkop-geodata';
   o.rmempty = false;
   o.validate = (_id, value) =>
@@ -133,7 +157,7 @@ export function createGeodataContent(map: CBIMap) {
       {
         type: 'button',
         class: 'cbi-button cbi-button-action',
-        click: () => void startUpdate(),
+        click: () => void startUpdate('', stateRows),
       },
       _('Update all DAT sources'),
     );
@@ -180,14 +204,10 @@ export function createGeodataContent(map: CBIMap) {
   o = grid.option(form.DummyValue, '_state', _('State'));
   o.cfgvalue = function (id: string) {
     const text = E('span', {}, _('Loading…'));
+    stateRows.set(text, id);
     void getGeodataState()
       .then((state) => {
-        const source = state.sources.find((item) => item.id === id);
-        text.textContent =
-          source?.error ||
-          (source?.ready
-            ? `${prettyBytes(source.size)} · ${source.tag_count} ${_('tags')} · ${new Date(source.updated_at * 1000).toLocaleString()}`
-            : _('Not downloaded'));
+        renderSourceState(text, id, state);
       })
       .catch(() => {
         text.textContent = _('Unavailable');
@@ -203,7 +223,7 @@ export function createGeodataContent(map: CBIMap) {
         {
           type: 'button',
           class: 'cbi-button cbi-button-action',
-          click: () => void startUpdate(id),
+          click: () => void startUpdate(id, stateRows),
         },
         _('Update'),
       ),

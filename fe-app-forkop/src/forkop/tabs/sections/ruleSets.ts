@@ -79,14 +79,13 @@ export function addDatRulesetPicker(
   sectionId: string,
   includeGeoip = true,
 ) {
+  node.classList.add('fkp-ruleset-list');
   node.appendChild(
     E(
       'button',
       {
         type: 'button',
-        class: 'cbi-button',
-        style:
-          'display:block;width:100%;box-sizing:border-box;grid-column:1 / -1',
+        class: 'cbi-button fkp-ruleset-picker',
         click: () => {
           void showGeodataCatalog(includeGeoip, (reference) =>
             addRulesetReference(node, option, sectionId, reference),
@@ -109,9 +108,7 @@ export function addSagerNetRulesetPicker(
     'button',
     {
       type: 'button',
-      class: 'cbi-button',
-      style:
-        'display:block;width:100%;box-sizing:border-box;grid-column:1 / -1',
+      class: 'cbi-button fkp-ruleset-picker',
       click: () => {
         void showSagerNetCatalog(
           includeGeoip,
