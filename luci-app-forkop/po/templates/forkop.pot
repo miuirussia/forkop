@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 14:17+0300\n"
-"PO-Revision-Date: 2026-11-13 14:17+0300\n"
+"POT-Creation-Date: 2026-11-13 15:08+0300\n"
+"PO-Revision-Date: 2026-11-13 15:08+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -289,7 +289,12 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/entry/gridSection.ts
 #: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
 msgid "Add"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
+msgid "Add %s"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/details.ts
@@ -666,6 +671,11 @@ msgstr ""
 msgid "Choose Geodata tag"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
+msgid "Choose SagerNet rule-set"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "Cipher"
 msgstr ""
@@ -723,6 +733,7 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 #: fe-app-forkop/src/forkop/tabs/monitoring/connectionList.ts
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
 #: fe-app-forkop/src/forkop/tabs/servers/details.ts
 #: fe-app-forkop/src/forkop/tabs/settings/staticHosts.ts
 #: fe-app-forkop/src/partials/modal/renderModal.ts
@@ -939,6 +950,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/present.ts
 msgid "Could not get the check results"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
+msgid "Could not load the SagerNet catalog. Close and try again"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderExitPanel.ts
@@ -2118,6 +2133,7 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
 msgid "Loading…"
 msgstr ""
@@ -2303,6 +2319,7 @@ msgid "Network interface: %s"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
 msgid "Next"
 msgstr ""
 
@@ -2388,7 +2405,7 @@ msgstr ""
 msgid "No logs match the current filters"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
 msgid "No matching rule sets"
 msgstr ""
 
@@ -2806,6 +2823,7 @@ msgid "Prefixes: full:, keyword:, regex:"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
 msgid "Previous"
 msgstr ""
 
@@ -3063,6 +3081,10 @@ msgstr ""
 msgid "Rule set settings"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
+msgid "Rule set type"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
 msgid "Rule set: %s"
 msgstr ""
@@ -3108,11 +3130,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/logs/render.ts
 #: fe-app-forkop/src/forkop/tabs/monitoring/render.ts
-#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
 msgid "Search"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
 msgid "Search rule sets"
 msgstr ""
 
@@ -3164,7 +3185,12 @@ msgid "Select the WAN interfaces to be monitored"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
 msgid "Selected"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
+msgid "Selected: %s"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/form.ts
@@ -4051,6 +4077,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
 msgid "URL for the shared latency test of section nodes"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/form.ts
+msgid "URL or absolute file path"
 msgstr ""
 
 #: fe-app-forkop/src/validators/messages.ts

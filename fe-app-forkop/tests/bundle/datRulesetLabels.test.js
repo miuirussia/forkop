@@ -52,3 +52,19 @@ describe('DAT rule set labels', () => {
     expect(dialog.title).toBe('Rule set: livejournal (My Geosite)');
   });
 });
+
+describe('SagerNet rule set labels', () => {
+  it.each(['geosite', 'geoip'])(
+    'distinguishes %s in the list and settings title when tags coincide',
+    async (kind) => {
+      const url = `https://raw.githubusercontent.com/SagerNet/sing-${kind}/rule-set/${kind}-cn.srs`;
+      const option = ruleSetOption('rule_set');
+      const label = option.renderListItemLabel('sec', url);
+      expect(label.textContent).toBe(`cn (SagerNet, ${kind})`);
+      expect(label.getAttribute('title')).toBe(url);
+
+      const dialog = await harness.openDialog(option, 'sec', url);
+      expect(dialog.title).toBe(`Rule set: cn (SagerNet, ${kind})`);
+    },
+  );
+});

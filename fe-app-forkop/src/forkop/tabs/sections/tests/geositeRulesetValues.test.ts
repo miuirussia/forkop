@@ -1,48 +1,39 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../../services/singGeo.service', () => ({
-  loadSingGeositeFiles: vi.fn(),
-  loadSingGeoipFiles: vi.fn(),
-  SING_GEOIP_URL:
-    'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/',
-  SING_GEOSITE_URL:
-    'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/',
-}));
-
 import {
-  loadSingGeositeFiles,
-  loadSingGeoipFiles,
+  SING_GEOIP_URL,
+  SING_GEOSITE_URL,
 } from '../../../services/singGeo.service';
 import {
-  loadGeoRulesetValues,
+  renderRulesetItemLabel,
   validateCustomRulesetReference,
   writeCustomRulesetReferences,
   writeDnsRulesetReferences,
 } from '../ruleSets';
 
 beforeEach(() => {
-  vi.clearAllMocks();
-  vi.mocked(loadSingGeoipFiles).mockResolvedValue([]);
+  vi.stubGlobal('E', (_tag: string, attrs: object, children: string[]) => ({
+    ...attrs,
+    textContent: children.join(''),
+  }));
 });
-
 afterEach(() => vi.unstubAllGlobals());
 
-describe('sing-geosite rule choices', () => {
-  it('offers raw SRS URLs with readable labels and saves them for routing and DNS', async () => {
-    vi.mocked(loadSingGeositeFiles).mockResolvedValue([
-      'geosite-youtube.srs',
-      'geosite-google@!cn.srs',
-    ]);
-    const option = { keylist: ['old'], vallist: ['old'], value: vi.fn() };
-    await loadGeoRulesetValues(option as unknown as CBIOption);
-    const url =
-      'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-youtube.srs';
-    expect(option.value).toHaveBeenCalledWith(url, 'geosite: youtube');
-    expect(option.value).toHaveBeenCalledWith(
-      'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-google@!cn.srs',
-      'geosite: google@!cn',
-    );
-    expect(option.keylist).toBeUndefined();
+describe('SagerNet rule set labels', () => {
+  it.each([
+    [SING_GEOSITE_URL + 'geosite-reddit.srs', 'reddit (SagerNet, geosite)'],
+    [
+      SING_GEOSITE_URL + 'geosite-google@!cn.srs',
+      'google@!cn (SagerNet, geosite)',
+    ],
+    [SING_GEOIP_URL + 'geoip-ru.srs', 'ru (SagerNet, geoip)'],
+    [SING_GEOSITE_URL + 'geosite-cn.srs', 'cn (SagerNet, geosite)'],
+    [SING_GEOIP_URL + 'geoip-cn.srs', 'cn (SagerNet, geoip)'],
+  ])('labels %s without changing its saved reference', (url, label) => {
+    expect(renderRulesetItemLabel('route', url, 'old label')).toEqual({
+      title: url,
+      textContent: label,
+    });
     expect(validateCustomRulesetReference(url)).toBe(true);
     const set = vi.fn();
     vi.stubGlobal('uci', { get: () => undefined, set, unset: vi.fn() });
@@ -55,39 +46,14 @@ describe('sing-geosite rule choices', () => {
     expect(set).toHaveBeenCalledWith('forkop', 'dns', 'rule_set', [url]);
   });
 
-  it('leaves manual input available without explanatory text when a catalog is missing', async () => {
-    vi.mocked(loadSingGeositeFiles).mockResolvedValue([]);
-    const option = { value: vi.fn(), description: '' };
-    await loadGeoRulesetValues(option as unknown as CBIOption);
-    expect(option.value).not.toHaveBeenCalled();
-    expect(option.description).toBe('');
-    expect(validateCustomRulesetReference('/etc/forkop/custom.srs')).toBe(true);
-  });
-
-  it('offers GeoIP for routing, but only geosite for DNS, without explanatory text', async () => {
-    vi.mocked(loadSingGeositeFiles).mockResolvedValue(['geosite-youtube.srs']);
-    vi.mocked(loadSingGeoipFiles).mockResolvedValue(['geoip-ru.srs']);
-    const route = { value: vi.fn(), description: '' };
-    await loadGeoRulesetValues(route as unknown as CBIOption);
-    expect(route.value).toHaveBeenCalledWith(
-      'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-ru.srs',
-      'geoip: ru',
-    );
-    expect(route.description).toBe('');
-    vi.mocked(loadSingGeoipFiles).mockClear();
-    const dns = { value: vi.fn(), description: '' };
-    await loadGeoRulesetValues(dns as unknown as CBIOption, false);
-    expect(loadSingGeoipFiles).not.toHaveBeenCalled();
-    expect(dns.value).toHaveBeenCalledTimes(1);
-    expect(dns.description).toBe('');
-  });
-
-  it('still offers the available catalog if the other source fails', async () => {
-    vi.mocked(loadSingGeositeFiles).mockResolvedValue([]);
-    vi.mocked(loadSingGeoipFiles).mockResolvedValue(['geoip-ru.srs']);
-    const option = { value: vi.fn(), description: '' };
-    await loadGeoRulesetValues(option as unknown as CBIOption);
-    expect(option.value).toHaveBeenCalledTimes(1);
-    expect(option.description).toBe('');
+  it('keeps custom URLs, paths and labels intact', () => {
+    for (const value of [
+      '/etc/forkop/custom.srs',
+      'https://example.com/geosite-reddit.srs',
+    ]) {
+      expect(renderRulesetItemLabel('route', value)).toBe(value);
+      expect(renderRulesetItemLabel('route', value, 'Custom')).toBe('Custom');
+      expect(validateCustomRulesetReference(value)).toBe(true);
+    }
   });
 });

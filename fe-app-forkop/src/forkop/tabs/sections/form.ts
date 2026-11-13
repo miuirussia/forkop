@@ -86,9 +86,8 @@ import {
 import {
   getBuiltInRulesetReferences,
   getCustomRulesetReferences,
-  groupGeoRulesetChoices,
+  addSagerNetRulesetPicker,
   addDatRulesetPicker,
-  loadGeoRulesetValues,
   loadRulesetValues,
   refuseHeldBuiltinLists,
   renderRulesetItemLabel,
@@ -676,12 +675,12 @@ export function createSectionContent(section: CBISection) {
       option_index,
       cfgvalue,
     );
-    groupGeoRulesetChoices(node);
+    addSagerNetRulesetPicker(node, this, section_id, false);
     addDatRulesetPicker(node, this, section_id, false);
     return node;
   };
-  dnsRuleSetOption.load = async function (section_id: string) {
-    await loadGeoRulesetValues(this, false);
+  dnsRuleSetOption.placeholder = _('URL or absolute file path');
+  dnsRuleSetOption.load = function (section_id: string) {
     return getCustomRulesetReferences(section_id);
   };
   dnsRuleSetOption.write = function (section_id: string, value: unknown) {
@@ -715,7 +714,7 @@ export function createSectionContent(section: CBISection) {
       option_index,
       cfgvalue,
     );
-    groupGeoRulesetChoices(node);
+    addSagerNetRulesetPicker(node, this, section_id);
     addDatRulesetPicker(node, this, section_id);
     return node;
   };
@@ -723,8 +722,8 @@ export function createSectionContent(section: CBISection) {
   ruleSetOption.hasItemSettings = function (section_id: string) {
     return getRuleResolvedAction(section_id) !== 'dns';
   };
-  ruleSetOption.load = async function (section_id: string) {
-    await loadGeoRulesetValues(this);
+  ruleSetOption.placeholder = _('URL or absolute file path');
+  ruleSetOption.load = function (section_id: string) {
     return getCustomRulesetReferences(section_id);
   };
   ruleSetOption.write = function (section_id: string, value: unknown) {

@@ -16988,56 +16988,24 @@ ${PartialStyles}
     font-weight: normal;
 }
 
-/* LuCI renders dropdown entries as flex rows, including their helper text. */
-.cbi-dropdown[open] > ul.dropdown > li.fkp-ruleset-search {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.4em;
-    padding: 0.5em;
-    background: var(--background-color-low, #fff);
-}
-
-.fkp-ruleset-search-input {
-    box-sizing: border-box;
-    width: 100%;
-    min-width: 12em;
-    min-height: 2em;
-    font: inherit;
-}
-
-.fkp-ruleset-search > small:empty {
+/* The theme's flex layout overrides the browser's default [hidden] style. */
+.modal .button-row[hidden] {
     display: none;
 }
 
-.cbi-dropdown[open] > ul.dropdown > li.fkp-ruleset-group {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
-    padding: 0.65em 0.75em;
-    font-weight: 600;
-    cursor: pointer;
-    opacity: 1;
-    border-top: 1px solid var(--border-color-low, #ddd);
+.cbi-dynlist.fkp-ruleset-list > .add-item {
+    flex-wrap: nowrap;
+    min-width: 0;
 }
 
-.cbi-dropdown:not([open]) > ul > li.fkp-ruleset-group,
-.cbi-dropdown > ul.preview > li.fkp-ruleset-group,
-.cbi-dropdown:not([open]) > ul > li.fkp-ruleset-search,
-.cbi-dropdown > ul.preview > li.fkp-ruleset-search {
-    display: none !important;
+.cbi-dynlist.fkp-ruleset-list > .add-item > input.cbi-input-text {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
 }
 
-.fkp-ruleset-group-count {
-    margin-left: auto;
-    font-weight: normal;
-    color: var(--text-color-medium, #888);
-}
-
-.fkp-ruleset-group[aria-expanded="true"] > .fkp-ruleset-group-arrow {
-    transform: rotate(90deg);
+.cbi-dynlist.fkp-ruleset-list > .add-item > .cbi-button-add {
+    flex: 0 0 auto;
 }
 
 .cbi-dropdown > ul > li.fkp-builtin-list-unavailable {
@@ -25679,6 +25647,176 @@ function createCatalogLoader(kind) {
 var loadSingGeositeFiles = createCatalogLoader("geosite");
 var loadSingGeoipFiles = createCatalogLoader("geoip");
 
+// src/forkop/tabs/sections/sagerNetCatalog.ts
+var PAGE_SIZE = 200;
+async function showSagerNetCatalog(includeGeoip, select, selected) {
+  const source = textE(
+    "select",
+    {
+      class: "cbi-input-select",
+      "aria-label": _("Rule set type"),
+      style: "flex:1 1 10em;min-width:0;width:100%"
+    },
+    [
+      textE("option", { value: "geosite" }, "geosite"),
+      ...includeGeoip ? [textE("option", { value: "geoip" }, "geoip")] : []
+    ]
+  );
+  const search = textE("input", {
+    type: "search",
+    class: "cbi-input-text",
+    style: "flex:2 1 14em;min-width:0;width:100%;box-sizing:border-box",
+    autocomplete: "off",
+    placeholder: _("Search rule sets"),
+    "aria-label": _("Search rule sets")
+  });
+  const status = textE(
+    "p",
+    { role: "status", "aria-live": "polite" },
+    _("Loading\u2026")
+  );
+  const list3 = textE("div", { style: "max-height:45vh;overflow:auto" });
+  const previous = textE(
+    "button",
+    { class: "cbi-button", type: "button", disabled: true },
+    _("Previous")
+  );
+  const next = textE(
+    "button",
+    { class: "cbi-button", type: "button", disabled: true },
+    _("Next")
+  );
+  let catalogs = null;
+  let offset = 0;
+  let closed = false;
+  let restore = () => ui.hideModal();
+  const opener = document.activeElement;
+  const close = () => {
+    closed = true;
+    restore();
+    opener?.focus();
+  };
+  const refresh = () => {
+    if (!catalogs || closed) return;
+    const kind = source.value;
+    const query = search.value.trim().toLowerCase();
+    const files = (catalogs[kind] ?? []).filter(
+      (file) => file.slice(kind.length + 1, -4).toLowerCase().includes(query)
+    );
+    const url = kind === "geoip" ? SING_GEOIP_URL : SING_GEOSITE_URL;
+    const selectedRefs = new Set(selected());
+    const page = files.slice(offset, offset + PAGE_SIZE);
+    list3.replaceChildren(
+      ...page.map((file) => {
+        const reference = url + file;
+        const added = selectedRefs.has(reference);
+        return textE(
+          "div",
+          { style: "display:flex;align-items:center;gap:1em;padding:.4em 0" },
+          [
+            textE(
+              "span",
+              {
+                style: "flex:1;min-width:0;overflow-wrap:anywhere",
+                title: reference
+              },
+              file.slice(kind.length + 1, -4)
+            ),
+            textE(
+              "button",
+              {
+                type: "button",
+                class: "cbi-button cbi-button-add",
+                disabled: added,
+                "aria-label": added ? _("Selected: %s").format(file.slice(kind.length + 1, -4)) : _("Add %s").format(file.slice(kind.length + 1, -4)),
+                click: () => {
+                  select(reference);
+                  close();
+                }
+              },
+              added ? _("Selected") : _("Add")
+            )
+          ]
+        );
+      })
+    );
+    status.textContent = files.length ? `${offset + 1}\u2013${offset + page.length} / ${files.length}` : catalogs[kind]?.length ? _("No matching rule sets") : _("Could not load the SagerNet catalog. Close and try again");
+    previous.disabled = offset === 0;
+    next.disabled = offset + PAGE_SIZE >= files.length;
+    list3.scrollTop = 0;
+  };
+  search.addEventListener("input", () => {
+    offset = 0;
+    refresh();
+  });
+  source.addEventListener("change", () => {
+    offset = 0;
+    refresh();
+  });
+  previous.addEventListener("click", () => {
+    offset = Math.max(0, offset - PAGE_SIZE);
+    refresh();
+  });
+  next.addEventListener("click", () => {
+    offset += PAGE_SIZE;
+    refresh();
+  });
+  const content = textE("div", { class: "fkp-sagernet-catalog" }, [
+    textE("h4", {}, _("Choose SagerNet rule-set")),
+    textE(
+      "div",
+      { style: "display:flex;flex-wrap:wrap;gap:.75em;align-items:center" },
+      [source, search]
+    ),
+    status,
+    list3,
+    textE(
+      "div",
+      {
+        class: "right",
+        style: "display:flex;justify-content:flex-end;gap:.5em;flex-wrap:wrap"
+      },
+      [
+        previous,
+        next,
+        textE(
+          "button",
+          { type: "button", class: "cbi-button", click: close },
+          _("Close")
+        )
+      ]
+    )
+  ]);
+  content.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+  });
+  const modal = document.querySelector("#modal_overlay > .modal.cbi-modal");
+  const active = modal?.querySelector(".cbi-map:not(.hidden)");
+  const buttons = modal?.querySelector("div.button-row");
+  if (active && buttons) {
+    active.classList.add("hidden");
+    buttons.hidden = true;
+    buttons.before(content);
+    restore = () => {
+      content.remove();
+      active.classList.remove("hidden");
+      buttons.hidden = false;
+    };
+  } else {
+    ui.showModal(_("Choose SagerNet rule-set"), [content]);
+  }
+  search.focus();
+  const [geosite, geoip] = await Promise.all([
+    loadSingGeositeFiles(),
+    includeGeoip ? loadSingGeoipFiles() : Promise.resolve([])
+  ]);
+  catalogs = { geosite, geoip };
+  refresh();
+}
+
 // src/forkop/tabs/sections/ruleSets.ts
 function datRulesetLabel(reference) {
   const dat = parseDatReference(reference);
@@ -25686,9 +25824,32 @@ function datRulesetLabel(reference) {
   const source = `${uci.get(FORKOP_UCI_PACKAGE, dat.source, "label") || ""}`.trim();
   return source ? `${dat.tag} (${source})` : dat.tag;
 }
+function sagerNetRulesetLabel(reference) {
+  for (const [url, kind] of [
+    [SING_GEOSITE_URL, "geosite"],
+    [SING_GEOIP_URL, "geoip"]
+  ]) {
+    if (!reference.startsWith(url)) continue;
+    const file = reference.slice(url.length).split(/[?#]/u, 1)[0];
+    if (file.startsWith(`${kind}-`) && file.endsWith(".srs"))
+      return `${file.slice(kind.length + 1, -4)} (SagerNet, ${kind})`;
+  }
+  return null;
+}
 function renderRulesetItemLabel(_sectionId, value, text8) {
-  const label = datRulesetLabel(value);
+  const label = datRulesetLabel(value) ?? sagerNetRulesetLabel(value);
   return label ? textE("span", { title: value }, label) : text8 ?? value;
+}
+function addRulesetReference(node, option2, sectionId, reference) {
+  const widget = option2.getUIElement(sectionId);
+  if (!widget) return;
+  widget.setValue(
+    uniqueDynamicListItems([
+      ...normalizeDynamicListItems(widget.getValue()),
+      reference
+    ])
+  );
+  node.dispatchEvent(new CustomEvent("cbi-dynlist-change", { bubbles: true }));
 }
 function addDatRulesetPicker(node, option2, sectionId, includeGeoip = true) {
   node.appendChild(
@@ -25697,26 +25858,39 @@ function addDatRulesetPicker(node, option2, sectionId, includeGeoip = true) {
       {
         type: "button",
         class: "cbi-button",
-        style: "display:block;width:100%;box-sizing:border-box",
+        style: "display:block;width:100%;box-sizing:border-box;grid-column:1 / -1",
         click: () => {
-          void showGeodataCatalog(includeGeoip, (reference) => {
-            const widget = option2.getUIElement(sectionId);
-            if (widget)
-              widget.setValue(
-                uniqueDynamicListItems([
-                  ...normalizeDynamicListItems(widget.getValue()),
-                  reference
-                ])
-              );
-            node.dispatchEvent(
-              new CustomEvent("cbi-dynlist-change", { bubbles: true })
-            );
-          }).catch((error) => showToast(error.message, "error"));
+          void showGeodataCatalog(
+            includeGeoip,
+            (reference) => addRulesetReference(node, option2, sectionId, reference)
+          ).catch((error) => showToast(error.message, "error"));
         }
       },
       _("Choose Geodata tag")
     )
   );
+}
+function addSagerNetRulesetPicker(node, option2, sectionId, includeGeoip = true) {
+  node.classList.add("fkp-ruleset-list");
+  const button = textE(
+    "button",
+    {
+      type: "button",
+      class: "cbi-button",
+      style: "display:block;width:100%;box-sizing:border-box;grid-column:1 / -1",
+      click: () => {
+        void showSagerNetCatalog(
+          includeGeoip,
+          (reference) => addRulesetReference(node, option2, sectionId, reference),
+          () => normalizeDynamicListItems(
+            option2.getUIElement(sectionId)?.getValue()
+          )
+        ).catch((error) => showToast(error.message, "error"));
+      }
+    },
+    _("Choose SagerNet rule-set")
+  );
+  node.appendChild(button);
 }
 function ruleSetIncludesSubnets(section_id, value) {
   const dat = parseDatReference(value);
@@ -25758,7 +25932,7 @@ function showRuleSetSettingsModal(section_id, itemValue, option2, widget) {
   const dat = parseDatReference(`${itemValue ?? ""}`);
   includeSubnets.readonly = !!dat && uci.get(FORKOP_UCI_PACKAGE, dat.source, "kind") === "geoip";
   const reference = `${itemValue ?? ""}`;
-  const name = datRulesetLabel(reference) ?? ruleSetFileName(reference);
+  const name = datRulesetLabel(reference) ?? sagerNetRulesetLabel(reference) ?? ruleSetFileName(reference);
   return renderStackedJsonSettingsModal(
     name ? _("Rule set: %s").format(name) : _("Rule set settings"),
     map,
@@ -25795,172 +25969,6 @@ function loadRulesetValues(option2) {
   Object.entries(DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
     option2.value(key, label);
   });
-}
-async function loadGeoRulesetValues(option2, includeGeoip = true) {
-  const [geositeFiles, geoipFiles] = await Promise.all([
-    loadSingGeositeFiles(),
-    includeGeoip ? loadSingGeoipFiles() : Promise.resolve([])
-  ]);
-  delete option2.keylist;
-  delete option2.vallist;
-  geositeFiles.forEach((file) => {
-    option2.value(SING_GEOSITE_URL + file, `geosite: ${file.slice(8, -4)}`);
-  });
-  geoipFiles.forEach((file) => {
-    option2.value(SING_GEOIP_URL + file, `geoip: ${file.slice(6, -4)}`);
-  });
-}
-function groupGeoRulesetChoices(node) {
-  const dropdown = node.querySelector(".add-item .cbi-dropdown");
-  const list3 = dropdown?.querySelector("ul");
-  if (!dropdown || !list3) return;
-  const groups = [];
-  const tail = list3.lastElementChild;
-  let query = "";
-  let firstMatch = null;
-  const status = textE("small", { role: "status" }, []);
-  const search = textE("input", {
-    type: "search",
-    class: "fkp-ruleset-search-input",
-    placeholder: _("Search"),
-    "aria-label": _("Search rule sets"),
-    autocomplete: "off"
-  });
-  const searchRow = textE("li", { class: "fkp-ruleset-search", tabindex: 0 }, [
-    search,
-    status
-  ]);
-  const refresh = () => {
-    const selected = dynamicListItemValues(node);
-    firstMatch = null;
-    let totalMatches = 0;
-    for (const group of groups) {
-      group.heading.remove();
-      group.items.forEach((item) => item.remove());
-    }
-    for (const group of groups) {
-      const matches = query ? group.items.filter(
-        (item) => item.textContent?.toLowerCase().includes(query)
-      ) : group.items;
-      if (!matches.length) continue;
-      totalMatches += matches.length;
-      const expanded = query ? group.searchExpanded : group.expanded;
-      group.heading.setAttribute("aria-expanded", String(expanded));
-      group.heading.setAttribute(
-        "aria-label",
-        `${group.source} (${matches.length})`
-      );
-      group.count.textContent = query ? `${matches.length} / ${group.items.length}` : `${group.items.length}`;
-      list3.insertBefore(group.heading, tail);
-      if (!expanded) continue;
-      for (const item of matches) {
-        const unavailable = selected.includes(item.getAttribute("data-value"));
-        item.setAttribute("tabindex", "0");
-        item.toggleAttribute("unselectable", unavailable);
-        list3.insertBefore(item, tail);
-        if (!unavailable && !firstMatch) firstMatch = item;
-      }
-    }
-    status.textContent = query && !totalMatches ? _("No matching rule sets") : "";
-  };
-  for (const [source, url] of [
-    ["geosite", SING_GEOSITE_URL],
-    ["geoip", SING_GEOIP_URL]
-  ]) {
-    const items = Array.from(
-      list3.querySelectorAll("li[data-value]")
-    ).filter((item) => item.getAttribute("data-value")?.startsWith(url));
-    if (!items.length) continue;
-    const count = textE(
-      "small",
-      { class: "fkp-ruleset-group-count" },
-      `${items.length}`
-    );
-    const heading = textE(
-      "li",
-      {
-        class: "fkp-ruleset-group",
-        tabindex: 0,
-        role: "button",
-        "aria-expanded": "false",
-        "aria-label": `${source} (${items.length})`
-      },
-      [
-        textE(
-          "span",
-          { class: "fkp-ruleset-group-arrow", "aria-hidden": "true" },
-          "\u25B8"
-        ),
-        textE("span", {}, source),
-        count
-      ]
-    );
-    const group = {
-      source,
-      heading,
-      count,
-      items,
-      expanded: false,
-      searchExpanded: true
-    };
-    groups.push(group);
-    const toggle = () => {
-      if (query) group.searchExpanded = !group.searchExpanded;
-      else group.expanded = !group.expanded;
-      refresh();
-      heading.focus();
-    };
-    heading.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      toggle();
-    });
-    heading.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      event.stopPropagation();
-      toggle();
-    });
-  }
-  if (!groups.length) return;
-  search.addEventListener("input", () => {
-    query = search.value.trim().toLowerCase();
-    groups.forEach((group) => {
-      group.searchExpanded = true;
-    });
-    refresh();
-  });
-  search.addEventListener("keydown", (event) => {
-    event.stopPropagation();
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      (firstMatch ?? groups.find((group) => group.heading.parentNode === list3)?.heading)?.focus();
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      if (search.value) {
-        search.value = "";
-        query = "";
-        refresh();
-      } else {
-        dropdown.dispatchEvent(new CustomEvent("cbi-dropdown-close"));
-        dropdown.focus();
-      }
-    }
-  });
-  searchRow.addEventListener("click", (event) => {
-    event.stopPropagation();
-    search.focus();
-  });
-  searchRow.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    event.stopPropagation();
-    search.focus();
-  });
-  list3.insertBefore(searchRow, list3.firstElementChild);
-  refresh();
 }
 function isBuiltinRulesetValue(value) {
   return Object.prototype.hasOwnProperty.call(DOMAIN_LIST_OPTIONS, value);
@@ -29177,12 +29185,12 @@ function createSectionContent(section2) {
       option_index,
       cfgvalue
     );
-    groupGeoRulesetChoices(node);
+    addSagerNetRulesetPicker(node, this, section_id, false);
     addDatRulesetPicker(node, this, section_id, false);
     return node;
   };
-  dnsRuleSetOption.load = async function(section_id) {
-    await loadGeoRulesetValues(this, false);
+  dnsRuleSetOption.placeholder = _("URL or absolute file path");
+  dnsRuleSetOption.load = function(section_id) {
     return getCustomRulesetReferences(section_id);
   };
   dnsRuleSetOption.write = function(section_id, value) {
@@ -29211,7 +29219,7 @@ function createSectionContent(section2) {
       option_index,
       cfgvalue
     );
-    groupGeoRulesetChoices(node);
+    addSagerNetRulesetPicker(node, this, section_id);
     addDatRulesetPicker(node, this, section_id);
     return node;
   };
@@ -29219,8 +29227,8 @@ function createSectionContent(section2) {
   ruleSetOption.hasItemSettings = function(section_id) {
     return getRuleResolvedAction(section_id) !== "dns";
   };
-  ruleSetOption.load = async function(section_id) {
-    await loadGeoRulesetValues(this);
+  ruleSetOption.placeholder = _("URL or absolute file path");
+  ruleSetOption.load = function(section_id) {
     return getCustomRulesetReferences(section_id);
   };
   ruleSetOption.write = function(section_id, value) {

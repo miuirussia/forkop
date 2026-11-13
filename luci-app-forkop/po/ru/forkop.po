@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 14:17+0300\n"
-"PO-Revision-Date: 2026-11-13 14:17+0300\n"
+"POT-Creation-Date: 2026-11-13 15:08+0300\n"
+"PO-Revision-Date: 2026-11-13 15:08+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -220,6 +220,9 @@ msgstr "Активные"
 
 msgid "Add"
 msgstr "Добавить"
+
+msgid "Add %s"
+msgstr "Добавить %s"
 
 msgid "Add a client to this server to get a link."
 msgstr "Добавьте клиента, чтобы получить ссылку."
@@ -485,6 +488,9 @@ msgstr "Укажите отдельную папку полным путём"
 msgid "Choose Geodata tag"
 msgstr "Выбрать тег Geodata"
 
+msgid "Choose SagerNet rule-set"
+msgstr "Выбрать набор правил SagerNet"
+
 msgid "Cipher"
 msgstr "Шифр"
 
@@ -673,6 +679,9 @@ msgstr "Не удалось сгенерировать пару ключей VLE
 
 msgid "Could not get the check results"
 msgstr "Не удалось получить результаты проверки"
+
+msgid "Could not load the SagerNet catalog. Close and try again"
+msgstr "Не удалось загрузить каталог SagerNet. Закройте окно и попробуйте снова"
 
 msgid "Country"
 msgstr "Страна"
@@ -2198,6 +2207,9 @@ msgstr "Автообновление наборов правил"
 msgid "Rule set settings"
 msgstr "Настройки набора правил"
 
+msgid "Rule set type"
+msgstr "Тип набора правил"
+
 msgid "Rule set: %s"
 msgstr "Набор правил: %s"
 
@@ -2269,6 +2281,9 @@ msgstr "Выберите WAN интерфейсы для мониторинга"
 
 msgid "Selected"
 msgstr "Выбран"
+
+msgid "Selected: %s"
+msgstr "Выбрано: %s"
 
 msgid "Selects the first available node by priority"
 msgstr "Выбирает первый доступный узел по приоритету"
@@ -2911,6 +2926,9 @@ msgstr "Работает"
 
 msgid "URL for the shared latency test of section nodes"
 msgstr "URL для общего тестирования задержки узлов секции"
+
+msgid "URL or absolute file path"
+msgstr "URL или абсолютный путь к файлу"
 
 msgid "URL or absolute path only"
 msgstr "Только URL или абсолютный путь"

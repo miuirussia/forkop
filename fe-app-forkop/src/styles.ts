@@ -23,56 +23,24 @@ ${PartialStyles}
     font-weight: normal;
 }
 
-/* LuCI renders dropdown entries as flex rows, including their helper text. */
-.cbi-dropdown[open] > ul.dropdown > li.fkp-ruleset-search {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.4em;
-    padding: 0.5em;
-    background: var(--background-color-low, #fff);
-}
-
-.fkp-ruleset-search-input {
-    box-sizing: border-box;
-    width: 100%;
-    min-width: 12em;
-    min-height: 2em;
-    font: inherit;
-}
-
-.fkp-ruleset-search > small:empty {
+/* The theme's flex layout overrides the browser's default [hidden] style. */
+.modal .button-row[hidden] {
     display: none;
 }
 
-.cbi-dropdown[open] > ul.dropdown > li.fkp-ruleset-group {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
-    padding: 0.65em 0.75em;
-    font-weight: 600;
-    cursor: pointer;
-    opacity: 1;
-    border-top: 1px solid var(--border-color-low, #ddd);
+.cbi-dynlist.fkp-ruleset-list > .add-item {
+    flex-wrap: nowrap;
+    min-width: 0;
 }
 
-.cbi-dropdown:not([open]) > ul > li.fkp-ruleset-group,
-.cbi-dropdown > ul.preview > li.fkp-ruleset-group,
-.cbi-dropdown:not([open]) > ul > li.fkp-ruleset-search,
-.cbi-dropdown > ul.preview > li.fkp-ruleset-search {
-    display: none !important;
+.cbi-dynlist.fkp-ruleset-list > .add-item > input.cbi-input-text {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
 }
 
-.fkp-ruleset-group-count {
-    margin-left: auto;
-    font-weight: normal;
-    color: var(--text-color-medium, #888);
-}
-
-.fkp-ruleset-group[aria-expanded="true"] > .fkp-ruleset-group-arrow {
-    transform: rotate(90deg);
+.cbi-dynlist.fkp-ruleset-list > .add-item > .cbi-button-add {
+    flex: 0 0 auto;
 }
 
 .cbi-dropdown > ul > li.fkp-builtin-list-unavailable {
