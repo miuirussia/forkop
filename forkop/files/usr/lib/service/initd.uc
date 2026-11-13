@@ -9,6 +9,8 @@ let nft_state = require("nft.state");
 let health = require("service.health");
 let lock = require("service.lock");
 let ui = require("service.ui");
+let workers = require("service.worker");
+let library = require("core.library");
 
 const CONFIG_NAME = "forkop";
 const CONFIG_CHANGE = "on_config_change";
@@ -19,6 +21,7 @@ const SERVICE_INIT = constants.FORKOP_SERVICE_INIT;
 let paths = {
     config: "/etc/config/forkop",
     start_retry: "/var/run/forkop/start.retry",
+    retry_pid: "/var/run/forkop/start-retry.pid",
     // Written by the migration after it commits, so the reload its own commit
     // triggers is skipped.
     internal_change: "/var/run/forkop.internal-config-change",
@@ -71,14 +74,31 @@ function registered() {
     return type(services) != "object" || services.forkop != null;
 }
 
+function retry_worker_spec() {
+    return {
+        name: "forkop-start-retry",
+        command: [ constants.FORKOP_BIN, "initd_retry_worker" ],
+        env: { FORKOP_LIB: library.dir() },
+        pid_file: paths.retry_pid
+    };
+}
+
 function start(reason) {
+    if (reason == "retry" && fs.stat(paths.start_retry) == null)
+        return 0;
     let job = begin("start");
     let status = lifecycle().start();
     if (status == 0)
         lock.consume_request(paths.start_retry);
     else {
         lock.mark_request(paths.start_retry, reason == "triggered" ? "wan_retry_failed" : "start_failed");
-        exec.log("warn", "Forkop did not start" + (fs.stat(paths.autostart) != null ? "; it tries again when the WAN comes up" : ""));
+        let enabled = fs.stat(paths.autostart) != null;
+        exec.log("warn", "Forkop did not start" + (enabled ? "; it retries automatically and when the WAN comes up" : ""));
+        if (enabled) {
+            let spec = retry_worker_spec();
+            if (!workers.running(spec) && !workers.start(spec))
+                exec.log("error", "Failed to start the Forkop startup retry worker");
+        }
     }
     finish("start", job, status);
     return status;
@@ -161,6 +181,33 @@ function retry_start() {
     return exec.run([ SERVICE_INIT, "restart", "triggered" ]);
 }
 
+// WAN-up can precede tunnel readiness. Keep retrying a failed autostart after that
+// one event, but a manual stop consumes the request and cancels further attempts.
+function retry_worker() {
+    let spec = retry_worker_spec();
+    workers.announce(spec);
+    let delay = 15;
+    while (fs.stat(paths.start_retry) != null && fs.stat(paths.autostart) != null) {
+        sleep(delay * 1000);
+        if (fs.stat(paths.start_retry) == null || fs.stat(paths.autostart) == null)
+            break;
+        if (runtime_running()) {
+            lock.consume_request(paths.start_retry);
+            break;
+        }
+        ui.refresh();
+        if (ui.active_action() != "")
+            continue;
+        exec.log("info", "Retrying the failed Forkop start");
+        exec.run([ SERVICE_INIT, "start", "retry" ]);
+        delay = min(delay * 2, 300);
+    }
+    workers.retire(spec);
+    // Leave no idle respawning service; retire before procd terminates this worker.
+    workers.stop(spec);
+    return 0;
+}
+
 function monitored(interface_name) {
     let values = settings();
     return common.option(values, "enable_badwan_interface_monitoring", "") == "1" &&
@@ -196,4 +243,4 @@ function triggers() {
     return join("\n", lines) + "\n";
 }
 
-return { paths, start, stop, restart, reload, status, retry_start, wan_up, triggers };
+return { paths, start, stop, restart, reload, status, retry_start, retry_worker, wan_up, triggers };

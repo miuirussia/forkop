@@ -19,6 +19,8 @@ let watch = require("service.singbox_watch");
 let migration = require("config.migration");
 let fixture = require("fixture");
 let lifecycle = require("service.lifecycle");
+let geodata = require("geodata.service");
+let clash_api = require("singbox.clash_api");
 
 let world = null;
 let real_sleep = global.sleep;
@@ -77,6 +79,8 @@ function reset(options) {
     server.sync_firewall = (clear) => event(clear ? "firewall closed" : "firewall opened");
     generator.runnable = () => !world.nothing_to_run;
     runtime.configure_service = () => {};
+    geodata.bootstrap_required = () => world.bootstrap ?? false;
+    clash_api.exchange = () => world.ports ? { status: 200 } : null;
     guard.active = () => world.guarded;
     guard.arm = () => {
         if (world.guard_fails)
@@ -96,10 +100,20 @@ function reset(options) {
         push(world.guard_events, "subnets");
         return !world.subnets_fail;
     };
-    runtime.write_config = (checked) => {
+    runtime.write_config = (checked, bootstrap) => {
         if (checked)
             t.ok(world.guarded, "initial DAT preparation must run behind the traffic guard");
-        event(checked ? "config checked" : "config written");
+        if (bootstrap)
+            event("bootstrap config checked");
+        else {
+            event(checked ? "config checked" : "config written");
+            if (world.bootstrap) {
+                t.ok(world.pid > 0 && world.guarded && !world.network,
+                    "the proxy downloads required DAT before any client capture is enabled");
+                if (world.dat_fails)
+                    die("Geodata download through the section failed");
+            }
+        }
         if (world.config_fails)
             die("Failed to generate sing-box configuration: broken");
         return world.config_changed;
@@ -246,6 +260,34 @@ function reloaded(options, reason) {
     let result = run(() => lifecycle.reload(reason ?? "on_config_change"));
     return result;
 }
+
+t.test("cold DAT startup runs the selected proxy before preparing and applying the full rules", () => {
+    reset({ bootstrap: true });
+    t.eq(run(() => lifecycle.start()).result, 0);
+    let events = world.events;
+    t.ok(index(events, "bootstrap config checked") < index(events, "sing-box started"));
+    t.ok(index(events, "sing-box started") < index(events, "config checked"));
+    t.ok(index(events, "config checked") < index(events, "sing-box reloaded"));
+    t.ok(index(events, "sing-box reloaded") < index(events, "nft applied"));
+    t.eq(world.guarded, false);
+    t.eq(world.guard_events[length(world.guard_events) - 1], "released");
+});
+
+t.test("failed proxy DAT preparation stops the temporary core and keeps traffic guarded", () => {
+    reset({ bootstrap: true, dat_fails: true });
+    t.eq(run(() => lifecycle.start()).result, 1);
+    t.eq(world.pid, 0);
+    t.ok(world.guarded);
+    t.excludes(world.events, "nft applied");
+    t.excludes(world.events, "rule-set worker started");
+});
+
+t.test("repairing a stopped runtime can bootstrap missing proxy DAT", () => {
+    reset({ bootstrap: true });
+    t.eq(run(() => lifecycle.reload("")).result, 0);
+    t.contains(world.events, "bootstrap config checked");
+    t.ok(!world.guarded);
+});
 
 t.test("a start answers only once sing-box is ready, then turns the table on, then the workers", () => {
     reset();

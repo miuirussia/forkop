@@ -251,6 +251,54 @@ t.test("downloads through the core stream chunks and reject a missing completion
     stub.restore();
 });
 
+t.test("a missing remote DAT needed by rules boots its selected proxy first", () => {
+    let run = setup();
+    run.config.geodata[0].input = "https://example.com/geosite.dat";
+    run.config.settings.geodata_download_section = "proxy";
+    push(run.config.section, { ".name": "proxy", action: "connection", enabled: "1" });
+    fixture.seed(run.config);
+    t.ok(service.bootstrap_required(), "an empty tmpfs cannot download through a stopped core");
+    delete run.config.settings.geodata_download_section;
+    fixture.seed(run.config);
+    t.ok(!service.bootstrap_required(), "direct downloads need no temporary core");
+    service.prepare();
+    run.config.settings.geodata_download_section = "proxy";
+    fixture.seed(run.config);
+    t.ok(!service.bootstrap_required(), "ready SRS need no temporary core");
+    fs.unlink(sources.active("sites").dat);
+    t.ok(!service.bootstrap_required(), "ready SRS survive a missing DAT");
+    fs.unlink(sources.resolve("dat:sites:youtube"));
+    t.ok(service.bootstrap_required(), "a missing DAT and SRS require proxy bootstrap again");
+    stub.restore();
+});
+
+t.test("proxy DAT preparation retries while the controller's tunnel is still starting", () => {
+    let run = setup();
+    run.config.geodata[0].input = "https://example.com/geosite.dat";
+    run.config.settings.geodata_download_section = "proxy";
+    push(run.config.section, { ".name": "proxy", action: "connection", enabled: "1" });
+    fixture.seed(run.config);
+    let api = require("singbox.clash_api");
+    let exchange = api.exchange;
+    let real_sleep = global.sleep;
+    let calls = 0, sleeps = [];
+    global.sleep = (ms) => push(sleeps, ms);
+    api.exchange = function(controller, method, path, options) {
+        if (++calls < 3)
+            return calls == 1 ? null : { status: 502, value: { error: "WireGuard is not ready yet" } };
+        let chunks = [ "valid-dat\nFORKOP-GEODATA-DONE\n" ];
+        return { status: 200, value: options.decode({ status: 200, read: () => shift(chunks) ?? "" }) };
+    };
+    service.prepare();
+    t.eq(calls, 3);
+    t.eq(sleeps, [ 2000, 2000 ]);
+    t.eq(run.state.fetches, 0, "a selected proxy is never replaced by direct egress");
+    t.eq(fs.readfile(sources.active("sites").dat), "valid-dat");
+    api.exchange = exchange;
+    global.sleep = real_sleep;
+    stub.restore();
+});
+
 t.test("core downloads preserve HTTP errors and accept a complete binary stream over a real socket", () => {
     let run = setup();
     let controller = require("controller").start();

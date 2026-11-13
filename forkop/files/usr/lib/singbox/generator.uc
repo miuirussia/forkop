@@ -1842,7 +1842,7 @@ function add_server_routes(config, servers, sections) {
 }
 
 // Throws with the reason when the configuration cannot be expressed.
-// context: { service_address }
+// context: { service_address, bootstrap }
 function build(context) {
     context = object_or_empty(context);
     connections.load();
@@ -1858,10 +1858,22 @@ function build(context) {
     add_source_aware_dns_support(config);
     let static_hosts = static_hosts_config();
     add_static_hosts_support(config, static_hosts);
-    for (let server in servers)
-        runtime_servers.add_server(config, server);
+    if (!context.bootstrap)
+        for (let server in servers)
+            runtime_servers.add_server(config, server);
     for (let section in sections)
         add_outbound_for_section(config, section);
+    if (context.bootstrap) {
+        // Only the controller and outbounds run while DAT-dependent rules are unavailable.
+        config.inbounds = [];
+        config.route.rules = [];
+        config.dns.rules = filter(config.dns.rules, (rule) => rule.server != runtime_constants.FAKEIP_DNS_SERVER_TAG);
+        add_tunnel_dns_rules(config);
+        delete config.experimental.clash_api.external_ui;
+        assert_unique_outbound_tags(config);
+        assert_compatible_wireguard_endpoints(config);
+        return strip_internal_fields(config);
+    }
     add_service_route_rules(config, sections);
     for (let section in sections)
         add_route_for_section(config, section);

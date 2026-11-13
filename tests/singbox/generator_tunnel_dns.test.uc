@@ -45,6 +45,25 @@ for (let kind in keys(TUNNELS)) {
         t.eq(config.dns.rules[rule_index], { preferred_by: "vpn/Work", action: "route", server: "vpn/Work" });
         t.ok(rule_index > q.dns_rule_index(config, is_client_catch_all), "after the rule every captured query stops at");
     });
+    t.test(current + " bootstrap resolves internal DAT hosts through the tunnel's DNS", () => {
+        let data = tunnel_fixture(current);
+        data.settings.geodata_download_section = "vpn";
+        data.section[0].rule_set = [ "dat:missing:private" ];
+        fixture.seed(data);
+        let config = generator.build({ service_address: "127.0.0.1", bootstrap: true });
+        t.eq(q.dns_server_tag(config, "vpn/Work"), { type: TUNNELS[current].dns_type, tag: "vpn/Work", endpoint: "vpn/Work" });
+        t.eq(q.dns_rule(config, (rule) => rule.preferred_by == "vpn/Work"),
+            { preferred_by: "vpn/Work", action: "route", server: "vpn/Work" });
+        t.eq(config.inbounds, []);
+        t.eq(config.route.rules, []);
+        t.eq(config.route.rule_set, [], "missing DAT must not prevent the tunnel from starting");
+
+        data.tunnel[0].accept_server_dns = "0";
+        fixture.seed(data);
+        let ignored = generator.build({ service_address: "127.0.0.1", bootstrap: true });
+        t.eq(q.dns_server_tag(ignored, "vpn/Work"), null);
+        t.eq(q.dns_rule(ignored, (rule) => rule.preferred_by != null), null);
+    });
 }
 
 t.test("the switch adds only the tunnel's rule and leaves every client answer as it was", () => {

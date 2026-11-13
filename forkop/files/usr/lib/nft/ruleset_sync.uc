@@ -416,7 +416,7 @@ function initialize(seconds) {
     if (length(native_sections(sections)) == 0)
         return true;
     let api = clash_api.controller();
-    let deadline = clock(true)[0] + (seconds ?? 60);
+    let deadline = clock(true)[0] + (seconds ?? 300);
     while (true) {
         let value = snapshot(api);
         if (value != null) {

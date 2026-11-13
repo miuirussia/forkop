@@ -287,6 +287,26 @@ t.test("initialization waits for every provider and only succeeds once nft accep
     global.sleep = real_sleep;
 });
 
+t.test("cold startup waits for a provider that needs more than a minute to establish its tunnel", () => {
+    let section = { ".name": "slow", action: "connection", rule_set_with_subnets: [ ALPHA ] };
+    seed([ section ]);
+    let real_exchange = clash_api.exchange;
+    let real_sleep = global.sleep;
+    let real_clock = global.clock;
+    let elapsed = 0;
+    global.clock = () => [ elapsed, 0 ];
+    global.sleep = (ms) => { elapsed += ms / 1000; };
+    clash_api.exchange = () => ({ status: 200, value: snapshot({
+        [ALPHA]: elapsed < 75 ? { revision: 0 } : provider(1, { ipv4: [ "192.0.2.0/24" ] })
+    }) });
+    t.ok(run(() => sync.initialize()), "a slow tunnel must not force manual startup retries");
+    t.eq(elapsed, 75);
+    t.eq(length(transactions), 1);
+    clash_api.exchange = real_exchange;
+    global.sleep = real_sleep;
+    global.clock = real_clock;
+});
+
 t.test("the worker follows the provider events and asks a controller that is not there later and later", () => {
     let section = { ".name": "followed", enabled: "1", action: "connection", rule_set_with_subnets: [ ALPHA ] };
     let result = run_worker([ section ], [

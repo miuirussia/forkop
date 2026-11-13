@@ -9,6 +9,7 @@ let health = require("service.health");
 let ui = require("service.ui");
 let lifecycle = require("service.lifecycle");
 let initd = require("service.initd");
+let workers = require("service.worker");
 
 let me = common.own_pid();
 let calls = [];
@@ -16,6 +17,7 @@ let running = false;
 let table = false;
 let restored = false;
 let lifecycle_status = 0;
+let retry_workers = [];
 
 function fresh(settings) {
     let dir = stub.tmpdir();
@@ -34,6 +36,10 @@ function fresh(settings) {
     table = false;
     restored = false;
     lifecycle_status = 0;
+    retry_workers = [];
+    initd.paths.retry_pid = dir + "/retry.pid";
+    workers.running = () => false;
+    workers.start = (spec) => { push(retry_workers, spec); return true; };
     health.forkop_stably_running = () => running;
     nft_state.table_present = () => table;
     lifecycle.restore_routing = () => {
@@ -168,7 +174,9 @@ t.test("a failed start says whether the WAN coming up tries it again", () => {
     fs.writefile(initd.paths.autostart, "");
     stub.capture(() => initd.start(""));
     stub.restore();
-    t.eq(logs, [ "[warn] Forkop did not start", "[warn] Forkop did not start; it tries again when the WAN comes up" ]);
+    t.eq(logs, [ "[warn] Forkop did not start", "[warn] Forkop did not start; it retries automatically and when the WAN comes up" ]);
+    t.eq(length(retry_workers), 1);
+    t.eq(retry_workers[0].name, "forkop-start-retry");
 });
 
 t.test("a WAN coming up restarts only a failed start of an enabled service", () => {
@@ -193,6 +201,79 @@ t.test("a WAN coming up restarts only a failed start of an enabled service", () 
     initd.retry_start();
     t.eq(restarts, 1);
     stub.restore();
+});
+
+t.test("failed autostart retries without another WAN event and stops after success", () => {
+    fresh();
+    fs.writefile(initd.paths.autostart, "");
+    lock.mark_request(initd.paths.start_retry, "start_failed");
+    let attempts = 0, sleeps = [];
+    let real_sleep = global.sleep;
+    global.sleep = (ms) => push(sleeps, ms);
+    workers.stop = () => true;
+    hooks(true, [ [ "/etc/init.d/forkop start retry", () => {
+        if (++attempts == 2)
+            lock.consume_request(initd.paths.start_retry);
+        return { status: attempts == 1 ? 1 : 0 };
+    } ] ]);
+    initd.retry_worker();
+    t.eq(attempts, 2);
+    t.eq(sleeps, [ 15000, 30000 ]);
+    t.eq(fs.stat(initd.paths.retry_pid), null);
+    global.sleep = real_sleep;
+    stub.restore();
+});
+
+t.test("timed retry clears a dead UI action without the state service", () => {
+    fresh();
+    fs.writefile(initd.paths.autostart, "");
+    lock.mark_request(initd.paths.start_retry, "start_failed");
+    common.ensure_dir(ui.paths.service_actions);
+    let path = ui.paths.service_actions + "/stale.json";
+    fs.writefile(path, sprintf("%J", {
+        running: true, action: "reload", pid: "0", started_at: common.now_seconds() - 60
+    }));
+    let attempts = 0, sleeps = [];
+    let real_sleep = global.sleep;
+    global.sleep = (ms) => {
+        push(sleeps, ms);
+        if (length(sleeps) >= 3)
+            lock.consume_request(initd.paths.start_retry);
+    };
+    workers.stop = () => true;
+    hooks(true, [ [ "/etc/init.d/forkop start retry", () => {
+        attempts++;
+        lock.consume_request(initd.paths.start_retry);
+        return { status: 0 };
+    } ] ]);
+    initd.retry_worker();
+    global.sleep = real_sleep;
+    stub.restore();
+    t.eq(attempts, 1, "a dead action must not block the startup retry");
+    t.eq(sleeps, [ 15000 ]);
+    t.eq(common.read_json_file(path).running, false);
+    t.eq(ui.active_action(), "");
+});
+
+t.test("a manual stop or disabling autostart cancels a pending timed retry", () => {
+    for (let cancel in [ "stop", "disable" ]) {
+        fresh();
+        fs.writefile(initd.paths.autostart, "");
+        lock.mark_request(initd.paths.start_retry, "start_failed");
+        let real_sleep = global.sleep;
+        global.sleep = () => {
+            if (cancel == "stop")
+                initd.stop();
+            else
+                fs.unlink(initd.paths.autostart);
+        };
+        workers.stop = () => true;
+        hooks(true);
+        initd.retry_worker();
+        t.excludes(stub.command_lines(), "/etc/init.d/forkop start retry");
+        global.sleep = real_sleep;
+        stub.restore();
+    }
 });
 
 t.test("a monitored WAN coming back reapplies a running configuration", () => {

@@ -212,6 +212,39 @@ function collect_removed_sources() {
     }
 }
 
+function reusable(source, active, tags) {
+    return active != null && active.source == source.input && active.kind == source.kind &&
+        length(filter(tags, (tag) => (fs.stat(active.directory + "/" + tag + ".srs")?.size ?? 0) <= 0)) == 0;
+}
+
+// A proxy download cannot prepare a cold configuration until its outbounds run.
+function bootstrap_required() {
+    if (common.option(uci.get_all("forkop", "settings") ?? {}, "geodata_download_section", "") == "")
+        return false;
+    for (let id, tags in sources.used()) {
+        let source = sources.get(id);
+        let active = sources.active(id);
+        if (source != null && match(source.input ?? "", /^https?:\/\//) && !reusable(source, active, tags) &&
+            (active == null || active.source != source.input || active.kind != source.kind || fs.stat(active.dat) == null))
+            return true;
+    }
+    return false;
+}
+
+function prepare_update(source, tags, retry) {
+    let deadline = clock(true)[0] + 120;
+    while (true) {
+        try { return update(source, tags); }
+        catch (e) {
+            // The controller may already listen while its WireGuard tunnel is still connecting.
+            if (!retry || clock(true)[0] >= deadline || index(e.message, "Geodata download through the section") != 0 ||
+                match(e.message, /HTTP 4[0-9][0-9]/))
+                die(e.message);
+            sleep(2000);
+        }
+    }
+}
+
 // Called before checking/writing the generated core configuration. Existing
 // SRS survive a failed refresh; only a missing required artifact blocks Apply.
 function prepare() {
@@ -230,21 +263,20 @@ function prepare() {
                 die("Unknown geodata source '" + id + "'");
             let active = sources.active(id);
             // Check before attempting an export, which may leave an incomplete file.
-            let reusable = active != null && active.source == source.input && active.kind == source.kind &&
-                length(filter(tags, (tag) => (fs.stat(active.directory + "/" + tag + ".srs")?.size ?? 0) <= 0)) == 0;
+            let ready = reusable(source, active, tags);
             let failure_path = sources.directory(id) + "/failure.json";
             try {
                 let refresh = active == null || active.source != source.input || active.kind != source.kind || fs.stat(active.dat) == null ||
                     (!match(source.input ?? "", /^https?:\/\//) && active.signature != sources.signature(source.input));
                 if (refresh) {
-                    update(source, tags);
+                    prepare_update(source, tags, !ready);
                     fs.unlink(failure_path);
                 }
                 else
                     compile(source, active.dat, active.index, active.directory, tags);
             } catch (e) {
                 common.write_file_atomic(failure_path, sprintf("%J\n", { attempted_at: common.now_seconds(), error: e.message }));
-                if (!reusable)
+                if (!ready)
                     die(e.message);
                 push(errors, id + ": " + e.message);
             }
@@ -360,5 +392,5 @@ function start_worker() {
     return workers.running(worker) || workers.start(worker);
 }
 
-return { paths, interval, prepare, run, status, tags, start, worker, start_worker,
+return { paths, interval, bootstrap_required, prepare, run, status, tags, start, worker, start_worker,
     stop_worker: () => { let workers = require("service.worker"); let definition = worker_definition(); return !workers.running(definition) || workers.stop(definition); } };

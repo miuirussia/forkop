@@ -20,6 +20,8 @@ let rulesets = require("nft.ruleset_sync");
 let health = require("service.health");
 let lock = require("service.lock");
 let watch = require("service.singbox_watch");
+let geodata = require("geodata.service");
+let clash_api = require("singbox.clash_api");
 
 const CONFIG_NAME = "forkop";
 const RT_TABLE = constants.RT_TABLE_NAME;
@@ -105,7 +107,7 @@ function validate() {
 
 // Dated from the call, since a live reload keeps the process. The process is pinned by its
 // start ticks from the first look (procd answers before it forks); one replaced mid-wait fails.
-function wait_ready(window, hold, with_network) {
+function wait_ready(window, hold, with_network, bootstrap) {
     let pid = 0;
     let ticks = null;
     let waited = 0;
@@ -124,7 +126,10 @@ function wait_ready(window, hold, with_network) {
         else if (health.start_ticks(pid) != ticks)
             return false;
 
-        if (pid > 0 && health.sing_box_runtime_ports_ready() &&
+        let ports_ready = pid > 0 && (bootstrap
+            ? clash_api.exchange(clash_api.controller(), "GET", "/version", { connect_seconds: 1, seconds: 2 })?.status == 200
+            : health.sing_box_runtime_ports_ready());
+        if (ports_ready &&
             (!with_network || health.forkop_runtime_network_configured(RT_TABLE, NFT_TABLE, FAKEIP_MARK)))
             held++;
         else
@@ -289,12 +294,26 @@ function start_runtime(prepared) {
         return false;
     }
 
+    let bootstrapped = false;
     try {
         if (!prepared)
             guard.arm();
         runtime.configure_service();
-        if (!prepared)
+        if (!prepared) {
+            if (geodata.bootstrap_required()) {
+                log("info", "Starting the proxy to prepare DAT rule sets before enabling traffic");
+                runtime.write_config(true, true);
+                nft.route_bound_devices(runtime.bound_devices());
+                if (!clash_controller_free())
+                    return false;
+                if (!exec.ok([ paths.sing_box_init, "start" ]) || !wait_ready(START_READY_WINDOW, READY_HOLD, false, true)) {
+                    log("error", "Failed to start the proxy for DAT preparation");
+                    return false;
+                }
+                bootstrapped = true;
+            }
             runtime.write_config(true);
+        }
         nft.route_bound_devices(runtime.bound_devices());
     }
     catch (e) {
@@ -304,10 +323,10 @@ function start_runtime(prepared) {
     let built = build_nft();
     if (built == null)
         return false;
-    if (!clash_controller_free())
+    if (!bootstrapped && !clash_controller_free())
         return false;
 
-    if (!exec.ok([ paths.sing_box_init, "start" ])) {
+    if (!exec.ok([ paths.sing_box_init, bootstrapped ? "reload" : "start" ])) {
         log("error", "Failed to start sing-box");
         return false;
     }
@@ -483,10 +502,12 @@ function restart_runtime() {
     log("info", "Forkop is not fully running; restarting it");
     // DAT downloads carry the outbound mark and can prepare behind the guard.
     // Keep it installed while cleanup removes the surviving capture rules.
+    let bootstrap = geodata.bootstrap_required();
     try {
         guard.arm();
         runtime.configure_service();
-        runtime.write_config(true);
+        if (!bootstrap)
+            runtime.write_config(true);
     }
     catch (e) {
         log("error", e.message);
@@ -494,7 +515,7 @@ function restart_runtime() {
     }
     if (!stop_runtime())
         return false;
-    if (start_runtime(true))
+    if (start_runtime(!bootstrap))
         return true;
     cleanup_failed_runtime();
     return false;

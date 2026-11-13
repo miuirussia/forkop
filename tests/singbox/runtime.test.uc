@@ -94,6 +94,22 @@ t.test("the written configuration leaves the memory limit to the core", () => {
     t.eq(json(fs.readfile(dir + "/etc/sing-box/config.json")).experimental.debug, null);
 });
 
+t.test("a bootstrap core keeps its proxy but opens no user listeners or DAT rule sets", () => {
+    let dir = stub.tmpdir();
+    let data = configuration(dir);
+    data.section[0].rule_set = [ "dat:missing:youtube", "https://example.com/rules.srs" ];
+    data.settings.geodata_download_section = "main";
+    fixture.seed(data);
+    tools([ [ CHECK, {} ] ]);
+    runtime.write_config(true, true);
+    let config = json(fs.readfile(data.settings.config_path));
+    t.eq(config.route.rule_set, []);
+    t.eq(config.inbounds, [], "only the Clash API is needed while the guard blocks clients");
+    t.ok(length(filter(config.outbounds, (outbound) => outbound.tag == "main")) > 0);
+    t.eq(config.route.default_mark, require("singbox.constants").OUTBOUND_MARK);
+    stub.restore();
+});
+
 t.test("a configuration the core refuses is reported by its first line and never written", () => {
     let dir = stub.tmpdir();
     fixture.seed(configuration(dir));
