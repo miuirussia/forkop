@@ -557,8 +557,12 @@ function reload_runtime(reason) {
     }
 
     let nft_changed = fs.readfile(paths.applied_nft) != built.script;
-    if (nft_changed) {
+    // The worker keeps the old section references in memory. Stop it before the core
+    // replaces its providers, even when the sets in the nft script stay the same.
+    let restart_worker = nft_changed || config_changed || forced;
+    if (restart_worker)
         rulesets.stop_worker();
+    if (nft_changed) {
         try {
             apply_nft(built);
         }
@@ -582,9 +586,8 @@ function reload_runtime(reason) {
             return abort_reload(NOT_CAPTURING, true);
     }
 
-    // A rebuilt table may change a section's own addresses and ports, so the worker restarts and
-    // writes every section; otherwise it follows the core across its reload on its own.
-    let worker_changed = nft_changed || !rulesets.worker_current();
+    // Start with the committed section references only after the core is ready to serve them.
+    let worker_changed = restart_worker || !rulesets.worker_current();
     if (worker_changed && !rulesets.start_worker())
         return abort_reload("Failed to start the rule-set sync worker", true);
     if (!require("geodata.service").start_worker())

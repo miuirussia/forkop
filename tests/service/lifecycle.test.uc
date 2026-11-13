@@ -367,11 +367,11 @@ t.test("a reload with nothing changed touches nothing", () => {
     t.contains(world.logs, "[info] Configuration already applied; nothing changed");
 });
 
-t.test("a changed sing-box configuration is reloaded with the capture paused until the core is ready again, and the worker kept", () => {
+t.test("a changed sing-box configuration is reloaded with the capture paused until the core is ready again, then its worker restarts", () => {
     let result = reloaded({ config_changed: true });
     t.eq(result.result, 0);
-    t.eq(world.events, [ "firewall opened", "config written", "capture paused", "sing-box reloaded", "reloaded with the capture paused",
-        "capture resumed" ]);
+    t.eq(world.events, [ "firewall opened", "config written", "rule-set worker stopped", "capture paused", "sing-box reloaded", "reloaded with the capture paused",
+        "capture resumed", "rule-set worker started" ]);
     t.contains(world.logs, "[info] Configuration applied");
     t.ok(world.slept > 0, "the reload waited out its window");
 });
@@ -381,6 +381,14 @@ t.test("a change to the providers a section reads alone starts the rule-set work
     t.eq(result.result, 0);
     t.eq(world.events, [ "firewall opened", "config written", "rule-set worker started" ]);
     t.contains(world.logs, "[info] Configuration applied");
+});
+
+t.test("replacing rule-set providers restarts their worker around the core reload even when the nft script is unchanged", () => {
+    let result = reloaded({ config_changed: true, worker_stale: true });
+    t.eq(result.result, 0);
+    t.eq(world.events, [ "firewall opened", "config written", "rule-set worker stopped", "capture paused", "sing-box reloaded",
+        "reloaded with the capture paused", "capture resumed", "rule-set worker started" ],
+        "the old worker cannot ask the new core for the providers removed from the section");
 });
 
 t.test("a changed table is rebuilt with the rule-set worker stopped around it, and sing-box is left alone", () => {
@@ -393,8 +401,8 @@ t.test("a changed table is rebuilt with the rule-set worker stopped around it, a
 t.test("a reload routes the devices the new configuration binds before the core reads it", () => {
     let result = reloaded({ config_changed: true, bound: [ "eth1", "wwan0" ], bound_rules: [ "eth1", "gone0" ] });
     t.eq(result.result, 0);
-    t.eq(world.events, [ "firewall opened", "config written", "bound to eth1 wwan0", "capture paused", "sing-box reloaded",
-        "reloaded with the capture paused", "capture resumed" ]);
+    t.eq(world.events, [ "firewall opened", "config written", "bound to eth1 wwan0", "rule-set worker stopped", "capture paused", "sing-box reloaded",
+        "reloaded with the capture paused", "capture resumed", "rule-set worker started" ]);
 
     result = reloaded({ bound: [ "wwan0" ], bound_rules: [ "wwan0" ] });
     t.eq(world.events, [ "firewall opened", "config written", "bound to wwan0" ], "an unchanged configuration has them checked");
@@ -424,10 +432,11 @@ t.test("a table that cannot be built is said in one line and touches nothing", (
     t.eq(failures_logged(), [ "[error] Failed to build the nftables rules: duplicate nft section: x" ]);
 });
 
-t.test("a reload asked for by hand reloads sing-box even when nothing changed, and keeps the worker", () => {
+t.test("a reload asked for by hand reloads sing-box even when nothing changed, and restarts the worker", () => {
     let result = reloaded({}, "");
     t.eq(result.result, 0);
-    t.eq(world.events, [ "firewall opened", "config written", "capture paused", "sing-box reloaded", "reloaded with the capture paused", "capture resumed" ]);
+    t.eq(world.events, [ "firewall opened", "config written", "rule-set worker stopped", "capture paused", "sing-box reloaded",
+        "reloaded with the capture paused", "capture resumed", "rule-set worker started" ]);
 });
 
 t.test("a queued reload applies what changed without forcing sing-box", () => {
