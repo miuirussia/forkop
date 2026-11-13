@@ -11,6 +11,7 @@ let server = require("server.service");
 let generator = require("singbox.generator");
 let runtime = require("singbox.runtime");
 let nft = require("nft.apply");
+let guard = require("nft.guard");
 let nft_state = require("nft.state");
 let rulesets = require("nft.ruleset_sync");
 let health = require("service.health");
@@ -55,6 +56,8 @@ function reset(options) {
         ports: false,
         network: false,
         capture: true,
+        guarded: false,
+        guard_events: [],
         script: "table inet ForkopTable\n",
         config_changed: false,
         slept: 0,
@@ -74,7 +77,28 @@ function reset(options) {
     server.sync_firewall = (clear) => event(clear ? "firewall closed" : "firewall opened");
     generator.runnable = () => !world.nothing_to_run;
     runtime.configure_service = () => {};
+    guard.active = () => world.guarded;
+    guard.arm = () => {
+        if (world.guard_fails)
+            die("Failed to block direct traffic while applying Forkop");
+        world.guarded = true;
+        push(world.guard_events, "armed");
+    };
+    guard.release = () => {
+        if (world.guard_release_fails)
+            die("Failed to remove the Forkop traffic guard");
+        world.guarded = false;
+        push(world.guard_events, "released");
+    };
+    rulesets.initialize = () => {
+        t.ok(world.guarded, "subnets must load behind the traffic guard");
+        t.ok(world.ports && world.network, "the core and nft table must be ready before subnet loading");
+        push(world.guard_events, "subnets");
+        return !world.subnets_fail;
+    };
     runtime.write_config = (checked) => {
+        if (checked)
+            t.ok(world.guarded, "initial DAT preparation must run behind the traffic guard");
         event(checked ? "config checked" : "config written");
         if (world.config_fails)
             die("Failed to generate sing-box configuration: broken");
@@ -87,6 +111,7 @@ function reset(options) {
         return { script: world.script, skipped: [] };
     };
     nft.apply = (built) => {
+        t.ok(world.guarded, "the guard must survive a table rebuild");
         if (world.nft_fails)
             die("nft refused the ruleset: Error: broken");
         event("nft applied");
@@ -122,7 +147,7 @@ function reset(options) {
     watch.start_worker = () => { event("watcher started"); return !world.watcher_fails; };
     watch.stop_worker = () => { event("watcher stopped"); return true; };
     rulesets.start_worker = () => { event("rule-set worker started"); return !world.ruleset_fails; };
-    rulesets.stop_worker = () => { event("rule-set worker stopped"); return true; };
+    rulesets.stop_worker = () => { event("rule-set worker stopped"); return !world.stop_rulesets_fails; };
     rulesets.worker_current = () => !world.worker_stale;
 
     global.sleep = function(ms) {
@@ -145,6 +170,7 @@ function reset(options) {
             return {};
         } ],
         [ dir + "/sing-box reload", () => {
+            t.ok(world.guarded, "the core must reload behind the traffic guard");
             event("sing-box reloaded");
             if (!world.capture)
                 event("reloaded with the capture paused");
@@ -289,6 +315,25 @@ t.test("a start with nothing to run takes down what an earlier run left", () => 
     t.contains(world.events, "nft table deleted");
     t.contains(world.events, "sing-box stopped");
     t.eq(filter(world.events, (e) => e == "sing-box started"), []);
+    t.ok(!world.guarded, "successful idle cleanup must release its temporary guard");
+});
+
+t.test("applying or starting an idle configuration releases a guard left by an earlier failure", () => {
+    for (let action in [ lifecycle.start, lifecycle.reload ]) {
+        reset({ nothing_to_run: true, guarded: true });
+        t.eq(run(action).result, 0);
+        t.ok(!world.guarded, "a successful action cannot leave all traffic blocked");
+    }
+});
+
+t.test("idle cleanup failures are reported and preserve the guard", () => {
+    for (let action in [ lifecycle.start, lifecycle.reload ]) {
+        for (let failure in [ { table_delete_fails: true }, { stop_fails: true }, { guard_release_fails: true } ]) {
+            running({ nothing_to_run: true, capture: false, guarded: true, ...failure });
+            t.eq(run(action).result, 1, sprintf("%J", failure));
+            t.ok(world.guarded, "failed cleanup must retain the guard");
+        }
+    }
 });
 
 t.test("a stopped Forkop with nothing to run is not started by a reload", () => {
@@ -379,7 +424,7 @@ t.test("a changed sing-box configuration is reloaded with the capture paused unt
 t.test("a change to the providers a section reads alone starts the rule-set worker again, and is applied", () => {
     let result = reloaded({ worker_stale: true });
     t.eq(result.result, 0);
-    t.eq(world.events, [ "firewall opened", "config written", "rule-set worker started" ]);
+    t.eq(world.events, [ "firewall opened", "config written", "rule-set worker stopped", "rule-set worker started" ]);
     t.contains(world.logs, "[info] Configuration applied");
 });
 
@@ -389,6 +434,58 @@ t.test("replacing rule-set providers restarts their worker around the core reloa
     t.eq(world.events, [ "firewall opened", "config written", "rule-set worker stopped", "capture paused", "sing-box reloaded",
         "reloaded with the capture paused", "capture resumed", "rule-set worker started" ],
         "the old worker cannot ask the new core for the providers removed from the section");
+    t.eq(world.guard_events, [ "armed", "subnets", "released" ]);
+    t.ok(!world.guarded);
+});
+
+t.test("subnet loading or any later reload failure keeps direct traffic blocked after runtime cleanup", () => {
+    for (let failure in [
+        { subnets_fail: true }, { reload_fails: true }, { resume_fails: true },
+        { ruleset_fails: true }, { stop_rulesets_fails: true }, { guard_release_fails: true },
+        { nft_fails: true, script: CHANGED_TABLE }
+    ]) {
+        let result = reloaded({ config_changed: true, ...failure });
+        t.eq(result.result, 1, sprintf("%J", failure));
+        t.ok(world.guarded, "cleanup must preserve the separate guard: " + sprintf("%J", failure));
+        t.ok(!world.network, "the main nft table was cleaned up");
+        t.eq(filter(world.guard_events, (e) => e == "released"), []);
+        if (failure.subnets_fail)
+            t.eq(filter(world.events, (e) => e == "capture resumed" || e == "rule-set worker started"), []);
+    }
+});
+
+t.test("a guard that cannot be installed leaves the previous runtime intact", () => {
+    let result = reloaded({ config_changed: true, guard_fails: true });
+    t.eq(result.result, 1);
+    t.ok(world.network && world.ports);
+    t.eq(world.events, [ "firewall opened", "config written" ]);
+});
+
+t.test("failed-start cleanup cannot remove the previous table when it cannot install the guard", () => {
+    running({ guard_fails: true });
+    world.ports = false;
+    t.eq(run(() => lifecycle.start()).result, 1);
+    t.ok(world.network, "the previous capture must remain when the guard cannot be installed");
+    t.eq(filter(world.events, (e) => e == "nft table deleted"), []);
+});
+
+t.test("a failed initial subnet load keeps the guard, and an explicit stop releases it", () => {
+    reset({ subnets_fail: true });
+    t.eq(run(() => lifecycle.start()).result, 1);
+    t.ok(world.guarded);
+    reset({ guarded: true });
+    t.eq(run(() => lifecycle.stop()).result, 0);
+    t.ok(!world.guarded);
+});
+
+t.test("starting and applying again prepare the configuration behind a guard left by an earlier failure", () => {
+    reset({ guarded: true });
+    t.eq(run(() => lifecycle.start()).result, 0);
+    t.ok(!world.guarded);
+
+    reset({ guarded: true });
+    t.eq(run(() => lifecycle.reload()).result, 0);
+    t.ok(!world.guarded);
 });
 
 t.test("a changed table is rebuilt with the rule-set worker stopped around it, and sing-box is left alone", () => {
@@ -411,7 +508,7 @@ t.test("a reload routes the devices the new configuration binds before the core 
     result = reloaded({ config_changed: true, bound: [ "wwan0" ], bound_rules_fail: true });
     t.eq(result.result, 1);
     t.eq(failures_logged(), [ "[error] Failed to add the IPv4 routing rule of interface wwan0" ]);
-    t.eq(world.logs[length(world.logs) - 1], "[warn] Configuration not applied; Forkop is stopped");
+    t.eq(world.logs[length(world.logs) - 1], "[warn] Configuration not applied; Forkop is stopped; direct traffic remains blocked");
     t.eq(filter(world.events, (e) => e == "sing-box reloaded"), []);
 });
 
@@ -456,7 +553,7 @@ t.test("each failed step of a reload after the runtime was touched names itself 
         t.eq(result.result, 1, failure[1]);
         t.eq(failures_logged(), [ failure[1] ], failure[1]);
         t.contains(result.stderr, substr(failure[1], 8));
-        t.eq(world.logs[length(world.logs) - 1], "[warn] Configuration not applied; Forkop is stopped", failure[1]);
+        t.eq(world.logs[length(world.logs) - 1], "[warn] Configuration not applied; Forkop is stopped; direct traffic remains blocked", failure[1]);
         t.contains(world.events, "sing-box stopped", failure[1]);
         t.eq(index(world.events, "sing-box reloaded") >= 0, failure[2], failure[1] + ": whether sing-box was signalled");
     }

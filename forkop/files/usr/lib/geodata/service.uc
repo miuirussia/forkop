@@ -37,8 +37,8 @@ function download(source, path) {
     let settings = uci.get_all("forkop", "settings") ?? {};
     let via = common.option(settings, "geodata_download_section", "");
     if (via == "") {
-        // A stopped core must not prevent the first direct download.
-        command([ "fetch", "--url", source.input, "--output", path ]);
+        // Bootstrap and retries must work while the core is stopped and the guard is held.
+        command([ "fetch", "--url", source.input, "--output", path, "--routing-mark", constants.NFT_OUTBOUND_MARK ]);
         return;
     }
     let section = uci.get_all("forkop", via);

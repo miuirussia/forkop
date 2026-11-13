@@ -474,4 +474,4 @@ function ensure_bridge_netfilter_disabled() {
     return true;
 }
 
-return { paths, build, apply, capture_command, refusal, ensure_tproxy_routing, route_bound_devices, ensure_bridge_netfilter_disabled, remove_rt_table_entry };
+return { paths, LOCAL4_RANGES, LOCAL6_RANGES, build, apply, capture_command, refusal, ensure_tproxy_routing, route_bound_devices, ensure_bridge_netfilter_disabled, remove_rt_table_entry };

@@ -364,23 +364,30 @@ function subnet_sources(sections) {
 
 function sync(snapshot, sections) {
     let native = native_sections(sections);
-    let loaded = 0, written = 0;
+    let loaded = 0, written = 0, pending = 0, failed = 0;
     for (let entry in native) {
         let name = as_string(entry.section[".name"]);
         let key = plan_key(snapshot, entry);
-        if (applied[name] == key || refused[name] == key)
+        if (applied[name] == key)
             continue;
+        if (refused[name] == key) {
+            failed++;
+            continue;
+        }
 
         try {
             let plan = section_plan(snapshot, entry);
-            if (plan == null)
+            if (plan == null) {
+                pending++;
                 continue;
+            }
             loaded += apply_plan(plan);
             applied[name] = key;
             delete refused[name];
             written++;
         }
         catch (e) {
+            failed++;
             delete applied[name];
             refused[name] = key;
             exec.log("error", "Failed to load the rule-set subnets of section '" + connections.section_display_name(entry.section) + "' into nftables: " + e.message);
@@ -390,7 +397,7 @@ function sync(snapshot, sections) {
     if (written > 0)
         exec.log("info", "Loaded " + loaded + " rule-set subnets into nftables" +
             (written == length(native) ? "" : " for " + written + " of " + length(native) + " sections"));
-    return { loaded, written };
+    return { loaded, written, ready: pending == 0 && failed == 0, failed };
 }
 
 // Decoded as it arrives, so a country-sized list is never held twice.
@@ -398,6 +405,29 @@ function snapshot(api) {
     let reply = clash_api.exchange(api, "GET", "/providers/rules", { connect_seconds: 2, seconds: 10, decode: json });
     let value = reply?.status == 200 ? reply.value : null;
     return type(value?.providers) == "object" && type(value?.revision) == "int" ? value : null;
+}
+
+// The lifecycle holds the direct-traffic guard until every required set has
+// actually reached nft, rather than trusting the worker's PID or open core ports.
+function initialize(seconds) {
+    applied = {};
+    refused = {};
+    let sections = configured_sections();
+    if (length(native_sections(sections)) == 0)
+        return true;
+    let api = clash_api.controller();
+    let deadline = clock(true)[0] + (seconds ?? 60);
+    while (true) {
+        let value = snapshot(api);
+        if (value != null) {
+            let result = sync(value, sections);
+            if (result.ready || result.failed > 0)
+                return result.ready;
+        }
+        if (clock(true)[0] >= deadline)
+            return false;
+        sleep(1000);
+    }
 }
 
 // The revision synced, null without a snapshot, false when no section reads a provider.
@@ -470,4 +500,4 @@ function worker_current() {
     return worker_process.current(spec);
 }
 
-return { sync, worker_spec, worker, start_worker, stop_worker, worker_current };
+return { sync, initialize, worker_spec, worker, start_worker, stop_worker, worker_current };

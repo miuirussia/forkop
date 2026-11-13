@@ -14,6 +14,7 @@ let generator = require("singbox.generator");
 let singbox_constants = require("singbox.constants");
 let runtime = require("singbox.runtime");
 let nft = require("nft.apply");
+let guard = require("nft.guard");
 let nft_state = require("nft.state");
 let rulesets = require("nft.ruleset_sync");
 let health = require("service.health");
@@ -240,24 +241,41 @@ function stop_runtime(keep_watcher) {
 }
 
 function cleanup_failed_runtime(keep_watcher) {
+    if (!guard.active() && nft_state.table_present(NFT_TABLE)) {
+        try {
+            guard.arm();
+        }
+        catch (e) {
+            log("error", e.message);
+            return false;
+        }
+    }
     server.sync_firewall(true);
     return stop_runtime(keep_watcher);
 }
 
-// A Forkop not set up yet has not failed: the action succeeds, so the WAN coming up does not
-// retry it.
+// null when there is work to start; otherwise the status of stopping an idle
+// configuration. Successful cleanup must release a guard left by an earlier failure.
 function nothing_to_run() {
     if (generator.runnable())
-        return false;
+        return null;
     log("warn", NOTHING_TO_RUN);
-    cleanup_failed_runtime();
-    return true;
+    if (!cleanup_failed_runtime())
+        return 1;
+    try {
+        guard.release();
+    }
+    catch (e) {
+        log("error", e.message);
+        return 1;
+    }
+    return 0;
 }
 
 let start_fingerprint = "";
 
 // Every step that gives up logs one error line, which the page raises as an alert.
-function start_runtime() {
+function start_runtime(prepared) {
     if (runtime.process_running()) {
         log("error", "Another sing-box process is running outside Forkop; stop it before starting Forkop");
         return false;
@@ -272,8 +290,11 @@ function start_runtime() {
     }
 
     try {
+        if (!prepared)
+            guard.arm();
         runtime.configure_service();
-        runtime.write_config(true);
+        if (!prepared)
+            runtime.write_config(true);
         nft.route_bound_devices(runtime.bound_devices());
     }
     catch (e) {
@@ -309,6 +330,10 @@ function start_runtime() {
         log("error", NOT_CAPTURING);
         return false;
     }
+    if (!rulesets.initialize()) {
+        log("error", "Failed to load the rule-set subnets; direct traffic remains blocked");
+        return false;
+    }
     if (!watch.start_worker()) {
         log("error", "Failed to start the sing-box crash watcher");
         return false;
@@ -325,6 +350,13 @@ function start_runtime() {
     fs.unlink(paths.planned_stop);
     if (fs.stat(paths.planned_stop) != null) {
         log("error", "Failed to arm the sing-box crash watcher");
+        return false;
+    }
+    try {
+        guard.release();
+    }
+    catch (e) {
+        log("error", e.message);
         return false;
     }
     return true;
@@ -360,8 +392,9 @@ function start() {
             cleanup_failed_runtime();
             return 1;
         }
-        if (nothing_to_run())
-            return 0;
+        let idle = nothing_to_run();
+        if (idle != null)
+            return idle;
         if (health.sing_box_service_running() && (!cleanup_failed_runtime() || health.sing_box_service_running())) {
             log("error", "A sing-box left from an earlier run could not be stopped; not starting a second one");
             return 1;
@@ -389,6 +422,13 @@ function stop() {
         watch.stop_worker();
         if (!stop_runtime(true))
             return 1;
+        try {
+            guard.release();
+        }
+        catch (e) {
+            log("error", e.message);
+            return 1;
+        }
         if (active)
             log("info", "Forkop stopped");
         return 0;
@@ -402,28 +442,59 @@ function crash_cleanup(exit_code) {
             return 0;
         let suffix = match(common.as_string(exit_code), /^[0-9]+$/) ? " (exit code " + exit_code + ")" : "";
         log("error", "sing-box stopped after repeated crashes" + suffix + "; Forkop is stopped");
+        try {
+            guard.arm();
+        }
+        catch (e) {
+            log("error", e.message);
+            return 1;
+        }
         return cleanup_failed_runtime(true) && watch.stop_worker() ? 0 : 1;
     });
 }
 
 // What a failed reload left: the runtime it never touched, or none at all.
 function reload_failed(runtime_touched) {
-    log("warn", runtime_touched ? "Configuration not applied; Forkop is stopped" : "Configuration not applied; Forkop keeps running the previous one");
+    let blocked = guard.active() ? "; direct traffic remains blocked" : "";
+    log("warn", runtime_touched ? "Configuration not applied; Forkop is stopped" + blocked : "Configuration not applied; Forkop keeps running the previous one" + blocked);
     return 1;
 }
 
 function abort_reload(reason, runtime_touched) {
     log("error", reason);
-    if (runtime_touched)
+    if (runtime_touched) {
+        // Even a repair of unchanged device routes can fail. Never remove the
+        // remaining capture rules unless the independent guard is in place.
+        if (!guard.active()) {
+            try {
+                guard.arm();
+            }
+            catch (e) {
+                log("error", e.message);
+                return reload_failed(false);
+            }
+        }
         cleanup_failed_runtime();
+    }
     return reload_failed(runtime_touched);
 }
 
 function restart_runtime() {
     log("info", "Forkop is not fully running; restarting it");
+    // DAT downloads carry the outbound mark and can prepare behind the guard.
+    // Keep it installed while cleanup removes the surviving capture rules.
+    try {
+        guard.arm();
+        runtime.configure_service();
+        runtime.write_config(true);
+    }
+    catch (e) {
+        log("error", e.message);
+        return false;
+    }
     if (!stop_runtime())
         return false;
-    if (start_runtime())
+    if (start_runtime(true))
         return true;
     cleanup_failed_runtime();
     return false;
@@ -527,8 +598,9 @@ function reload_runtime(reason) {
     let fingerprint = config_fingerprint();
 
     if (!forkop_running()) {
-        if (nothing_to_run())
-            return 0;
+        let idle = nothing_to_run();
+        if (idle != null)
+            return idle;
         if (!restart_runtime())
             return reload_failed(true);
         log("info", "Configuration applied");
@@ -549,19 +621,26 @@ function reload_runtime(reason) {
     catch (e) {
         return abort_reload(e.message, false);
     }
+    let nft_changed = fs.readfile(paths.applied_nft) != built.script;
+    // The worker keeps the old section references in memory. Stop it before the core
+    // replaces its providers, even when the sets in the nft script stay the same.
+    let restart_worker = nft_changed || config_changed || forced || !rulesets.worker_current();
+    if (restart_worker) {
+        try {
+            guard.arm();
+        }
+        catch (e) {
+            return abort_reload(e.message, false);
+        }
+    }
     try {
         nft.route_bound_devices(runtime.bound_devices());
     }
     catch (e) {
         return abort_reload(e.message, true);
     }
-
-    let nft_changed = fs.readfile(paths.applied_nft) != built.script;
-    // The worker keeps the old section references in memory. Stop it before the core
-    // replaces its providers, even when the sets in the nft script stay the same.
-    let restart_worker = nft_changed || config_changed || forced;
-    if (restart_worker)
-        rulesets.stop_worker();
+    if (restart_worker && !rulesets.stop_worker())
+        return abort_reload("Failed to stop the rule-set sync worker", true);
     if (nft_changed) {
         try {
             apply_nft(built);
@@ -580,6 +659,12 @@ function reload_runtime(reason) {
             return abort_reload("Failed to reload sing-box", true);
         if (!wait_ready(RELOAD_READY_WINDOW, READY_HOLD, false))
             return abort_reload(not_ready("reloaded"), true);
+    }
+
+    if (restart_worker && !rulesets.initialize())
+        return abort_reload("Failed to load the rule-set subnets; direct traffic remains blocked", true);
+
+    if (config_changed || forced) {
         if (!capture(true))
             return abort_reload("Failed to resume the traffic capture after reloading sing-box", true);
         if (!wait_ready(0, 0, true))
@@ -587,13 +672,20 @@ function reload_runtime(reason) {
     }
 
     // Start with the committed section references only after the core is ready to serve them.
-    let worker_changed = restart_worker || !rulesets.worker_current();
-    if (worker_changed && !rulesets.start_worker())
+    if (restart_worker && !rulesets.start_worker())
         return abort_reload("Failed to start the rule-set sync worker", true);
     if (!require("geodata.service").start_worker())
         return abort_reload("Failed to start the geodata update worker", true);
+    if (restart_worker) {
+        try {
+            guard.release();
+        }
+        catch (e) {
+            return abort_reload(e.message, true);
+        }
+    }
 
-    if (nft_changed || config_changed || forced || worker_changed)
+    if (restart_worker)
         log("info", "Configuration applied");
     else
         log("info", "Configuration already applied; nothing changed");

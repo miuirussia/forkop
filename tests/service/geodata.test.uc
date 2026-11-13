@@ -8,6 +8,7 @@ let service = require("geodata.service");
 let generator = require("singbox.generator");
 let connections = require("config.connections");
 let validation = require("validation");
+let constants = require("core.constants");
 
 function argument(argv, flag) { return argv[index(argv, flag) + 1]; }
 
@@ -43,6 +44,10 @@ function setup(extra) {
         }
         if (index(argv, "fetch") >= 0) {
             state.fetches++;
+            t.eq(argument(argv, "--routing-mark"), constants.NFT_OUTBOUND_MARK,
+                "direct DAT downloads must pass the guard without a running core");
+            if (state.fetch_fails)
+                return { status: 1, stdout: "download failed" };
             fs.writefile(argument(argv, "--output"), "valid-dat");
             return { status: 0 };
         }
@@ -201,6 +206,20 @@ t.test("remote updates discard old DAT generations while keeping the previous SR
     t.eq(service.run("sites", false), false);
     t.eq(run.state.exports, exports, "same digest skips conversion");
     t.eq(sources.active("sites").directory, current.directory);
+    stub.restore();
+});
+
+t.test("a failed bootstrap DAT download can be retried with the guard's outbound mark", () => {
+    let run = setup();
+    run.config.geodata[0].input = "https://example.com/geosite.dat";
+    fixture.seed(run.config);
+    run.state.fetch_fails = true;
+    t.contains(t.throws(() => service.prepare()).message, "download failed");
+    t.eq(sources.active("sites"), null);
+    run.state.fetch_fails = false;
+    service.prepare();
+    t.eq(run.state.fetches, 2);
+    t.eq(fs.readfile(sources.resolve("dat:sites:youtube")), "SRS-a");
     stub.restore();
 });
 

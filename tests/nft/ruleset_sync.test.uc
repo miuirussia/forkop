@@ -258,6 +258,35 @@ function run_worker(sections, answers) {
 
 const SNAPSHOT = sprintf("%J", { revision: 5, providers: {} });
 
+t.test("initialization waits for every provider and only succeeds once nft accepts every section", () => {
+    let section = { ".name": "barrier", action: "connection", rule_set_with_subnets: [ ALPHA, BETA ] };
+    seed([ section ]);
+    let real_exchange = clash_api.exchange;
+    let real_sleep = global.sleep;
+    let answers = [
+        null,
+        snapshot({ [ALPHA]: provider(1, { ipv4: [ "192.0.2.0/24" ] }), [BETA]: { revision: 0 } }),
+        snapshot({ [ALPHA]: provider(1, { ipv4: [ "192.0.2.0/24" ] }), [BETA]: provider(1, {}) })
+    ];
+    let sleeps = 0;
+    global.sleep = () => { sleeps++; };
+    clash_api.exchange = () => {
+        let value = shift(answers);
+        return value == null ? null : { status: 200, value };
+    };
+    t.ok(run(() => sync.initialize()));
+    t.eq(sleeps, 2, "an unavailable controller and an unfinished provider both keep the guard held");
+    t.eq(length(transactions), 1);
+    clash_api.exchange = () => ({ status: 200, value: snapshot({ [ALPHA]: provider(1, {}), [BETA]: provider(1, {}) }) });
+    t.ok(!run(() => sync.initialize(), 1), "a refused nft transaction must not release traffic");
+    clash_api.exchange = () => ({ status: 200, value: snapshot({}) });
+    t.ok(!run(() => sync.initialize()), "a missing provider must not release traffic");
+    clash_api.exchange = () => null;
+    t.ok(!run(() => sync.initialize(0)), "an unavailable controller times out without readiness");
+    clash_api.exchange = real_exchange;
+    global.sleep = real_sleep;
+});
+
 t.test("the worker follows the provider events and asks a controller that is not there later and later", () => {
     let section = { ".name": "followed", enabled: "1", action: "connection", rule_set_with_subnets: [ ALPHA ] };
     let result = run_worker([ section ], [
