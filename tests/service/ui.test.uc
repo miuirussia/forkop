@@ -22,9 +22,10 @@ function fresh() {
 }
 
 // A process whose command line names marker; the second command keeps the shell from
-// replacing itself with sleep.
+// replacing itself with sleep. It reports its own PID after exec, so the caller
+// cannot read its command line before it is ready.
 function live_process(marker) {
-    let pipe = stub.real.popen("sh -c 'sleep 30; :' " + marker + " >/dev/null 2>&1 & echo $!", "r");
+    let pipe = stub.real.popen("sh -c 'echo $$; exec >/dev/null 2>&1; sleep 30; :' " + marker + " </dev/null &", "r");
     let pid = trim(pipe.read("all"));
     pipe.close();
     return pid;

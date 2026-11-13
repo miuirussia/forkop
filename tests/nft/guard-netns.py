@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Run with ucode, nft and ip on PATH; all packet tests run in a private user/net namespace."""
+"""Run with ucode, nft and ip on PATH; all packet tests run in a private network namespace."""
 import argparse
 import errno
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import socket
 import struct
@@ -223,7 +224,10 @@ else:
             code = 'print(require("nft.guard").script(' + json.dumps(settings) + ',' + json.dumps(interfaces) + ', []));'
             text = command("ucode", "-L", "tests/fakes", "-L", "tests/lib", "-L", "forkop/files/usr/lib", "-e", code, cwd=root)
             Path(directory, name + ".nft").write_text(text)
-        namespace_args = ["unshare", "-Urn", sys.executable, str(Path(__file__).resolve()), "--inside", directory]
+        # Root needs only a network namespace. A new user namespace would lose its
+        # access to a checkout inside another user's private home directory in CI.
+        namespaces = "-n" if os.geteuid() == 0 else "-Urn"
+        namespace_args = ["unshare", namespaces, sys.executable, str(Path(__file__).resolve()), "--inside", directory]
         if args.core:
             namespace_args += ["--core", args.core]
         subprocess.run(namespace_args, check=True)

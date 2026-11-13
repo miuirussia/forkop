@@ -4,6 +4,10 @@ let t = require("t");
 let stub = require("stub");
 let fixture = require("fixture");
 let validator = require("config.validator");
+let features = require("singbox.features");
+
+// Config tests supply core_tags when needed; requirement tests probe a core separately.
+let absent_binary = stub.tmpdir() + "/sing-box";
 
 function with_dns(data) {
     data = { ...(data ?? {}) };
@@ -21,6 +25,8 @@ function run(data, overrides) {
     fixture.seed(with_dns(data));
     let logs = [];
     stub.commands([ stub.logger(logs) ]);
+    let binary = features.paths.binary;
+    features.paths.binary = absent_binary;
     let error = null;
     try {
         validator.validate(overrides);
@@ -28,6 +34,7 @@ function run(data, overrides) {
     catch (e) {
         error = e.message;
     }
+    features.paths.binary = binary;
     stub.restore();
     return { error, logs };
 }
