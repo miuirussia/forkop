@@ -45,4 +45,24 @@ t.test("a saved Phobos connection_link becomes an endpoint rather than a parser 
     d.connection_link[0].uri = "phobos://broken";
     v.refuses(d, "Invalid Phobos");
 });
+t.test("Phobos links normalize bare addresses and reject invalid prefixes", () => {
+    let d = data({ key: "test" });
+    delete d.tunnel; delete d.tunnel_peer;
+    let conf = "[Interface]\nPrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\nAddress = 10.8.0.2, fd00::2, 10.9.0.2/24\n[Peer]\nPublicKey = AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=\nAllowedIPs = 10.0.0.1, fd00::1, 0.0.0.0/0, ::/0\n[instance]\ntarget = vpn.example.com:51824\nkey = test\n";
+    function link(text) {
+        return "phobos://" + replace(replace(replace(b64enc(text), /\+/g, "-"), /\//g, "_"), /=+$/, "");
+    }
+    d.connection_link = [ { ".name": "saved", section: "vpn", name: "work", uri: link(conf) } ];
+    v.accepts(d);
+    fixture.seed(d);
+    let endpoint = q.endpoint(generator.build({ service_address: "127.0.0.1" }), "vpn/work");
+    t.eq(endpoint.address, [ "10.8.0.2/32", "fd00::2/128", "10.9.0.2/24" ]);
+    t.eq(endpoint.peers[0].allowed_ips, [ "10.0.0.1/32", "fd00::1/128", "0.0.0.0/0", "::/0" ]);
+    for (let invalid in [ "10.8.0.999", "fd00::gg", "10.8.0.2/33", "fd00::2/129" ]) {
+        d.connection_link[0].uri = link(replace(conf, "10.8.0.2, fd00::2, 10.9.0.2/24", invalid));
+        v.refuses(d, "Invalid Phobos");
+        d.connection_link[0].uri = link(replace(conf, "10.0.0.1, fd00::1, 0.0.0.0/0, ::/0", invalid));
+        v.refuses(d, "Invalid Phobos");
+    }
+});
 t.done();

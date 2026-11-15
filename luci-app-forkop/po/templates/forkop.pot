@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-13 15:08+0300\n"
-"PO-Revision-Date: 2026-11-13 15:08+0300\n"
+"POT-Creation-Date: 2026-11-15 22:58+0300\n"
+"PO-Revision-Date: 2026-11-15 22:58+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -3930,10 +3930,6 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "Tunnel addresses"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/sections/form.ts
-msgid "Tunnel field is unavailable"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts

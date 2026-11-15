@@ -28,10 +28,43 @@ function setup() {
   return { h, links, tunnels };
 }
 
-async function openPhobos(link = uri) {
-  const { h, links, tunnels } = setup();
-  links.createTypedItem('sec', link);
-  const tunnel = h.uci.sections('forkop', 'tunnel')[0];
+function cloneLinks(h, links) {
+  const map = new h.form.Map('forkop');
+  const section = map.section(h.form.NamedSection, 'sec');
+  section.option(h.form.Value, 'action').cfgvalue('sec', 'connection');
+  const clone = Object.assign(
+    Object.create(Object.getPrototypeOf(links)),
+    links,
+    { map, section },
+  );
+  section.children.push(clone);
+  return clone;
+}
+
+async function openPhobos(masking) {
+  const { h, tunnels } = setup();
+  h.uci.add('forkop', 'tunnel', 'phobos');
+  const tunnel = h.store.get('phobos');
+  Object.assign(tunnel, {
+    section: 'sec',
+    kind: 'phobos',
+    name: 'Home',
+    address: ['10.8.0.2/32'],
+    private_key: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+    phobos_obfuscation: JSON.stringify({
+      key: 'secret',
+      max_dummy: 0,
+      ...(masking ? { masking } : {}),
+    }),
+  });
+  h.uci.add('forkop', 'tunnel_peer', 'peer');
+  Object.assign(h.store.get('peer'), {
+    tunnel: 'phobos',
+    address: 'vpn.example.com',
+    port: '51824',
+    public_key: 'AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=',
+    allowed_ips: ['0.0.0.0/0'],
+  });
   const dialog = await h.openDialog(tunnels, 'sec', tunnel['.name']);
   const fields = Object.fromEntries(
     dialog.map.children[0].children.map((field) => [field.option, field]),
@@ -53,148 +86,108 @@ async function openPhobos(link = uri) {
 }
 
 describe('Phobos pasted in Connection URI', () => {
-  it('adds to the tunnel widget of the cloned section dialog and survives saving', async () => {
+  it('adds a URI row in the cloned section dialog and survives saving without a tunnel widget', async () => {
     const { h, links, tunnels } = setup();
     tunnels.getUIElement = () => null;
-    const map = new h.form.Map('forkop');
-    const section = map.section(h.form.NamedSection, 'sec');
-    const clone = (option) => {
-      const copy = Object.assign(
-        Object.create(Object.getPrototypeOf(option)),
-        option,
-        { map, section },
-      );
-      section.children.push(copy);
-      return copy;
-    };
-    const modalLinks = clone(links);
-    const modalTunnels = clone(tunnels);
-    const items = [];
-    const changes = [];
-    const node = {
-      querySelector: () => null,
-      querySelectorAll: () => items,
-    };
-    const widget = {
-      node,
-      addItem(list, value) {
-        expect(list).toBe(node);
-        const item = { querySelector: () => ({ parentNode: item, value }) };
-        items.push(item);
-      },
-      dispatchCbiDynlistChange(list, value) {
-        expect(list).toBe(node);
-        changes.push(value);
-      },
-    };
-    modalLinks.formvalue = () => [];
-    modalTunnels.getUIElement = () => widget;
-    modalTunnels.formvalue = () =>
-      items.map((item) => item.querySelector().value);
+    const modalLinks = cloneLinks(h, links);
+    const itemId = modalLinks.createTypedItem('sec', uri);
+    modalLinks.formvalue = () => [itemId];
 
-    expect(modalLinks.createTypedItem('sec', uri)).toBe('');
-    expect(modalLinks.createTypedItem('sec', uri)).toBe('');
-    const imported = h.uci.sections('forkop', 'tunnel');
-    expect(imported.map((tunnel) => tunnel.name)).toEqual(['Home', 'Home #1']);
-    expect(modalTunnels.formvalue()).toEqual(
-      imported.map((tunnel) => tunnel['.name']),
+    expect(itemId).toMatch(/^link_/);
+    expect(modalLinks.renderListItemLabel('sec', itemId).textContent).toBe(
+      'Home',
     );
-    expect(changes).toEqual(modalTunnels.formvalue());
-    await modalTunnels.parse('sec');
-    expect(h.uci.sections('forkop', 'tunnel')).toHaveLength(2);
-    expect(h.uci.sections('forkop', 'tunnel_peer')).toHaveLength(2);
-    expect(h.uci.sections('forkop', 'connection_link')).toHaveLength(0);
+    await modalLinks.parse('sec');
+    expect(h.uci.sections('forkop', 'connection_link')).toEqual([
+      expect.objectContaining({
+        '.name': itemId,
+        section: 'sec',
+        uri,
+        name: 'Home',
+        order: '0',
+      }),
+    ]);
+    expect(h.uci.sections('forkop', 'tunnel')).toHaveLength(0);
+    expect(h.uci.sections('forkop', 'tunnel_peer')).toHaveLength(0);
+    const dialog = await h.openDialog(modalLinks, 'sec', itemId);
+    expect(dialog.title).toBe('Server: Home');
+    expect(await dialog.save()).toEqual({ saved: true });
+    expect(h.store.get(itemId).uri).toBe(uri);
   });
 
+  it.each([false, true])(
+    'adds repeated URIs with unique names (cloned: %s)',
+    async (cloned) => {
+      const { h, links } = setup();
+      const list = cloned ? cloneLinks(h, links) : links;
+      links.formvalue = () => [];
+      const values = [];
+      list.formvalue = () => values.slice();
+      values.push(list.createTypedItem('sec', uri));
+      values.push(list.createTypedItem('sec', uri));
+      await list.parse('sec');
+
+      expect(new Set(values).size).toBe(2);
+      expect(h.uci.sections('forkop', 'connection_link')).toEqual([
+        expect.objectContaining({ uri, name: 'Home', order: '0' }),
+        expect.objectContaining({ uri, name: 'Home #1', order: '1' }),
+      ]);
+      expect(h.uci.sections('forkop', 'tunnel')).toHaveLength(0);
+      expect(h.uci.sections('forkop', 'tunnel_peer')).toHaveLength(0);
+    },
+  );
+
   it.each([
-    {
-      change: 'added',
-      originalValues: [],
-      modalValues: ['saved'],
-      expectedName: 'Home #1',
-    },
-    {
-      change: 'removed',
-      originalValues: ['saved'],
-      modalValues: [],
-      expectedName: 'Home',
-    },
+    { original: [], current: ['saved'], expected: 'Home #1' },
+    { original: ['saved'], current: [], expected: 'Home' },
   ])(
-    'uses the dialog list when a conflicting link was $change',
-    ({ originalValues, modalValues, expectedName }) => {
-      const { h, links, tunnels } = setup();
+    'uses the dialog list for names when the lists differ: $expected',
+    ({ original, current, expected }) => {
+      const { h, links } = setup();
       h.uci.add('forkop', 'connection_link', 'saved');
       Object.assign(h.store.get('saved'), {
         section: 'sec',
         name: 'Home',
         uri: 'vless://a@a.example:443#Home',
       });
-      links.formvalue = () => originalValues;
-      const map = new h.form.Map('forkop');
-      const section = map.section(h.form.NamedSection, 'sec');
-      const clone = (option) => {
-        const copy = Object.assign(
-          Object.create(Object.getPrototypeOf(option)),
-          option,
-          { map, section },
-        );
-        section.children.push(copy);
-        return copy;
-      };
-      const modalLinks = clone(links);
-      clone(tunnels);
-      modalLinks.formvalue = () => modalValues;
+      links.formvalue = () => original;
+      const modalLinks = cloneLinks(h, links);
+      modalLinks.formvalue = () => current;
 
-      expect(modalLinks.createTypedItem('sec', uri)).toBe('');
-      expect(h.uci.sections('forkop', 'tunnel')[0].name).toBe(expectedName);
+      const itemId = modalLinks.createTypedItem('sec', uri);
+      expect(h.store.get(itemId).name).toBe(expected);
     },
   );
 
-  it('creates no tunnel or peer when the current form has no tunnel widget', () => {
-    const { h, links, tunnels } = setup();
-    tunnels.getUIElement = () => null;
-
-    expect(() => links.createTypedItem('sec', uri)).toThrow(
-      'Tunnel field is unavailable',
-    );
-    expect(h.uci.sections('forkop', 'tunnel')).toHaveLength(0);
-    expect(h.uci.sections('forkop', 'tunnel_peer')).toHaveLength(0);
-  });
-
-  it('creates a tunnel and peer, keeps names unique and can reopen/save it', async () => {
-    const { h, links, tunnels } = setup();
-    expect(links.validate('sec', uri)).toBe(true);
-    expect(links.createTypedItem('sec', uri)).toBe('');
-    expect(h.uci.sections('forkop', 'connection_link')).toHaveLength(0);
-    const tunnel = h.uci.sections('forkop', 'tunnel')[0];
-    expect(tunnel.kind).toBe('phobos');
-    expect(tunnel.name).toBe('Home');
-    expect(JSON.parse(tunnel.phobos_obfuscation)).toEqual({
-      key: 'secret',
-      max_dummy: 0,
-    });
-    expect(h.uci.sections('forkop', 'tunnel_peer')[0]).toMatchObject({
-      address: 'vpn.example.com',
-      port: '51824',
-    });
-    const dialog = await h.openDialog(tunnels, 'sec', tunnel['.name']);
-    await dialog.save();
-    expect(h.uci.sections('forkop', 'tunnel_peer')).toHaveLength(1);
-    links.createTypedItem('sec', uri);
-    expect(h.uci.sections('forkop', 'tunnel').map((t) => t.name)).toEqual([
-      'Home',
-      'Home #1',
-    ]);
-  });
-  it('refuses a broken payload before creating UCI children', () => {
+  it('preserves and validates a URI containing bare IPv4 and IPv6 addresses', async () => {
     const { h, links } = setup();
-    expect(() => links.createTypedItem('sec', 'phobos://broken')).toThrow(
+    const source = config
+      .replace('Address = 10.8.0.2/32', 'Address = 10.8.0.2, fd00::2')
+      .replace(
+        'AllowedIPs = 0.0.0.0/0',
+        'AllowedIPs = 10.0.0.1, fd00::1, 0.0.0.0/0',
+      );
+    const link = `phobos://${Buffer.from(source).toString('base64url')}#Home`;
+    expect(links.validate('sec', link)).toBe(true);
+    const itemId = links.createTypedItem('sec', link);
+    links.formvalue = () => [itemId];
+    await links.parse('sec');
+    expect(h.store.get(itemId).uri).toBe(link);
+  });
+
+  it('validates Phobos payloads before adding them', () => {
+    const { h, links } = setup();
+    expect(links.validate('sec', uri)).toBe(true);
+    expect(links.validate('sec', 'phobos://broken')).toBe(
       'Invalid Phobos link',
     );
+    expect(h.uci.sections('forkop', 'connection_link')).toHaveLength(0);
     expect(h.uci.sections('forkop', 'tunnel')).toHaveLength(0);
     expect(h.uci.sections('forkop', 'tunnel_peer')).toHaveLength(0);
   });
+});
 
+describe('Phobos tunnels', () => {
   it.each(['STUN', 'MEDIA', 'AUTO', 'NONE'])(
     'saves and reopens the selected %s masking without losing other parameters',
     async (mode) => {
@@ -229,9 +222,8 @@ describe('Phobos pasted in Connection URI', () => {
     },
   );
 
-  it('reads masking from the imported link and preserves an unchanged save', async () => {
-    const link = `phobos://${Buffer.from(`${config}masking = media\n`).toString('base64url')}`;
-    const { h, tunnel, dialog, fields } = await openPhobos(link);
+  it('reads stored masking and preserves an unchanged save', async () => {
+    const { h, tunnel, dialog, fields } = await openPhobos('MEDIA');
     const stored = tunnel.phobos_obfuscation;
     expect(fields.phobos_masking.formvalue()).toBe('MEDIA');
     h.operations.length = 0;

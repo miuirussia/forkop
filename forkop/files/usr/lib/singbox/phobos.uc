@@ -13,10 +13,16 @@ function key(value) {
     return value;
 }
 function prefixes(value) {
-    let result = map(split(value ?? "", ","), (item) => trim(item));
-    if (length(result) == 0) invalid();
-    for (let item in result)
+    let result = [];
+    for (let item in split(value ?? "", ",")) {
+        item = trim(item);
+        if (item == "") continue;
+        if (ip.valid_ipv4(item)) item += "/32";
+        else if (ip.valid_ipv6(item)) item += "/128";
         if (!ip.valid_ip_cidr(item)) invalid();
+        push(result, item);
+    }
+    if (length(result) == 0) invalid();
     return result;
 }
 function endpoint(link) {
