@@ -17086,6 +17086,37 @@ ${PartialStyles}
     margin: 0;
 }
 
+#cbi-${FORKOP_UCI_PACKAGE}-geodata {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+#cbi-${FORKOP_UCI_PACKAGE}-geodata .td[data-name="input"] {
+    max-width: 24rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+#cbi-${FORKOP_UCI_PACKAGE}-geodata .td[data-name="_state"] {
+    min-width: 10rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+#cbi-${FORKOP_UCI_PACKAGE}-geodata .td[data-name="_actions"] > div,
+#cbi-${FORKOP_UCI_PACKAGE}-geodata .td.cbi-section-actions > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+#cbi-${FORKOP_UCI_PACKAGE}-geodata .td .cbi-button {
+    margin: 0;
+}
+
 .cbi-dropdown > ul > li.fkp-builtin-list-unavailable {
     flex-direction: column;
     align-items: stretch;
@@ -18439,6 +18470,13 @@ function createGeodataContent(map) {
     );
   };
   grid.modaltitle = _("DAT source");
+  grid.addModalOptions = function(modalSection, id) {
+    if (uci.state.creates.forkop?.[id]) {
+      modalSection.children = modalSection.children.filter(
+        (option2) => option2.option !== "_state" && option2.option !== "_actions"
+      );
+    }
+  };
   o = grid.option(form.Value, "label", _("Name"));
   o.rmempty = false;
   o = grid.option(form.ListValue, "kind", _("Type"));
@@ -18492,7 +18530,9 @@ function createGeodataContent(map) {
       _("Tags")
     )
   ]);
-  o.textvalue = o.cfgvalue;
+  o.textvalue = function(id) {
+    return uci.state.creates.forkop?.[id] ? textE("div") : this.cfgvalue(id);
+  };
   const remove = grid.handleRemove;
   grid.handleRemove = function(id, event) {
     const sections = uci.sections("forkop", "section") || [];

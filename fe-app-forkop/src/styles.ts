@@ -121,6 +121,37 @@ ${PartialStyles}
     margin: 0;
 }
 
+#cbi-${FORKOP_CBI_PREFIX}-geodata {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+#cbi-${FORKOP_CBI_PREFIX}-geodata .td[data-name="input"] {
+    max-width: 24rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+#cbi-${FORKOP_CBI_PREFIX}-geodata .td[data-name="_state"] {
+    min-width: 10rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+#cbi-${FORKOP_CBI_PREFIX}-geodata .td[data-name="_actions"] > div,
+#cbi-${FORKOP_CBI_PREFIX}-geodata .td.cbi-section-actions > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+#cbi-${FORKOP_CBI_PREFIX}-geodata .td .cbi-button {
+    margin: 0;
+}
+
 .cbi-dropdown > ul > li.fkp-builtin-list-unavailable {
     flex-direction: column;
     align-items: stretch;

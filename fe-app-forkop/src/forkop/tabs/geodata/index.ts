@@ -182,6 +182,13 @@ export function createGeodataContent(map: CBIMap) {
     );
   };
   grid.modaltitle = _('DAT source');
+  grid.addModalOptions = function (modalSection, id) {
+    if (uci.state.creates.forkop?.[id]) {
+      modalSection.children = modalSection.children.filter(
+        (option) => option.option !== '_state' && option.option !== '_actions',
+      );
+    }
+  };
   o = grid.option(form.Value, 'label', _('Name'));
   o.rmempty = false;
   o = grid.option(form.ListValue, 'kind', _('Type'));
@@ -240,7 +247,9 @@ export function createGeodataContent(map: CBIMap) {
         _('Tags'),
       ),
     ]);
-  o.textvalue = o.cfgvalue;
+  o.textvalue = function (id) {
+    return uci.state.creates.forkop?.[id] ? E('div') : this.cfgvalue(id);
+  };
   const remove = grid.handleRemove;
   grid.handleRemove = function (id: string, event: Event) {
     const sections = uci.sections('forkop', 'section') || [];

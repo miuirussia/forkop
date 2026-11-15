@@ -4,6 +4,7 @@ import { createHarness } from '../lib/luciForm.js';
 let harness;
 beforeEach(() => {
   harness = createHarness();
+  harness.uci.state = { creates: {} };
   harness.uci.add('forkop', 'settings', 'settings');
 });
 

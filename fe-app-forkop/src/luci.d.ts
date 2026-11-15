@@ -216,6 +216,11 @@ declare global {
     getActiveModalMap(): Node | null;
     getPreviousModalMap(): Node | null;
     renderMoreOptionsModal(sectionId: string, event?: Event): Promise<void>;
+    addModalOptions?(
+      modalSection: CBISection,
+      sectionId: string,
+      event?: Event,
+    ): void | Promise<void>;
     handleAdd?(event: Event, name?: string): unknown;
     handleRemove?(sectionId: string, event: Event): unknown;
     handleModalSave?(...args: unknown[]): Promise<unknown>;
