@@ -29119,7 +29119,6 @@ function createSectionContent(section2) {
   o.onListChange = refreshLiveChoiceWidgets;
   o.afterMaterializeChildItems = orderChildItemsByPosition;
   outboundNameSourceOptions.set("tunnels", o);
-  const tunnelOption = o;
   const createLink = links.createTypedItem;
   links.createTypedItem = function(sectionId, input) {
     if (!/^phobos:\/\//iu.test(input.trim()))
@@ -29128,13 +29127,14 @@ function createSectionContent(section2) {
     const validation = validateConnectionLink(input);
     if (!parsed.valid || validation !== true)
       throw new TypeError(parsed.valid ? String(validation) : parsed.message);
-    const widget = tunnelOption.getUIElement(sectionId);
+    const tunnelField = this.map.lookupOption("tunnels", sectionId);
+    const widget = tunnelField?.[0].getUIElement(tunnelField[1]);
     if (!widget) throw new TypeError(_("Tunnel field is unavailable"));
     const id = nextSectionId("tunnel");
     const endpoint = parsed.endpoint;
     createTunnelItem(sectionId, id, {
       kind: "phobos",
-      name: nextLinkName(sectionId, links, input),
+      name: nextLinkName(sectionId, this, input),
       address: endpoint.address,
       private_key: endpoint.private_key,
       mtu: endpoint.mtu ? String(endpoint.mtu) : "",

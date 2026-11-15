@@ -53,6 +53,114 @@ async function openPhobos(link = uri) {
 }
 
 describe('Phobos pasted in Connection URI', () => {
+  it('adds to the tunnel widget of the cloned section dialog and survives saving', async () => {
+    const { h, links, tunnels } = setup();
+    tunnels.getUIElement = () => null;
+    const map = new h.form.Map('forkop');
+    const section = map.section(h.form.NamedSection, 'sec');
+    const clone = (option) => {
+      const copy = Object.assign(
+        Object.create(Object.getPrototypeOf(option)),
+        option,
+        { map, section },
+      );
+      section.children.push(copy);
+      return copy;
+    };
+    const modalLinks = clone(links);
+    const modalTunnels = clone(tunnels);
+    const items = [];
+    const changes = [];
+    const node = {
+      querySelector: () => null,
+      querySelectorAll: () => items,
+    };
+    const widget = {
+      node,
+      addItem(list, value) {
+        expect(list).toBe(node);
+        const item = { querySelector: () => ({ parentNode: item, value }) };
+        items.push(item);
+      },
+      dispatchCbiDynlistChange(list, value) {
+        expect(list).toBe(node);
+        changes.push(value);
+      },
+    };
+    modalLinks.formvalue = () => [];
+    modalTunnels.getUIElement = () => widget;
+    modalTunnels.formvalue = () =>
+      items.map((item) => item.querySelector().value);
+
+    expect(modalLinks.createTypedItem('sec', uri)).toBe('');
+    expect(modalLinks.createTypedItem('sec', uri)).toBe('');
+    const imported = h.uci.sections('forkop', 'tunnel');
+    expect(imported.map((tunnel) => tunnel.name)).toEqual(['Home', 'Home #1']);
+    expect(modalTunnels.formvalue()).toEqual(
+      imported.map((tunnel) => tunnel['.name']),
+    );
+    expect(changes).toEqual(modalTunnels.formvalue());
+    await modalTunnels.parse('sec');
+    expect(h.uci.sections('forkop', 'tunnel')).toHaveLength(2);
+    expect(h.uci.sections('forkop', 'tunnel_peer')).toHaveLength(2);
+    expect(h.uci.sections('forkop', 'connection_link')).toHaveLength(0);
+  });
+
+  it.each([
+    {
+      change: 'added',
+      originalValues: [],
+      modalValues: ['saved'],
+      expectedName: 'Home #1',
+    },
+    {
+      change: 'removed',
+      originalValues: ['saved'],
+      modalValues: [],
+      expectedName: 'Home',
+    },
+  ])(
+    'uses the dialog list when a conflicting link was $change',
+    ({ originalValues, modalValues, expectedName }) => {
+      const { h, links, tunnels } = setup();
+      h.uci.add('forkop', 'connection_link', 'saved');
+      Object.assign(h.store.get('saved'), {
+        section: 'sec',
+        name: 'Home',
+        uri: 'vless://a@a.example:443#Home',
+      });
+      links.formvalue = () => originalValues;
+      const map = new h.form.Map('forkop');
+      const section = map.section(h.form.NamedSection, 'sec');
+      const clone = (option) => {
+        const copy = Object.assign(
+          Object.create(Object.getPrototypeOf(option)),
+          option,
+          { map, section },
+        );
+        section.children.push(copy);
+        return copy;
+      };
+      const modalLinks = clone(links);
+      clone(tunnels);
+      modalLinks.formvalue = () => modalValues;
+
+      expect(modalLinks.createTypedItem('sec', uri)).toBe('');
+      expect(h.uci.sections('forkop', 'tunnel')[0].name).toBe(expectedName);
+    },
+  );
+
+  it('creates no tunnel or peer when the current form has no tunnel widget', () => {
+    const { h, links, tunnels } = setup();
+    tunnels.getUIElement = () => null;
+
+    expect(() => links.createTypedItem('sec', uri)).toThrow(
+      'Tunnel field is unavailable',
+    );
+    expect(h.uci.sections('forkop', 'tunnel')).toHaveLength(0);
+    expect(h.uci.sections('forkop', 'tunnel_peer')).toHaveLength(0);
+  });
+
   it('creates a tunnel and peer, keeps names unique and can reopen/save it', async () => {
     const { h, links, tunnels } = setup();
     expect(links.validate('sec', uri)).toBe(true);

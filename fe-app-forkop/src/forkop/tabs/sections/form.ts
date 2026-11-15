@@ -472,7 +472,6 @@ export function createSectionContent(section: CBISection) {
   o.onListChange = refreshLiveChoiceWidgets;
   o.afterMaterializeChildItems = orderChildItemsByPosition;
   outboundNameSourceOptions.set('tunnels', o);
-  const tunnelOption = o;
   const createLink = links.createTypedItem!;
   links.createTypedItem = function (sectionId: string, input: string) {
     if (!/^phobos:\/\//iu.test(input.trim()))
@@ -481,13 +480,15 @@ export function createSectionContent(section: CBISection) {
     const validation = validateConnectionLink(input);
     if (!parsed.valid || validation !== true)
       throw new TypeError(parsed.valid ? String(validation) : parsed.message);
-    const widget = tunnelOption.getUIElement(sectionId);
+    // LuCI clones the grid options into a separate map when opening a section dialog.
+    const tunnelField = this.map.lookupOption('tunnels', sectionId);
+    const widget = tunnelField?.[0].getUIElement(tunnelField[1]);
     if (!widget) throw new TypeError(_('Tunnel field is unavailable'));
     const id = nextSectionId('tunnel');
     const endpoint = parsed.endpoint;
     createTunnelItem(sectionId, id, {
       kind: 'phobos',
-      name: nextLinkName(sectionId, links, input),
+      name: nextLinkName(sectionId, this, input),
       address: endpoint.address,
       private_key: endpoint.private_key,
       mtu: endpoint.mtu ? String(endpoint.mtu) : '',
