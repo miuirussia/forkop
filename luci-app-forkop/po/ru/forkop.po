@@ -506,6 +506,9 @@ msgstr "Запрос к Clash API был отправлен, но истекло
 msgid "Clash API response was lost after the request was sent"
 msgstr "Запрос к Clash API был отправлен, но ответ потерян"
 
+msgid "Clear"
+msgstr "Очистить"
+
 msgid "Click a node to pin it, and click it again to unpin it."
 msgstr "Нажмите на узел, чтобы закрепить его, и ещё раз, чтобы открепить."
 

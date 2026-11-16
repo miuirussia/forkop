@@ -16658,6 +16658,7 @@ function render5() {
         ])
       ]),
       textE("div", { class: "fkp_logs-page__actions" }, [
+        renderActionButton("logs-clear", _("Clear")),
         renderActionButton("logs-copy", _("Copy")),
         renderActionButton("logs-download", _("Download"))
       ])
@@ -16690,10 +16691,12 @@ function filterLogText(text8, query) {
 
 // src/forkop/tabs/logs/initController.ts
 var AUTO_REFRESH_INTERVAL_MS = 2e3;
+var CLEARED_LOG_STORAGE_KEY = "forkop:cleared-log:v1";
 var controllerInitialized2 = false;
 var loading2 = false;
 var rawLogs = "";
 var logsLoaded = false;
+var clearedLines = [];
 function logsTabShown() {
   return !document.hidden && (store.get().tabService.current === "logs" || isActiveLuciTab("logs"));
 }
@@ -16703,8 +16706,27 @@ function element2(id) {
 function getSearchQuery() {
   return element2("logs-search").value;
 }
+function getCurrentLogs() {
+  if (!clearedLines.length) {
+    return rawLogs;
+  }
+  const lines3 = rawLogs.split(/\r?\n/).filter(Boolean);
+  const sequence = [...lines3, null, ...clearedLines];
+  const prefixLengths = new Array(sequence.length).fill(0);
+  for (let index = 1; index < sequence.length; index++) {
+    let matched = prefixLengths[index - 1];
+    while (matched > 0 && sequence[index] !== sequence[matched]) {
+      matched = prefixLengths[matched - 1];
+    }
+    if (sequence[index] === sequence[matched]) {
+      matched++;
+    }
+    prefixLengths[index] = matched;
+  }
+  return lines3.slice(prefixLengths[sequence.length - 1]).join("\n");
+}
 function getVisibleLogs() {
-  return filterLogText(rawLogs, getSearchQuery());
+  return filterLogText(getCurrentLogs(), getSearchQuery());
 }
 function renderActionButton2(id, label, disabled) {
   const button = element2(id);
@@ -16714,10 +16736,12 @@ function renderActionButton2(id, label, disabled) {
 }
 function renderLogs(scrollToTop = false) {
   const output = element2("logs-output");
-  const visibleLogs = getVisibleLogs();
+  const currentLogs = getCurrentLogs();
+  const visibleLogs = filterLogText(currentLogs, getSearchQuery());
   const searching = getSearchQuery().trim() !== "";
-  output.textContent = visibleLogs || (rawLogs ? _("No logs match the current filters") : _("No logs available"));
+  output.textContent = visibleLogs || (currentLogs.trim() ? _("No logs match the current filters") : _("No logs available"));
   output.classList.toggle("fkp_logs-page__output--empty", !visibleLogs);
+  renderActionButton2("logs-clear", _("Clear"), !currentLogs.trim());
   renderActionButton2(
     "logs-copy",
     searching ? _("Copy matching") : _("Copy"),
@@ -16778,6 +16802,17 @@ function copyVisibleLogs() {
     copyToClipboard(visibleLogs);
   }
 }
+function clearLogs() {
+  clearedLines = rawLogs.split(/\r?\n/).filter(Boolean);
+  try {
+    getLocalStorage()?.setItem(
+      CLEARED_LOG_STORAGE_KEY,
+      clearedLines.join("\n")
+    );
+  } catch {
+  }
+  renderLogs(true);
+}
 function downloadVisibleLogs() {
   const visibleLogs = getVisibleLogs();
   if (visibleLogs) {
@@ -16791,6 +16826,11 @@ async function initController5() {
   }
   controllerInitialized2 = true;
   await onMount("logs-status");
+  try {
+    clearedLines = (getLocalStorage()?.getItem(CLEARED_LOG_STORAGE_KEY) || "").split(/\r?\n/).filter(Boolean);
+  } catch {
+    clearedLines = [];
+  }
   const autoRefresh = element2("logs-auto-refresh");
   autoRefresh.checked = true;
   document.querySelector(".fkp_logs-page__search-icon")?.replaceChildren(renderSearchIcon24());
@@ -16802,6 +16842,8 @@ async function initController5() {
   });
   element2("logs-copy").addEventListener("click", copyVisibleLogs);
   element2("logs-download").addEventListener("click", downloadVisibleLogs);
+  element2("logs-clear").addEventListener("click", clearLogs);
+  renderActionButton2("logs-clear", _("Clear"), !getCurrentLogs().trim());
   store.subscribe((next, prev) => {
     if (next.tabService.current === "logs" && prev.tabService.current !== "logs" && (!logsLoaded || autoRefresh.checked)) {
       void refreshLogs();
@@ -16834,7 +16876,7 @@ var styles7 = `
 fill the column. */
 #cbi-${FORKOP_UCI_PACKAGE}-logs-_mount_node {
     display: block !important;
-    margin: 16px 0 22px;
+    margin: 0;
     padding: 0;
 }
 
@@ -16845,6 +16887,7 @@ fill the column. */
 /* The search field keeps the theme's height, the one its buttons have. */
 .fkp_logs-page {
     container-type: inline-size;
+    padding: 16px;
 }
 
 .fkp_logs-page__toolbar,
@@ -16913,7 +16956,12 @@ fill the column. */
 }
 
 .fkp_logs-page__actions {
-    gap: 0.4em;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.fkp_logs-page__actions .btn {
+    margin: 0;
 }
 
 .fkp_logs-page__output {
@@ -16929,12 +16977,14 @@ fill the column. */
     min-height: 24rem;
     max-height: none !important;
     margin: 0;
+    padding: 12px;
     overflow-x: auto !important;
     overflow-y: auto !important;
     overscroll-behavior: contain;
     contain: inline-size;
     border-radius: 4px;
     font-family: ${MONOSPACE_FONT};
+    line-height: 1.5;
     white-space: pre;
     overflow-wrap: normal;
     word-break: normal;
@@ -16955,7 +17005,7 @@ fill the column. */
     }
 
     .fkp_logs-page__actions .btn {
-        flex: 1 1 0;
+        flex: 1 1 auto;
     }
 
     .fkp_logs-page__output {

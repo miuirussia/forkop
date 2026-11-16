@@ -696,6 +696,11 @@ msgstr ""
 msgid "Clash API response was lost after the request was sent"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/logs/initController.ts
+#: fe-app-forkop/src/forkop/tabs/logs/render.ts
+msgid "Clear"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
 msgid "Click a node to pin it, and click it again to unpin it."
 msgstr ""

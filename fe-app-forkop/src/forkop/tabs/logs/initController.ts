@@ -5,14 +5,17 @@ import { renderSearchIcon24 } from '../../../icons';
 import { ForkopShellMethods } from '../../methods';
 import { isActiveLuciTab } from '../../helpers/isActiveLuciTab';
 import { store } from '../../services/store.service';
+import { getLocalStorage } from '../../services/browserStorage.service';
 import { filterLogText } from './filterLogs';
 
 const AUTO_REFRESH_INTERVAL_MS = 2000;
+const CLEARED_LOG_STORAGE_KEY = 'forkop:cleared-log:v1';
 
 let controllerInitialized = false;
 let loading = false;
 let rawLogs = '';
 let logsLoaded = false;
+let clearedLines: string[] = [];
 
 // The theme lays an inactive tab out at zero height instead of hiding it, so the tab service
 // says which tab is shown.
@@ -31,8 +34,31 @@ function getSearchQuery() {
   return element<HTMLInputElement>('logs-search').value;
 }
 
+function getCurrentLogs() {
+  if (!clearedLines.length) {
+    return rawLogs;
+  }
+
+  // Match the cleared suffix against the current prefix, including repeated lines.
+  // Prefix lengths keep this linear even when the log contains many identical entries.
+  const lines = rawLogs.split(/\r?\n/).filter(Boolean);
+  const sequence: (string | null)[] = [...lines, null, ...clearedLines];
+  const prefixLengths = new Array<number>(sequence.length).fill(0);
+  for (let index = 1; index < sequence.length; index++) {
+    let matched = prefixLengths[index - 1];
+    while (matched > 0 && sequence[index] !== sequence[matched]) {
+      matched = prefixLengths[matched - 1];
+    }
+    if (sequence[index] === sequence[matched]) {
+      matched++;
+    }
+    prefixLengths[index] = matched;
+  }
+  return lines.slice(prefixLengths[sequence.length - 1]).join('\n');
+}
+
 function getVisibleLogs() {
-  return filterLogText(rawLogs, getSearchQuery());
+  return filterLogText(getCurrentLogs(), getSearchQuery());
 }
 
 // With a search typed in, Copy and Download say they hand over only what it found.
@@ -45,13 +71,17 @@ function renderActionButton(id: string, label: string, disabled: boolean) {
 
 function renderLogs(scrollToTop = false) {
   const output = element<HTMLPreElement>('logs-output');
-  const visibleLogs = getVisibleLogs();
+  const currentLogs = getCurrentLogs();
+  const visibleLogs = filterLogText(currentLogs, getSearchQuery());
   const searching = getSearchQuery().trim() !== '';
 
   output.textContent =
     visibleLogs ||
-    (rawLogs ? _('No logs match the current filters') : _('No logs available'));
+    (currentLogs.trim()
+      ? _('No logs match the current filters')
+      : _('No logs available'));
   output.classList.toggle('fkp_logs-page__output--empty', !visibleLogs);
+  renderActionButton('logs-clear', _('Clear'), !currentLogs.trim());
   renderActionButton(
     'logs-copy',
     searching ? _('Copy matching') : _('Copy'),
@@ -124,6 +154,19 @@ function copyVisibleLogs() {
   }
 }
 
+function clearLogs() {
+  clearedLines = rawLogs.split(/\r?\n/).filter(Boolean);
+  try {
+    getLocalStorage()?.setItem(
+      CLEARED_LOG_STORAGE_KEY,
+      clearedLines.join('\n'),
+    );
+  } catch {
+    // Clearing still works for this page when browser storage is unavailable.
+  }
+  renderLogs(true);
+}
+
 function downloadVisibleLogs() {
   const visibleLogs = getVisibleLogs();
   if (visibleLogs) {
@@ -140,6 +183,14 @@ export async function initController(): Promise<void> {
   controllerInitialized = true;
   await onMount('logs-status');
 
+  try {
+    clearedLines = (getLocalStorage()?.getItem(CLEARED_LOG_STORAGE_KEY) || '')
+      .split(/\r?\n/)
+      .filter(Boolean);
+  } catch {
+    clearedLines = [];
+  }
+
   const autoRefresh = element<HTMLInputElement>('logs-auto-refresh');
   autoRefresh.checked = true;
   document
@@ -154,6 +205,8 @@ export async function initController(): Promise<void> {
   });
   element('logs-copy').addEventListener('click', copyVisibleLogs);
   element('logs-download').addEventListener('click', downloadVisibleLogs);
+  element('logs-clear').addEventListener('click', clearLogs);
+  renderActionButton('logs-clear', _('Clear'), !getCurrentLogs().trim());
 
   store.subscribe((next, prev) => {
     if (

@@ -38,6 +38,7 @@ export function render() {
         ]),
       ]),
       E('div', { class: 'fkp_logs-page__actions' }, [
+        renderActionButton('logs-clear', _('Clear')),
         renderActionButton('logs-copy', _('Copy')),
         renderActionButton('logs-download', _('Download')),
       ]),

@@ -20,7 +20,7 @@ export const styles = `
 fill the column. */
 #cbi-${FORKOP_CBI_PREFIX}-logs-_mount_node {
     display: block !important;
-    margin: 16px 0 22px;
+    margin: 0;
     padding: 0;
 }
 
@@ -31,6 +31,7 @@ fill the column. */
 /* The search field keeps the theme's height, the one its buttons have. */
 .fkp_logs-page {
     container-type: inline-size;
+    padding: 16px;
 }
 
 .fkp_logs-page__toolbar,
@@ -99,7 +100,12 @@ fill the column. */
 }
 
 .fkp_logs-page__actions {
-    gap: 0.4em;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.fkp_logs-page__actions .btn {
+    margin: 0;
 }
 
 .fkp_logs-page__output {
@@ -115,12 +121,14 @@ fill the column. */
     min-height: 24rem;
     max-height: none !important;
     margin: 0;
+    padding: 12px;
     overflow-x: auto !important;
     overflow-y: auto !important;
     overscroll-behavior: contain;
     contain: inline-size;
     border-radius: 4px;
     font-family: ${MONOSPACE_FONT};
+    line-height: 1.5;
     white-space: pre;
     overflow-wrap: normal;
     word-break: normal;
@@ -141,7 +149,7 @@ fill the column. */
     }
 
     .fkp_logs-page__actions .btn {
-        flex: 1 1 0;
+        flex: 1 1 auto;
     }
 
     .fkp_logs-page__output {
