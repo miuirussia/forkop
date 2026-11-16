@@ -31,7 +31,9 @@ function datRulesetLabel(reference: string) {
   if (!dat) return null;
   const source =
     `${uci.get(FORKOP_UCI_PACKAGE, dat.source, 'label') || ''}`.trim();
-  return source ? `${dat.tag} (${source})` : dat.tag;
+  const kind = uci.get(FORKOP_UCI_PACKAGE, dat.source, 'kind');
+  const details = [source, kind].filter(Boolean).join(', ');
+  return details ? `${dat.tag} (${details})` : dat.tag;
 }
 
 function sagerNetRulesetLabel(reference: string) {

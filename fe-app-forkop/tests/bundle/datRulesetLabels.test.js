@@ -18,13 +18,17 @@ function ruleSetOption(name) {
   return grid.children.find((option) => option.option === name);
 }
 
-describe('DAT rule set labels', () => {
+describe.each(['geosite', 'geoip'])('DAT %s rule set labels', (kind) => {
+  beforeEach(() => {
+    harness.uci.set('forkop', 'geodata_8a6426', 'kind', kind);
+  });
+
   it.each(['rule_set', '_dns_rule_set'])(
     'shows the tag and source in %s while saving the original reference',
     (name) => {
       const option = ruleSetOption(name);
       const label = option.renderListItemLabel('sec', reference);
-      expect(label.textContent).toBe('livejournal (My Geosite)');
+      expect(label.textContent).toBe(`livejournal (My Geosite, ${kind})`);
       expect(label.getAttribute('title')).toBe(reference);
       option.write('sec', [reference]);
       expect(harness.uci.get('forkop', 'sec', 'rule_set')).toEqual([reference]);
@@ -49,7 +53,7 @@ describe('DAT rule set labels', () => {
       'sec',
       reference,
     );
-    expect(dialog.title).toBe('Rule set: livejournal (My Geosite)');
+    expect(dialog.title).toBe(`Rule set: livejournal (My Geosite, ${kind})`);
   });
 });
 
