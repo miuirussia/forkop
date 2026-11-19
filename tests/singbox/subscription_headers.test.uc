@@ -3,6 +3,7 @@ let stub = require("stub");
 let fs = require("fs");
 let packages = require("core.packages");
 let headers = require("singbox.subscription_headers");
+let subscription_crypto = require("singbox.subscription_crypto");
 
 function headers_module(release_file, version_file) {
     headers.paths.openwrt_release = release_file ?? "/nonexistent";
@@ -52,6 +53,22 @@ t.test("header lines are validated and combined case-insensitively", () => {
     t.eq(module.parse_header_lines([ "X-A: 1", "x-a: 2" ]).headers, { "X-A": [ "1", "2" ] });
     t.eq(module.parse_header_lines([ "Broken Header" ]).valid, false);
     t.eq(module.parse_header_lines([ "Bad Name: x" ]).valid, false);
+});
+
+t.test("an Incy link gets the compatibility User-Agent unless a header sets it", () => {
+    t.eq(headers.parse_header_lines([ "X-Test: one" ], "incy").headers,
+        { "User-Agent": [ "INCY/3.7.2" ], "X-Test": [ "one" ] });
+    t.eq(headers.parse_header_lines([ "user-agent: custom" ], "incy").headers,
+        { "user-agent": [ "custom" ] });
+    t.eq(headers.parse_header_lines([]).headers, {});
+});
+
+t.test("every Happ link uses its compatibility User-Agent unless a header sets it", () => {
+    for (let format in [ "crypt", "crypt2", "crypt3", "crypt4", "crypt5" ])
+        t.eq(headers.parse_header_lines([ "X-HWID: router" ], subscription_crypto.client("happ://" + format + "/fixture")).headers,
+            { "User-Agent": [ "Happ/4.11.2" ], "X-HWID": [ "router" ] }, format);
+    t.eq(headers.parse_header_lines([ "user-agent: custom" ], "happ").headers,
+        { "user-agent": [ "custom" ] });
 });
 
 t.done();

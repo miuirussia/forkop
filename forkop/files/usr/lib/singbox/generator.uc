@@ -10,6 +10,7 @@ let runtime_rulesets = require("singbox.rulesets");
 let runtime_servers = require("singbox.servers");
 let runtime_tailscale = require("singbox.tailscale");
 let subscription_headers_module = require("singbox.subscription_headers");
+let subscription_crypto = require("singbox.subscription_crypto");
 let runtime_urltest = require("singbox.urltest");
 let connections = require("config.connections");
 let runtime_settings_cache = null;
@@ -322,9 +323,9 @@ function base_config(settings, service_address) {
     };
 }
 
-function subscription_headers(subscription) {
+function subscription_headers(subscription, client) {
     let parsed = subscription_headers_module.parse_header_lines(
-        connections.subscription_headers(subscription)
+        connections.subscription_headers(subscription), client
     );
     if (!parsed.valid)
         runtime_generate_unsupported("invalid subscription request " + parsed.message);
@@ -577,7 +578,7 @@ function add_subscription_provider(config, section, subscription) {
     }
     else {
         provider.url = source;
-        provider.headers = subscription_headers(subscription);
+        provider.headers = subscription_headers(subscription, subscription_crypto.client(source));
         if (connections.subscription_update_enabled(subscription))
             provider.update_interval = connections.subscription_update_interval(subscription);
 

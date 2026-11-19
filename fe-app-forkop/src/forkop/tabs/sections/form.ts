@@ -96,7 +96,7 @@ import {
 } from './ruleSets';
 import {
   cleanupRemoteSubscriptionUrlSettings,
-  defaultSubscriptionHeaderLines,
+  defaultHeadersForSubscriptionSource,
   defaultSubscriptionUrlSettings,
   isRemoteSubscriptionSource,
   nextSubscriptionTag,
@@ -346,7 +346,7 @@ export function createSectionContent(section: CBISection) {
         isRemoteSubscriptionSource(value) ? '0' : null,
       header: (value: unknown) =>
         isRemoteSubscriptionSource(value)
-          ? defaultSubscriptionHeaderLines.slice()
+          ? defaultHeadersForSubscriptionSource(value)
           : null,
       show_dashboard_metadata: (value: unknown) =>
         isRemoteSubscriptionSource(value) ? '1' : null,

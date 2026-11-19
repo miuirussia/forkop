@@ -3,7 +3,7 @@ let fixture = require("fixture");
 let q = require("sbconfig");
 let generator = require("singbox.generator");
 
-function providers_config() {
+function providers_config(source_url, source_headers) {
     fixture.seed({
         settings: { dns_server: [ "1.1.1.1" ], bootstrap_dns_server: [ "1.1.1.1" ] },
         section: [
@@ -13,8 +13,8 @@ function providers_config() {
         connection_link: fixture.links("proxy", [ "vless://id@example.com:443?security=tls#Manual" ], { detour_section: "hop" }),
         subscription_url: [
             {
-                ".name": "source", section: "proxy", url: "https://example.com/subscription", detour_section: "hop",
-                header: [ "User-Agent: Happ", "X-HWID: router-hwid", "X-Device-OS: OpenWrt Linux", "X-Test: one", "x-test: two", "X-Empty:" ],
+                ".name": "source", section: "proxy", url: source_url ?? "https://example.com/subscription", detour_section: "hop",
+                header: source_headers ?? [ "User-Agent: Happ", "X-HWID: router-hwid", "X-Device-OS: OpenWrt Linux", "X-Test: one", "x-test: two", "X-Empty:" ],
                 subscription_update_enabled: "0", download_via_proxy_enabled: "1", download_via_proxy_section: "hop",
                 tag: "premium", server_filter_mode: "include",
                 include_regex: "^(US|DE)", exclude_regex: "expired"
@@ -60,6 +60,16 @@ t.test("remote subscriptions become providers carrying their own request profile
         "an unset User-Agent is not materialized");
     t.eq(automatic.update_interval, "1h");
     t.eq(q.provider(config, "proxy/sub3").headers["X-HWID"], null, "no stored HWID, no header");
+});
+
+t.test("an encrypted URL and its request profile go to the core for decryption", () => {
+    let url = "happ://crypt4/fixture_payload";
+    let remote = q.provider(providers_config(url, [ "X-HWID: router-hwid" ]), "proxy/premium");
+    t.eq([ remote.type, remote.url, remote.download_detour ], [ "remote", url, "hop" ]);
+    t.eq([ remote.headers["User-Agent"], remote.headers["X-HWID"], remote.update_interval ],
+        [ [ "Happ/4.11.2" ], [ "router-hwid" ], null ]);
+    let custom = q.provider(providers_config(url, [ "User-Agent: custom" ]), "proxy/premium");
+    t.eq(custom.headers["User-Agent"], [ "custom" ]);
 });
 
 t.test("a local subscription is read from its path with remote-only options left out", () => {

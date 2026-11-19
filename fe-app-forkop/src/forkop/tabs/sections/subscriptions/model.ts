@@ -2,6 +2,7 @@ import { FORKOP_UCI_PACKAGE } from '../../../../constants';
 import { message } from '../../../../validators/messages';
 import { validatePath } from '../../../../validators/validatePath';
 import { validateUrl } from '../../../../validators/validateUrl';
+import { ENCRYPTED_SUBSCRIPTION_SOURCE } from '../../../../validators/encryptedSubscription';
 import {
   applyChildItemSettings,
   childItemInputValue,
@@ -13,7 +14,7 @@ import { E } from '../../../../helpers/element';
 import { nextNumberedName } from '../../../../helpers/nextNumberedName';
 import { subscriptionOverrideKeys } from './overrides';
 
-export let defaultSubscriptionHeaderLines: string[] = [];
+let defaultSubscriptionHeaderLines: string[] = [];
 
 let defaultSubscriptionHeadersPromise: Promise<string[]> | null = null;
 
@@ -45,6 +46,33 @@ export function loadDefaultSubscriptionHeaders() {
     });
 
   return defaultSubscriptionHeadersPromise;
+}
+
+export function defaultHeadersForSubscriptionSource(
+  value: unknown,
+  headers = defaultSubscriptionHeaderLines,
+) {
+  // The router supplies the client's User-Agent for encrypted links.
+  return ENCRYPTED_SUBSCRIPTION_SOURCE.test(`${value || ''}`.trim())
+    ? headers.filter((line) => !/^user-agent\s*:/i.test(line))
+    : headers.slice();
+}
+
+export function withoutDefaultSubscriptionUserAgent(
+  value: unknown,
+  initialValue: unknown,
+) {
+  const lines = Array.isArray(value) ? value : [value];
+  const initialLines = Array.isArray(initialValue)
+    ? initialValue
+    : [initialValue];
+  // Older entries may have been seeded before the installed core changed versions.
+  const filtered = lines.filter(
+    (line) =>
+      !initialLines.includes(line) ||
+      !/^User-Agent: sing-box(?:\/[0-9]+(?:\.[0-9]+)*)?$/.test(`${line}`),
+  );
+  return filtered.length === lines.length ? value : filtered;
 }
 
 export function optionMapValue(
@@ -222,9 +250,13 @@ function parseSubscriptionUrlEntry(
   return { valid: true, url: normalized };
 }
 
+export const REMOTE_SUBSCRIPTION_SOURCE = new RegExp(
+  `^\\s*https?://|${ENCRYPTED_SUBSCRIPTION_SOURCE.source}`,
+  'i',
+);
+
 export function isRemoteSubscriptionSource(value: unknown) {
-  const source = `${value || ''}`.trim();
-  return source.startsWith('http://') || source.startsWith('https://');
+  return REMOTE_SUBSCRIPTION_SOURCE.test(`${value || ''}`.trim());
 }
 
 export function validateSubscriptionUrlEntry(
@@ -238,6 +270,9 @@ export function validateSubscriptionUrlEntry(
   const parsed = parseSubscriptionUrlEntry(value);
   if (!parsed.valid) {
     return parsed.message;
+  }
+  if (ENCRYPTED_SUBSCRIPTION_SOURCE.test(parsed.url)) {
+    return true;
   }
 
   const validation = isRemoteSubscriptionSource(parsed.url)

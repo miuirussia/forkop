@@ -4,6 +4,7 @@ let exec = require("core.exec");
 let netstat = require("core.netstat");
 let uci = require("core.uci");
 let singbox_constants = require("singbox.constants");
+let subscription_crypto = require("singbox.subscription_crypto");
 let packages = require("core.packages");
 let connections = require("config.connections");
 let generator = require("singbox.generator");
@@ -118,15 +119,18 @@ function write_config(checked, bootstrap) {
     if (address == "")
         exec.log("warn", "No IPv4 address found on the LAN, so the Clash API listens on 127.0.0.1 only; set forkop.settings.service_listen_address to choose one");
 
-    let text;
+    let config;
     try {
-        text = sprintf("%J\n", generator.build({ service_address: address, bootstrap }));
+        config = generator.build({ service_address: address, bootstrap });
     }
     catch (e) {
         die("Failed to generate the sing-box configuration: " + e.message);
     }
+    let text = sprintf("%J\n", config);
     let unchanged = fs.readfile(path) == text;
-    if (checked || !unchanged)
+    // Happ key files can change even when the provider's configuration is identical.
+    let uses_happ_keys = length(filter(config.providers, (provider) => subscription_crypto.client(provider.url) == "happ")) > 0;
+    if (checked || !unchanged || uses_happ_keys)
         check(text);
 
     if (unchanged)

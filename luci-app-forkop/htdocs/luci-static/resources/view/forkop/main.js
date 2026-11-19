@@ -19913,6 +19913,9 @@ function nextNumberedName(prefix, taken, separator = " #") {
   return `${marker}${highest + 1}`;
 }
 
+// src/validators/encryptedSubscription.ts
+var ENCRYPTED_SUBSCRIPTION_SOURCE = /^\s*(?=\S{1,16400}\s*$)(?:incy:\/\/crypt1\/[a-z0-9_-]+\/*|happ:\/\/crypt[2345]?\/[a-z0-9_+=:/-]+)\s*$/i;
+
 // src/forkop/tabs/sections/validators.ts
 function validateRegex(value) {
   if (!value || !value.length) {
@@ -20089,6 +20092,17 @@ function loadDefaultSubscriptionHeaders() {
   });
   return defaultSubscriptionHeadersPromise;
 }
+function defaultHeadersForSubscriptionSource(value, headers = defaultSubscriptionHeaderLines) {
+  return ENCRYPTED_SUBSCRIPTION_SOURCE.test(`${value || ""}`.trim()) ? headers.filter((line) => !/^user-agent\s*:/i.test(line)) : headers.slice();
+}
+function withoutDefaultSubscriptionUserAgent(value, initialValue) {
+  const lines3 = Array.isArray(value) ? value : [value];
+  const initialLines = Array.isArray(initialValue) ? initialValue : [initialValue];
+  const filtered = lines3.filter(
+    (line) => !initialLines.includes(line) || !/^User-Agent: sing-box(?:\/[0-9]+(?:\.[0-9]+)*)?$/.test(`${line}`)
+  );
+  return filtered.length === lines3.length ? value : filtered;
+}
 function optionMapValue(option2, section_id, key) {
   const value = option2 && option2.map && option2.map.data ? option2.map.data.get(option2.map.config, section_id, key) : uci.get(FORKOP_UCI_PACKAGE, section_id, key);
   return value == null ? "" : value;
@@ -20194,9 +20208,12 @@ function parseSubscriptionUrlEntry(value) {
   }
   return { valid: true, url: normalized };
 }
+var REMOTE_SUBSCRIPTION_SOURCE = new RegExp(
+  `^\\s*https?://|${ENCRYPTED_SUBSCRIPTION_SOURCE.source}`,
+  "i"
+);
 function isRemoteSubscriptionSource(value) {
-  const source = `${value || ""}`.trim();
-  return source.startsWith("http://") || source.startsWith("https://");
+  return REMOTE_SUBSCRIPTION_SOURCE.test(`${value || ""}`.trim());
 }
 function validateSubscriptionUrlEntry(_section_id, value) {
   if (!value || value.length === 0) {
@@ -20205,6 +20222,9 @@ function validateSubscriptionUrlEntry(_section_id, value) {
   const parsed = parseSubscriptionUrlEntry(value);
   if (!parsed.valid) {
     return parsed.message;
+  }
+  if (ENCRYPTED_SUBSCRIPTION_SOURCE.test(parsed.url)) {
+    return true;
   }
   const validation = isRemoteSubscriptionSource(parsed.url) ? validateUrl(`${parsed.url}`) : validatePath(`${parsed.url}`);
   return validation === true ? true : message.urlOrPath();
@@ -25564,6 +25584,9 @@ function isSubscriptionAddress(link) {
 }
 function validateProxyUrl(url) {
   const link = url.trim();
+  if (ENCRYPTED_SUBSCRIPTION_SOURCE.test(link)) {
+    return _("Probably a subscription URL: paste it into Subscription");
+  }
   const match = /^([a-z0-9+]+):\/\/([^\s#]+)(?:#\P{Cc}*)?$/u.exec(link);
   if (!match || !NATIVE_PROXY_SCHEMES.has(match[1])) {
     return _("Unsupported link");
@@ -26390,7 +26413,6 @@ function showSubscriptionHeadersModal(parentMap, itemId) {
 }
 
 // src/forkop/tabs/sections/subscriptions/options.ts
-var REMOTE_SOURCE = /^https?:\/\//;
 function addSubscriptionUrlItemOptions(itemSection, options = {}) {
   const parentSectionForItem = typeof options.parentSectionId === "function" ? options.parentSectionId : parentSectionIdForItem;
   let o = itemSection.option(form.Value, "tag", _("Subscription name"));
@@ -26417,6 +26439,9 @@ function addSubscriptionUrlItemOptions(itemSection, options = {}) {
   o.validate = required(
     (itemId, value) => validateSubscriptionUrlEntry(itemId, value.trim())
   );
+  o.write = function(itemId, value) {
+    this.map.data.set(this.map.config, itemId, this.option, value.trim());
+  };
   addCascadeOptions(
     itemSection,
     parentSectionForItem,
@@ -26428,7 +26453,7 @@ function addSubscriptionUrlItemOptions(itemSection, options = {}) {
     _("Subscription auto update"),
     _("Update the subscription automatically at a set interval")
   );
-  o.depends("url", REMOTE_SOURCE);
+  o.depends("url", REMOTE_SUBSCRIPTION_SOURCE);
   o.default = "1";
   o.rmempty = false;
   o = itemSection.option(
@@ -26437,7 +26462,10 @@ function addSubscriptionUrlItemOptions(itemSection, options = {}) {
     _("Update interval"),
     _("For example 30m, 12h or 1d")
   );
-  o.depends({ url: REMOTE_SOURCE, subscription_update_enabled: "1" });
+  o.depends({
+    url: REMOTE_SUBSCRIPTION_SOURCE,
+    subscription_update_enabled: "1"
+  });
   o.placeholder = "1h";
   o.validate = function(itemId, value) {
     return currentOptionValue(this, itemId, "subscription_update_enabled") === "1" ? validateRequiredSingBoxDuration(value) : validateOptionalSingBoxDuration(value);
@@ -26448,7 +26476,7 @@ function addSubscriptionUrlItemOptions(itemSection, options = {}) {
     _("Request through a section"),
     _("Download the subscription through another section instead of directly")
   );
-  o.depends("url", REMOTE_SOURCE);
+  o.depends("url", REMOTE_SUBSCRIPTION_SOURCE);
   o.default = "0";
   o.rmempty = false;
   o = itemSection.option(
@@ -26456,7 +26484,10 @@ function addSubscriptionUrlItemOptions(itemSection, options = {}) {
     "download_via_proxy_section",
     _("Request through")
   );
-  o.depends({ url: REMOTE_SOURCE, download_via_proxy_enabled: "1" });
+  o.depends({
+    url: REMOTE_SUBSCRIPTION_SOURCE,
+    download_via_proxy_enabled: "1"
+  });
   o.load = function(itemId) {
     const sectionId = parentSectionForItem(itemId);
     refreshOptionChoices(this, subscriptionDownloadTargetChoices(sectionId));
@@ -26473,7 +26504,7 @@ function addSubscriptionUrlItemOptions(itemSection, options = {}) {
     _("Headers"),
     _("Change the HTTP headers of the request")
   );
-  o.depends("url", REMOTE_SOURCE);
+  o.depends("url", REMOTE_SUBSCRIPTION_SOURCE);
   o.inputtitle = _("Edit");
   o.inputstyle = "edit";
   o.onclick = function() {
@@ -26485,7 +26516,7 @@ function addSubscriptionUrlItemOptions(itemSection, options = {}) {
     _("Show metadata"),
     _("Show the metadata block on the dashboard")
   );
-  o.depends("url", REMOTE_SOURCE);
+  o.depends("url", REMOTE_SUBSCRIPTION_SOURCE);
   o.default = "1";
   o.rmempty = false;
   o = itemSection.option(
@@ -26514,9 +26545,14 @@ function addSubscriptionUrlItemOptions(itemSection, options = {}) {
 function showSubscriptionUrlSettingsModal(sectionId, itemValue, option2, _widget, itemNode) {
   const value = `${itemValue ?? ""}`;
   const tag = listedSubscriptionTag(sectionId, value);
-  const storedRemote = isExistingChildItem(sectionId, value, "subscription_url") && isRemoteSubscriptionSource(
-    childItemInputValue(sectionId, value, "subscription_url", "url")
+  const source = childItemInputValue(
+    sectionId,
+    value,
+    "subscription_url",
+    "url"
   );
+  const storedRemote = isExistingChildItem(sectionId, value, "subscription_url") && isRemoteSubscriptionSource(source);
+  const storedHeaders = storedRemote ? uci.get(FORKOP_UCI_PACKAGE, value, "header") : null;
   return loadDefaultSubscriptionHeaders().catch(() => []).then(
     (headers) => showChildItemSettingsModal(sectionId, itemValue, option2, {
       typeName: "subscription_url",
@@ -26525,7 +26561,7 @@ function showSubscriptionUrlSettingsModal(sectionId, itemValue, option2, _widget
       itemNode,
       defaults: (inputValue) => Object.assign(
         defaultSubscriptionUrlSettings(
-          storedRemote ? [] : headers,
+          storedRemote ? [] : defaultHeadersForSubscriptionSource(inputValue, headers),
           nextSubscriptionTag(sectionId, option2)
         ),
         { url: inputValue }
@@ -26533,6 +26569,15 @@ function showSubscriptionUrlSettingsModal(sectionId, itemValue, option2, _widget
       addOptions: addSubscriptionUrlItemOptions,
       title: () => tag ? _("Subscription: %s").format(tag) : _("Subscription settings"),
       afterSave: (itemId, _inputValue, settings, existing) => {
+        if (!ENCRYPTED_SUBSCRIPTION_SOURCE.test(source) && ENCRYPTED_SUBSCRIPTION_SOURCE.test(`${settings.url}`)) {
+          settings.header = withoutDefaultSubscriptionUserAgent(
+            settings.header,
+            storedRemote ? storedHeaders : headers
+          );
+          if (existing && storedRemote) {
+            applyChildItemSettings(itemId, { header: settings.header });
+          }
+        }
         if (existing && !isRemoteSubscriptionSource(settings.url)) {
           cleanupRemoteSubscriptionUrlSettings(itemId);
         } else if (existing && !storedRemote) {
@@ -29072,7 +29117,7 @@ function createSectionContent(section2) {
       subscription_update_enabled: (value) => isRemoteSubscriptionSource(value) ? "1" : null,
       subscription_update_interval: (value) => isRemoteSubscriptionSource(value) ? "1h" : null,
       download_via_proxy_enabled: (value) => isRemoteSubscriptionSource(value) ? "0" : null,
-      header: (value) => isRemoteSubscriptionSource(value) ? defaultSubscriptionHeaderLines.slice() : null,
+      header: (value) => isRemoteSubscriptionSource(value) ? defaultHeadersForSubscriptionSource(value) : null,
       show_dashboard_metadata: (value) => isRemoteSubscriptionSource(value) ? "1" : null,
       tag: (_value, sectionId) => nextSubscriptionTag(sectionId, subscriptions)
     }

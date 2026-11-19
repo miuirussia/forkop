@@ -1,4 +1,5 @@
 import {
+  applyChildItemSettings,
   childItemInputValue,
   isExistingChildItem,
   parentSectionIdForItem,
@@ -10,7 +11,9 @@ import {
 } from '../../../cbi/choices';
 import { updateDynamicListItemLabel } from '../../../cbi/listItems';
 import { required } from '../../../cbi/required';
+import { FORKOP_UCI_PACKAGE } from '../../../../constants';
 import { message } from '../../../../validators/messages';
+import { ENCRYPTED_SUBSCRIPTION_SOURCE } from '../../../../validators/encryptedSubscription';
 import { showChildItemSettingsModal } from '../../../cbi/modal';
 import { addCascadeOptions } from '../cascade';
 import { subscriptionDownloadTargetChoices } from '../references';
@@ -27,6 +30,7 @@ import {
   applyRemoteSubscriptionUrlSettings,
   cleanupRemoteSubscriptionUrlSettings,
   configuredSubscriptionTags,
+  defaultHeadersForSubscriptionSource,
   defaultSubscriptionUrlSettings,
   isRemoteSubscriptionSource,
   currentOptionValue,
@@ -34,13 +38,12 @@ import {
   loadDefaultSubscriptionHeaders,
   nextSubscriptionTag,
   optionMapValue,
+  REMOTE_SUBSCRIPTION_SOURCE,
   subscriptionUrlSettingsKeys,
   validateSubscriptionUrlEntry,
+  withoutDefaultSubscriptionUserAgent,
 } from './model';
 import { showSubscriptionOverrideModal } from './overrides';
-
-// Fetch settings show only while the address field holds a URL.
-const REMOTE_SOURCE = /^https?:\/\//;
 
 export function addSubscriptionUrlItemOptions(
   itemSection: CBISection,
@@ -81,6 +84,9 @@ export function addSubscriptionUrlItemOptions(
   o.validate = required((itemId, value) =>
     validateSubscriptionUrlEntry(itemId, value.trim()),
   );
+  o.write = function (itemId: string, value: string) {
+    this.map.data.set(this.map.config, itemId, this.option, value.trim());
+  };
 
   addCascadeOptions(
     itemSection,
@@ -94,7 +100,7 @@ export function addSubscriptionUrlItemOptions(
     _('Subscription auto update'),
     _('Update the subscription automatically at a set interval'),
   );
-  o.depends('url', REMOTE_SOURCE);
+  o.depends('url', REMOTE_SUBSCRIPTION_SOURCE);
   o.default = '1';
   o.rmempty = false;
 
@@ -104,7 +110,10 @@ export function addSubscriptionUrlItemOptions(
     _('Update interval'),
     _('For example 30m, 12h or 1d'),
   );
-  o.depends({ url: REMOTE_SOURCE, subscription_update_enabled: '1' });
+  o.depends({
+    url: REMOTE_SUBSCRIPTION_SOURCE,
+    subscription_update_enabled: '1',
+  });
   o.placeholder = '1h';
   o.validate = function (itemId: string, value: unknown) {
     return currentOptionValue(this, itemId, 'subscription_update_enabled') ===
@@ -119,7 +128,7 @@ export function addSubscriptionUrlItemOptions(
     _('Request through a section'),
     _('Download the subscription through another section instead of directly'),
   );
-  o.depends('url', REMOTE_SOURCE);
+  o.depends('url', REMOTE_SUBSCRIPTION_SOURCE);
   o.default = '0';
   o.rmempty = false;
 
@@ -128,7 +137,10 @@ export function addSubscriptionUrlItemOptions(
     'download_via_proxy_section',
     _('Request through'),
   );
-  o.depends({ url: REMOTE_SOURCE, download_via_proxy_enabled: '1' });
+  o.depends({
+    url: REMOTE_SUBSCRIPTION_SOURCE,
+    download_via_proxy_enabled: '1',
+  });
   o.load = function (itemId: string) {
     const sectionId = parentSectionForItem(itemId);
     refreshOptionChoices(this, subscriptionDownloadTargetChoices(sectionId));
@@ -150,7 +162,7 @@ export function addSubscriptionUrlItemOptions(
     _('Headers'),
     _('Change the HTTP headers of the request'),
   );
-  o.depends('url', REMOTE_SOURCE);
+  o.depends('url', REMOTE_SUBSCRIPTION_SOURCE);
   o.inputtitle = _('Edit');
   o.inputstyle = 'edit';
   o.onclick = function () {
@@ -163,7 +175,7 @@ export function addSubscriptionUrlItemOptions(
     _('Show metadata'),
     _('Show the metadata block on the dashboard'),
   );
-  o.depends('url', REMOTE_SOURCE);
+  o.depends('url', REMOTE_SUBSCRIPTION_SOURCE);
   o.default = '1';
   o.rmempty = false;
 
@@ -201,13 +213,20 @@ export function showSubscriptionUrlSettingsModal(
 ) {
   const value = `${itemValue ?? ''}`;
   const tag = listedSubscriptionTag(sectionId, value);
+  const source = childItemInputValue(
+    sectionId,
+    value,
+    'subscription_url',
+    'url',
+  );
   const storedRemote =
     isExistingChildItem(sectionId, value, 'subscription_url') &&
-    isRemoteSubscriptionSource(
-      childItemInputValue(sectionId, value, 'subscription_url', 'url'),
-    );
-  // A remote subscription keeps its headers, none included; others are offered the defaults, carried
-  // only once the address becomes a URL. The dialog opens without them too.
+    isRemoteSubscriptionSource(source);
+  const storedHeaders = storedRemote
+    ? uci.get(FORKOP_UCI_PACKAGE, value, 'header')
+    : null;
+  // Existing remote subscriptions keep their headers. Local subscriptions get the defaults
+  // if they become remote. The dialog opens even if the defaults could not be loaded.
   return loadDefaultSubscriptionHeaders()
     .catch(() => [] as string[])
     .then((headers: string[]) =>
@@ -219,7 +238,9 @@ export function showSubscriptionUrlSettingsModal(
         defaults: (inputValue: string) =>
           Object.assign(
             defaultSubscriptionUrlSettings(
-              storedRemote ? [] : headers,
+              storedRemote
+                ? []
+                : defaultHeadersForSubscriptionSource(inputValue, headers),
               nextSubscriptionTag(sectionId, option),
             ),
             { url: inputValue },
@@ -233,6 +254,18 @@ export function showSubscriptionUrlSettingsModal(
           settings: ChildSettings,
           existing: boolean,
         ) => {
+          if (
+            !ENCRYPTED_SUBSCRIPTION_SOURCE.test(source) &&
+            ENCRYPTED_SUBSCRIPTION_SOURCE.test(`${settings.url}`)
+          ) {
+            settings.header = withoutDefaultSubscriptionUserAgent(
+              settings.header,
+              storedRemote ? storedHeaders : headers,
+            );
+            if (existing && storedRemote) {
+              applyChildItemSettings(itemId, { header: settings.header });
+            }
+          }
           if (existing && !isRemoteSubscriptionSource(settings.url)) {
             cleanupRemoteSubscriptionUrlSettings(itemId);
           } else if (existing && !storedRemote) {

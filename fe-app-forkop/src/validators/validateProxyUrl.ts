@@ -1,3 +1,4 @@
+import { ENCRYPTED_SUBSCRIPTION_SOURCE } from './encryptedSubscription';
 import { Check } from './types';
 
 const NATIVE_PROXY_SCHEMES = new Set([
@@ -40,6 +41,9 @@ function isSubscriptionAddress(link: string) {
 // The name after "#" may hold spaces, which the core's url.Parse takes; control characters it refuses.
 export function validateProxyUrl(url: string): Check {
   const link = url.trim();
+  if (ENCRYPTED_SUBSCRIPTION_SOURCE.test(link)) {
+    return _('Probably a subscription URL: paste it into Subscription');
+  }
   const match = /^([a-z0-9+]+):\/\/([^\s#]+)(?:#\P{Cc}*)?$/u.exec(link);
   if (!match || !NATIVE_PROXY_SCHEMES.has(match[1])) {
     return _('Unsupported link');

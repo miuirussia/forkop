@@ -60,6 +60,14 @@ describe('a remote subscription', () => {
   it.each([...REMOTE_ONLY, ...ALWAYS])('is offered %s', (name) => {
     expect(shownFor('https://example.com/sub')).toContain(name);
   });
+
+  it.each(['incy://crypt1/a_b-c', 'happ://crypt4/a+/=', 'happ://crypt5/ab:cd'])(
+    'shows fetch options for %s',
+    (link) => {
+      expect(shownFor(link)).toEqual(expect.arrayContaining(REMOTE_ONLY));
+      expect(validateSubscriptionUrlEntry('settings', link)).toBe(true);
+    },
+  );
 });
 
 describe('a local subscription', () => {
@@ -90,4 +98,13 @@ describe('validateSubscriptionUrlEntry', () => {
       validateSubscriptionUrlEntry('settings', 'relative/subscription.txt'),
     ).toBe('URL or absolute path only');
   });
+
+  it.each(['incy://crypt2/abc', 'incy://crypt1/', 'happ://crypt5/code?extra'])(
+    'refuses malformed or unsupported link %s',
+    (link) => {
+      expect(validateSubscriptionUrlEntry('settings', link)).toBe(
+        'URL or absolute path only',
+      );
+    },
+  );
 });

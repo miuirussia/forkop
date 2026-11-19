@@ -4,6 +4,7 @@ let common = require("core.common");
 let uci_core = require("core.uci");
 let rule_config = require("config.rule");
 let amnezia = require("singbox.amnezia");
+let subscription_crypto = require("singbox.subscription_crypto");
 
 let as_string = common.as_string;
 let object_or_empty = common.object_or_empty;
@@ -222,8 +223,9 @@ function subscription_source(subscription) {
 }
 
 function subscription_source_type(value) {
-    value = lc(trim(as_string(value)));
-    if (substr(value, 0, 7) == "http://" || substr(value, 0, 8) == "https://")
+    value = trim(as_string(value));
+    let prefix = lc(substr(value, 0, 8));
+    if (substr(prefix, 0, 7) == "http://" || prefix == "https://" || subscription_crypto.client(value) != null)
         return "remote";
     if (substr(value, 0, 1) == "/")
         return "local";

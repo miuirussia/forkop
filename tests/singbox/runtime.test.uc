@@ -157,6 +157,21 @@ t.test("a checked configuration is checked even when it did not change", () => {
     stub.restore();
 });
 
+t.test("an unchanged Happ provider is checked again when its key may have changed", () => {
+    let dir = stub.tmpdir();
+    let data = configuration(dir);
+    data.subscription_url = [ { ".name": "sub", section: "main", tag: "happ", url: " happ://crypt4/fixture " } ];
+    fixture.seed(data);
+    tools([ [ CHECK, {} ] ]);
+    t.eq(runtime.write_config(false), true);
+    let running = fs.readfile(dir + "/etc/sing-box/config.json");
+    tools([ [ CHECK, { status: 1, stdout: "FATAL[0000] the Happ private key is missing\n" } ] ]);
+    let e = t.throws(() => runtime.write_config(false));
+    stub.restore();
+    t.contains(e.message, "the Happ private key is missing");
+    t.eq(fs.readfile(dir + "/etc/sing-box/config.json"), running);
+});
+
 t.test("the service runs the generated file as root, committed only when something changed", () => {
     let dir = stub.tmpdir();
     fixture.seed(configuration(dir));

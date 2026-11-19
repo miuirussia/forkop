@@ -3,6 +3,8 @@ let common = require("core.common");
 let packages = require("core.packages");
 
 let as_string = common.as_string;
+const INCY_USER_AGENT = "INCY/3.7.2";
+const HAPP_USER_AGENT = "Happ/4.11.2";
 
 let paths = {
     openwrt_release: "/etc/openwrt_release"
@@ -114,7 +116,7 @@ function parse_header_line(value) {
     return { valid: true, name, value: header_value };
 }
 
-function parse_header_lines(lines) {
+function parse_header_lines(lines, client) {
     if (type(lines) != "array")
         lines = lines == null || as_string(lines) == "" ? [] : [ lines ];
 
@@ -133,6 +135,13 @@ function parse_header_lines(lines) {
             result[name] = [];
         }
         push(result[name], parsed.value);
+    }
+
+    if (names["user-agent"] == null) {
+        if (client == "incy")
+            result["User-Agent"] = [ INCY_USER_AGENT ];
+        else if (client == "happ")
+            result["User-Agent"] = [ HAPP_USER_AGENT ];
     }
 
     return { valid: true, message: "", headers: result };

@@ -17,6 +17,7 @@ let features = require("singbox.features");
 let amnezia = require("singbox.amnezia");
 let runtime_urltest = require("singbox.urltest");
 let subscription_headers_module = require("singbox.subscription_headers");
+let subscription_crypto = require("singbox.subscription_crypto");
 let nft_state = require("nft.state");
 
 let as_string = core_common.as_string;
@@ -181,6 +182,9 @@ function validate_subscription_tags(section) {
 // The core reads http(s)://[user:pass@]host[:port][#name] as an HTTP proxy only when
 // it names credentials, a port or a node; a path means a web page. Mirrors validateProxyUrl.ts.
 function subscription_address(uri) {
+    if (subscription_crypto.client(uri) != null)
+        return true;
+
     let parts = match(uri, /^https?:\/\/([^\/?#]*)([^?#]*)[^#]*(#(.*))?$/i);
     if (parts == null)
         return false;
@@ -426,11 +430,8 @@ function valid_http_url(value) {
     if (value == "" || match(value, /[ \t\r\n]/) != null)
         return false;
 
-    let scheme = lc(core_url.scheme(value));
-    if (scheme != "http" && scheme != "https")
-        return false;
-
-    return core_url.host(value) != "";
+    let scheme = core_url.scheme(value);
+    return (scheme == "http" || scheme == "https") && core_url.host(value) != "";
 }
 
 function valid_local_subscription_path(value) {
@@ -438,9 +439,16 @@ function valid_local_subscription_path(value) {
     return match(value, /^\/[-a-zA-Z0-9_\/.]+$/) != null;
 }
 
-function validate_subscription_source_entry_value(entry, section) {
+function validate_subscription_source_entry_value(entry, section, tag) {
     if (index(as_string(entry), "|") >= 0)
         fail_validation("Invalid subscription URL in section '" + section_label(section) + "': set the User-Agent in the subscription headers instead");
+
+    let scheme = core_url.scheme(trim(entry));
+    if (scheme == "incy" || scheme == "happ") {
+        if (subscription_crypto.client(entry) == null)
+            fail_validation("Subscription '" + tag + "' in section '" + section_label(section) + "' has an invalid or unsupported encrypted link");
+        return;
+    }
 
     if (valid_http_url(entry) || valid_local_subscription_path(entry))
         return;
@@ -1133,7 +1141,7 @@ function validate_rule(section, sections, context) {
 
         validate_connection_links(section);
         for (let subscription in connections.subscription_items(section)) {
-            validate_subscription_source_entry_value(connections.subscription_source(subscription), name);
+            validate_subscription_source_entry_value(connections.subscription_source(subscription), name, connections.subscription_tag(subscription));
             validate_subscription_request_profile(section, subscription);
             validate_subscription_filter(section, subscription);
             validate_subscription_override(section, subscription);
