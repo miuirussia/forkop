@@ -166,7 +166,6 @@ export interface StoreType {
     loading: boolean;
     failed: boolean;
     data: Forkop.OutboundGroup[];
-    hasRemoteLists: boolean;
   };
   diagnosticsRunAction: {
     loading: boolean;
@@ -237,7 +236,6 @@ const initialStore: StoreType = {
     loading: true,
     failed: false,
     data: [],
-    hasRemoteLists: false,
   },
   ...initialDiagnosticStore,
 };

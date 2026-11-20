@@ -17,7 +17,7 @@ function geodata() {
 }
 
 describe('the Geodata tab', () => {
-  it('renders source state and action buttons through the grid text renderer', async () => {
+  it('renders source state in the grid and preserves actions in the edit dialog', async () => {
     harness.commands.geodata_status = async () => ({
       code: 0,
       stdout: JSON.stringify({
@@ -47,8 +47,9 @@ describe('the Geodata tab', () => {
     const actions = grid.children.find(
       (option) => option.option === '_actions',
     );
+    expect(actions.modalonly).toBe(true);
     expect(
-      actions.textvalue('sites').childNodes.map((node) => node.textContent),
+      actions.cfgvalue('sites').childNodes.map((node) => node.textContent),
     ).toEqual(['Update', 'Tags']);
   });
 
@@ -140,6 +141,7 @@ describe('the Geodata tab', () => {
       (option) => option.option === '_dat_sources',
     ).subsection;
     const input = grid.children.find((option) => option.option === 'input');
+    expect(input.modalonly).toBe(true);
     expect(input.validate('source', 'https://example.com/geosite.dat')).toBe(
       true,
     );

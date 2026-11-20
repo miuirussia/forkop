@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 22:58+0300\n"
-"PO-Revision-Date: 2026-11-15 22:58+0300\n"
+"POT-Creation-Date: 2026-11-20 17:11+0300\n"
+"PO-Revision-Date: 2026-11-20 17:11+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -339,6 +339,10 @@ msgstr ""
 msgid "Add at least one AmneziaWG parameter"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+msgid "Add DAT source"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/headers.ts
 msgid "Add header"
 msgstr ""
@@ -503,6 +507,7 @@ msgid "Auto refresh"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+#: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
 msgid "Auto update"
 msgstr ""
 
@@ -990,11 +995,16 @@ msgstr ""
 msgid "Dashboard currently unavailable"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/layout.ts
+msgid "DAT settings"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 msgid "DAT source"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+#: fe-app-forkop/src/forkop/tabs/geodata/layout.ts
 msgid "DAT sources"
 msgstr ""
 
@@ -1200,24 +1210,13 @@ msgstr ""
 msgid "Download"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
-msgid "Download DAT through"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
-msgid "Download lists through"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
-msgid "Download lists through a section"
-msgstr ""
-
 #: fe-app-forkop/src/forkop/tabs/logs/initController.ts
 msgid "Download matching"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 #: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
-msgid "Download the built-in lists and remote rule sets through the selected section"
+msgid "Download section"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/details.ts
@@ -1226,6 +1225,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/options.ts
 msgid "Download the subscription through another section instead of directly"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
+msgid "Download through a section"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/monitoring/connectionList.ts
@@ -1416,7 +1419,7 @@ msgstr ""
 msgid "Failed to switch the server"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 msgid "Failed to update lists"
 msgstr ""
 
@@ -2103,10 +2106,6 @@ msgstr ""
 msgid "Linux, 64-bit"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
-msgid "List update interval"
-msgstr ""
-
 #: fe-app-forkop/src/forkop/tabs/servers/form/identity.ts
 msgid "Listen address"
 msgstr ""
@@ -2115,7 +2114,11 @@ msgstr ""
 msgid "Listen port"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
+#: fe-app-forkop/src/forkop/tabs/geodata/layout.ts
+msgid "Lists and rule sets"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 msgid "Lists updated"
 msgstr ""
 
@@ -3078,10 +3081,6 @@ msgstr ""
 msgid "Routing section"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
-msgid "Rule set auto update"
-msgstr ""
-
 #: fe-app-forkop/src/forkop/tabs/sections/ruleSets.ts
 msgid "Rule set settings"
 msgstr ""
@@ -3129,8 +3128,12 @@ msgstr ""
 msgid "Save"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+#: fe-app-forkop/src/forkop/tabs/geodata/layout.ts
 msgid "Save & Apply before downloading newly added or changed sources"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
+msgid "Schedule for built-in lists and remote rule sets. Set the schedule for each DAT source in its own settings"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/logs/render.ts
@@ -4032,15 +4035,12 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/options.ts
+#: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
 msgid "Update interval"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderToolbar.ts
+#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 msgid "Update lists"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
-msgid "Update remote lists and rule sets on a schedule"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderToolbar.ts

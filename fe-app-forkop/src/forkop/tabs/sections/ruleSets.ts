@@ -2,6 +2,7 @@ import {
   DOMAIN_LIST_INCLUDES,
   DOMAIN_LIST_OPTIONS,
   FORKOP_UCI_PACKAGE,
+  isBuiltinRulesetValue,
 } from '../../../constants';
 import { showToast } from '../../../helpers/showToast';
 import { E } from '../../../helpers/element';
@@ -233,10 +234,6 @@ export function loadRulesetValues(option: CBIOption) {
   Object.entries(DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
     option.value(key, label);
   });
-}
-
-function isBuiltinRulesetValue(value: string) {
-  return Object.prototype.hasOwnProperty.call(DOMAIN_LIST_OPTIONS, value);
 }
 
 function builtinListLabel(value: string) {

@@ -1,18 +1,97 @@
+import { isBuiltinRulesetValue } from '../../../constants';
 import { E } from '../../../helpers/element';
 import { showToast } from '../../../helpers/showToast';
 import { prettyBytes } from '../../../helpers/prettyBytes';
 import { validatePath } from '../../../validators/validatePath';
 import { validateUrl } from '../../../validators/validateUrl';
 import { nextSectionId } from '../../cbi/childItems';
+import { normalizeOptionValues } from '../../cbi/listValues';
+import {
+  setClashApiConfigSections,
+  updateClashApiRuleProviders,
+} from '../../methods/custom/clashApi';
+import { getConfigSections } from '../../methods/custom/getConfigSections';
 import {
   type GeodataState,
   getGeodataState,
   updateGeodata,
   validateGeodataInterval,
 } from '../../services/geodata.service';
+import { logger } from '../../services/logger.service';
 import { configureDownloadSectionOption } from '../settings/sectionChoices';
 import { addRuleSetUpdateOptions } from '../settings/form/updates';
 import { showGeodataCatalog } from './catalog';
+import { arrangeGeodataGroups } from './layout';
+
+async function updateLists() {
+  try {
+    setClashApiConfigSections(await getConfigSections());
+    const response = await updateClashApiRuleProviders();
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    showToast(_('Lists updated'), 'success');
+  } catch (error) {
+    logger.error('[GEODATA]', 'updateLists: failed', error);
+    showToast(_('Failed to update lists'), 'error');
+  }
+}
+
+function addListUpdateAction(section: CBISection) {
+  let updateRequest: Promise<void> | undefined;
+  const action = section.option(form.DummyValue, '_list_update_action', '');
+  action.renderWidget = () => {
+    const container = E('span', { class: 'fkp-geodata__list-action' });
+    void getConfigSections()
+      .then((sections) => {
+        const hasRemoteLists = sections.some(
+          (section) =>
+            section['.type'] === 'section' &&
+            section.enabled !== '0' &&
+            (normalizeOptionValues(section.community_lists).length > 0 ||
+              [
+                ...normalizeOptionValues(section.rule_set),
+                ...normalizeOptionValues(section.rule_set_with_subnets),
+              ].some(
+                (reference) =>
+                  /^https?:\/\//.test(reference) ||
+                  isBuiltinRulesetValue(reference),
+              )),
+        );
+        if (!hasRemoteLists) return;
+
+        const button = E(
+          'button',
+          {
+            type: 'button',
+            class: 'cbi-button cbi-button-action',
+            click: () => {
+              if (updateRequest) return;
+              updateRequest = updateLists().finally(() => {
+                updateRequest = undefined;
+              });
+              showBusy(updateRequest);
+            },
+          },
+          _('Update lists'),
+        ) as HTMLButtonElement;
+        function showBusy(request: Promise<void>) {
+          button.disabled = true;
+          button.classList.add('spinning');
+          void request.then(() => {
+            button.disabled = false;
+            button.classList.remove('spinning');
+          });
+        }
+        if (updateRequest) showBusy(updateRequest);
+        container.appendChild(button);
+      })
+      .catch((error) =>
+        logger.error('[GEODATA]', 'getConfigSections: failed', error),
+      );
+    return container;
+  };
+}
 
 const phases: Record<string, () => string> = {
   queued: () => _('Starting…'),
@@ -131,7 +210,7 @@ export function createGeodataContent(map: CBIMap) {
   o = section.option(
     form.ListValue,
     'geodata_download_section',
-    _('Download DAT through'),
+    _('Download section'),
   );
   configureDownloadSectionOption(o, 'geodata_download_section');
   o.rmempty = true;
@@ -145,12 +224,7 @@ export function createGeodataContent(map: CBIMap) {
     this.value('', _('Directly'));
     return value;
   };
-  o = section.option(
-    form.DummyValue,
-    '_geodata_actions',
-    '',
-    _('Save & Apply before downloading newly added or changed sources'),
-  );
+  o = section.option(form.DummyValue, '_geodata_actions', '');
   o.cfgvalue = () =>
     E(
       'button',
@@ -174,6 +248,9 @@ export function createGeodataContent(map: CBIMap) {
   grid.addremove = true;
   grid.sortable = false;
   grid.nodescriptions = true;
+  grid.hidetitle = true;
+  grid.addbtntitle = _('Add DAT source');
+  grid.actionstitle = _('Actions');
   grid.handleAdd = function (event: Event) {
     return form.GridSection.prototype.handleAdd.call(
       this,
@@ -198,6 +275,7 @@ export function createGeodataContent(map: CBIMap) {
   o.rmempty = false;
   o = grid.option(form.Value, 'input', _('DAT URL or local path'));
   o.rmempty = false;
+  o.modalonly = true;
   o.validate = (_id, value) =>
     /^https?:\/\//.test(value) ? validateUrl(value) : validatePath(value);
   o = grid.option(form.Flag, 'auto_update', _('Auto update'));
@@ -223,32 +301,40 @@ export function createGeodataContent(map: CBIMap) {
   };
   o.textvalue = o.cfgvalue;
   o = grid.option(form.DummyValue, '_actions', _('Actions'));
-  o.cfgvalue = (id: string) =>
-    E('div', {}, [
-      E(
-        'button',
-        {
-          type: 'button',
-          class: 'cbi-button cbi-button-action',
-          click: () => void startUpdate(id, stateRows),
-        },
-        _('Update'),
-      ),
-      E(
-        'button',
-        {
-          type: 'button',
-          class: 'cbi-button',
-          click: () =>
-            void showGeodataCatalog(true, undefined, id).catch((error: Error) =>
-              showToast(error.message, 'error'),
-            ),
-        },
-        _('Tags'),
-      ),
-    ]);
-  o.textvalue = function (id) {
-    return uci.state.creates.forkop?.[id] ? E('div') : this.cfgvalue(id);
+  o.modalonly = true;
+  const sourceActions = (id: string) => [
+    E(
+      'button',
+      {
+        type: 'button',
+        class: 'cbi-button cbi-button-action',
+        click: () => void startUpdate(id, stateRows),
+      },
+      _('Update'),
+    ),
+    E(
+      'button',
+      {
+        type: 'button',
+        class: 'cbi-button',
+        click: () =>
+          void showGeodataCatalog(true, undefined, id).catch((error: Error) =>
+            showToast(error.message, 'error'),
+          ),
+      },
+      _('Tags'),
+    ),
+  ];
+  o.cfgvalue = (id: string) => E('div', {}, sourceActions(id));
+  grid.renderRowActions = function (id: string) {
+    const cell = form.GridSection.prototype.renderRowActions.call(
+      this,
+      id,
+    ) as HTMLElement;
+    if (!uci.state.creates.forkop?.[id]) {
+      cell.querySelector(':scope > div')?.prepend(...sourceActions(id));
+    }
+    return cell;
   };
   const remove = grid.handleRemove;
   grid.handleRemove = function (id: string, event: Event) {
@@ -272,4 +358,6 @@ export function createGeodataContent(map: CBIMap) {
     return remove?.call(this, id, event);
   };
   addRuleSetUpdateOptions(section);
+  addListUpdateAction(section);
+  arrangeGeodataGroups(section);
 }

@@ -817,55 +817,6 @@ describe('getDashboardSections', () => {
     expect(mocks.clashApi).not.toHaveBeenCalled();
   });
 
-  it('knows whether any enabled section names a list to download', async () => {
-    setClashProxies({
-      Office: proxy('Selector', { all: ['Office/Node'] }),
-      'Office/Node': proxy('VLESS'),
-    });
-    const cases: Array<[Forkop.ConfigSection[], boolean]> = [
-      [[section()], false],
-      [
-        [
-          section(),
-          section({
-            '.name': 'dns',
-            action: 'bypass',
-            community_lists: ['youtube'],
-          }),
-        ],
-        true,
-      ],
-      [
-        [
-          section(),
-          section({
-            '.name': 'lists',
-            action: 'block',
-            rule_set: ['https://example.com/ads.srs'],
-          }),
-        ],
-        true,
-      ],
-      [
-        [section({ rule_set_with_subnets: ['https://example.com/mixed.txt'] })],
-        true,
-      ],
-      [[section({ rule_set: ['/etc/forkop/local.srs'] })], false],
-      [
-        [
-          section({ enabled: '0', community_lists: ['telegram'] }),
-          section({ '.name': 'other' }),
-        ],
-        false,
-      ],
-    ];
-
-    for (const [configSections, expected] of cases) {
-      mocks.getConfigSections.mockResolvedValue(configSections);
-      expect((await getDashboardSections()).hasRemoteLists).toBe(expected);
-    }
-  });
-
   it('refreshes every rule-set through the one bulk request', async () => {
     await useReachableClashApi();
     const fetchMock = vi.fn().mockResolvedValue({ status: 204 });

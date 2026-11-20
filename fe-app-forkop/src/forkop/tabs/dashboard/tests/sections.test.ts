@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   getDashboardSections: vi.fn(),
   getClashApiGroupLatency: vi.fn(),
   getClashApiProxyLatency: vi.fn(),
-  updateClashApiRuleProviders: vi.fn(),
   updateClashApiProxyProviders: vi.fn(),
   showToast: vi.fn(),
 }));
@@ -23,7 +22,6 @@ vi.mock('../../../methods', () => ({
     getClashApiConnectionsSummary: async () => ({ success: false }),
     getClashApiGroupLatency: mocks.getClashApiGroupLatency,
     getClashApiProxyLatency: mocks.getClashApiProxyLatency,
-    updateClashApiRuleProviders: mocks.updateClashApiRuleProviders,
     updateClashApiProxyProviders: mocks.updateClashApiProxyProviders,
   },
 }));
@@ -213,14 +211,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function openDashboard(
-  data: Forkop.OutboundGroup[],
-  hasRemoteLists = true,
-) {
+async function openDashboard(data: Forkop.OutboundGroup[]) {
   mocks.getDashboardSections.mockResolvedValue({
     success: true,
     data,
-    hasRemoteLists,
   });
   const { store } = await import('../../../services/store.service');
   store.set({ tabService: { current: 'dashboard', all: [] } });
@@ -231,7 +225,7 @@ async function openDashboard(
 
 describe('the dashboard toolbar', () => {
   it('offers only what there is to act on', async () => {
-    await openDashboard([section('alone')], false);
+    await openDashboard([section('alone')]);
 
     expect(toolbarButton('Test all sections')).toBeUndefined();
     expect(toolbarButton('Update subscriptions')).toBeUndefined();
@@ -285,18 +279,6 @@ describe('the dashboard toolbar', () => {
     expect(mocks.showToast).toHaveBeenCalledOnce();
   });
 
-  it('refreshes every list of the router in one request', async () => {
-    mocks.updateClashApiRuleProviders.mockResolvedValue({ success: true });
-    await openDashboard([section('first'), section('second')]);
-
-    (toolbarButton('Update lists')?.attrs.click as () => void)();
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(mocks.updateClashApiRuleProviders).toHaveBeenCalledOnce();
-    expect(mocks.updateClashApiRuleProviders).toHaveBeenCalledWith();
-    expect(mocks.showToast).toHaveBeenCalledWith('Lists updated', 'success');
-  });
-
   it('refreshes each subscription of every section once', async () => {
     mocks.updateClashApiProxyProviders.mockResolvedValue({ success: true });
     await openDashboard([
@@ -317,23 +299,6 @@ describe('the dashboard toolbar', () => {
       'Subscriptions updated',
       'success',
     );
-  });
-
-  it('reports a refresh that did not go through', async () => {
-    mocks.updateClashApiRuleProviders.mockResolvedValue({
-      success: false,
-      error: 'update 1 of 3 rule-sets failed',
-    });
-    await openDashboard([section('first'), section('second')]);
-
-    (toolbarButton('Update lists')?.attrs.click as () => void)();
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(mocks.showToast).toHaveBeenCalledWith(
-      'Failed to update lists',
-      'error',
-    );
-    expect(toolbarButton('Update lists')?.attrs.disabled).toBeUndefined();
   });
 });
 

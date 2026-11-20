@@ -58,7 +58,6 @@ vi.mock('../../../methods', () => ({
     getDashboardSections: async () => ({
       success: true,
       data: [section],
-      hasRemoteLists: false,
     }),
     getClashApiConnectionsSummary: async () => ({ success: false }),
     getClashApiProxyExit: mocks.getClashApiProxyExit,

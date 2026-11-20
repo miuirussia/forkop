@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-15 22:58+0300\n"
-"PO-Revision-Date: 2026-11-15 22:58+0300\n"
+"POT-Creation-Date: 2026-11-20 17:11+0300\n"
+"PO-Revision-Date: 2026-11-20 17:11+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -253,6 +253,9 @@ msgstr "Сначала добавьте и скачайте DAT на вклад�
 
 msgid "Add at least one AmneziaWG parameter"
 msgstr "Добавьте хотя бы один параметр AmneziaWG"
+
+msgid "Add DAT source"
+msgstr "Добавить источник DAT"
 
 msgid "Add header"
 msgstr "Добавить заголовок"
@@ -707,6 +710,9 @@ msgstr "Дашборд"
 msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
 
+msgid "DAT settings"
+msgstr "Настройки DAT"
+
 msgid "DAT source"
 msgstr "Источник DAT"
 
@@ -851,26 +857,20 @@ msgstr "Входящий"
 msgid "Download"
 msgstr "Скачать"
 
-msgid "Download DAT through"
-msgstr "Скачивать DAT через секцию"
-
-msgid "Download lists through"
-msgstr "Скачивать списки через"
-
-msgid "Download lists through a section"
-msgstr "Скачивать списки через секцию"
-
 msgid "Download matching"
 msgstr "Скачать найденное"
 
-msgid "Download the built-in lists and remote rule sets through the selected section"
-msgstr "Скачивать встроенные списки и удалённые наборы правил через выбранную секцию"
+msgid "Download section"
+msgstr "Секция для загрузки"
 
 msgid "Download the profile"
 msgstr "Скачать профиль"
 
 msgid "Download the subscription through another section instead of directly"
 msgstr "Загружать подписку через другую секцию, а не напрямую"
+
+msgid "Download through a section"
+msgstr "Скачивать через секцию"
 
 msgid "Downloaded"
 msgstr "Загружено"
@@ -1508,14 +1508,14 @@ msgstr "Linux, 32-бит"
 msgid "Linux, 64-bit"
 msgstr "Linux, 64-бит"
 
-msgid "List update interval"
-msgstr "Период обновления списков"
-
 msgid "Listen address"
 msgstr "Адрес прослушивания"
 
 msgid "Listen port"
 msgstr "Порт"
+
+msgid "Lists and rule sets"
+msgstr "Списки и наборы правил"
 
 msgid "Lists updated"
 msgstr "Списки успешно обновлены"
@@ -2204,9 +2204,6 @@ msgstr "Правила маршрутизации проверяются све�
 msgid "Routing section"
 msgstr "Секция маршрутизации"
 
-msgid "Rule set auto update"
-msgstr "Автообновление наборов правил"
-
 msgid "Rule set settings"
 msgstr "Настройки набора правил"
 
@@ -2242,6 +2239,9 @@ msgstr "Сохранить"
 
 msgid "Save & Apply before downloading newly added or changed sources"
 msgstr "Сохраните и примените настройки перед загрузкой новых или изменённых источников"
+
+msgid "Schedule for built-in lists and remote rule sets. Set the schedule for each DAT source in its own settings"
+msgstr "Расписание для встроенных списков и удалённых наборов правил. Расписание DAT задаётся в настройках каждого источника"
 
 msgid "Search"
 msgstr "Поиск"
@@ -2896,9 +2896,6 @@ msgstr "Интервал обновления"
 
 msgid "Update lists"
 msgstr "Обновить списки"
-
-msgid "Update remote lists and rule sets on a schedule"
-msgstr "Обновлять удалённые списки и наборы правил по расписанию"
 
 msgid "Update subscriptions"
 msgstr "Обновить подписки"

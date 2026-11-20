@@ -129,10 +129,67 @@ ${PartialStyles}
     overflow-x: auto;
 }
 
-#cbi-${FORKOP_CBI_PREFIX}-geodata .td[data-name="input"] {
-    max-width: 24rem;
-    white-space: normal;
-    overflow-wrap: anywhere;
+.fkp-geodata {
+    display: grid;
+    gap: 1.5rem;
+    margin-block-end: 1rem;
+}
+
+.fkp-geodata > section {
+    min-width: 0;
+}
+
+.fkp-geodata__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-block-end: 0.625rem;
+}
+
+.fkp-geodata__heading > h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.fkp-geodata__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.fkp-geodata__actions:empty,
+.fkp-geodata__actions > span:empty {
+    display: none;
+}
+
+.fkp-geodata__actions .cbi-button {
+    margin: 0;
+}
+
+.fkp-geodata__panel:has(> [data-name="_dat_sources"]) {
+    padding: 0;
+    border: 0;
+    background: none;
+}
+
+.fkp-geodata__panel > [data-name="_dat_sources"] {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.fkp-geodata__panel > .cbi-value-description {
+    margin: 0.5rem 0 0;
+    padding: 0;
+    color: var(--text-color-medium, inherit);
+    font-size: 0.875em;
+}
+
+#cbi-${FORKOP_CBI_PREFIX}-geodata > .cbi-section-create:empty {
+    display: none;
 }
 
 #cbi-${FORKOP_CBI_PREFIX}-geodata .td[data-name="_state"] {
@@ -141,7 +198,6 @@ ${PartialStyles}
     overflow-wrap: anywhere;
 }
 
-#cbi-${FORKOP_CBI_PREFIX}-geodata .td[data-name="_actions"] > div,
 #cbi-${FORKOP_CBI_PREFIX}-geodata .td.cbi-section-actions > div {
     display: flex;
     flex-wrap: wrap;

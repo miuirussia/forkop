@@ -196,6 +196,7 @@ declare global {
     // The title of one of the section's own controls, by key.
     titleFn(key: string): string;
     addbtntitle?: string | (() => string);
+    actionstitle?: string;
 
     option(widget: CBIWidgetClass, name: string, ...rest: unknown[]): CBIOption;
     taboption(

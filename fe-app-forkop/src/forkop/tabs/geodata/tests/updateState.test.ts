@@ -1,4 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Forkop } from '../../../types';
+
+vi.mock('../../../../helpers/showToast', () => ({ showToast: vi.fn() }));
+vi.mock('../../../methods/custom/clashApi', () => ({
+  setClashApiConfigSections: vi.fn(),
+  updateClashApiRuleProviders: vi.fn(),
+}));
+vi.mock('../../../methods/custom/getConfigSections', () => ({
+  getConfigSections: vi.fn(),
+}));
 
 vi.mock('../../../services/geodata.service', () => ({
   getGeodataState: vi.fn(),
@@ -17,15 +27,27 @@ import {
   getGeodataState,
   updateGeodata,
 } from '../../../services/geodata.service';
+import { logger } from '../../../services/logger.service';
+import { showToast } from '../../../../helpers/showToast';
+import {
+  setClashApiConfigSections,
+  updateClashApiRuleProviders,
+} from '../../../methods/custom/clashApi';
+import { getConfigSections } from '../../../methods/custom/getConfigSections';
 import { createGeodataContent } from '../index';
 
 class TestNode {
   isConnected = true;
+  disabled = false;
+  classList = { add: vi.fn(), remove: vi.fn() };
   textContent = '';
   constructor(
     public attrs: Record<string, unknown>,
     public children: TestNode[],
   ) {}
+  appendChild(child: TestNode) {
+    this.children.push(child);
+  }
   click() {
     (this.attrs.click as () => void)();
   }
@@ -47,7 +69,10 @@ function source(id: string, tagCount = 0, error = '') {
 
 let snapshot: GeodataState;
 let modal: TestNode[];
-let options: Record<string, { cfgvalue: (id?: string) => TestNode }>;
+let options: Record<
+  string,
+  { cfgvalue: (id?: string) => TestNode; renderWidget: () => TestNode }
+>;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -189,5 +214,104 @@ describe('Geodata state after Update', () => {
     await vi.advanceTimersByTimeAsync(2000);
     expect(row.textContent).toContain('18 tags');
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('Update lists on Geodata', () => {
+  function rule(options: Partial<Forkop.ConfigSection>): Forkop.ConfigSection {
+    return { '.type': 'section', '.name': 'rule', ...options };
+  }
+
+  async function listAction(sections: Forkop.ConfigSection[]) {
+    vi.mocked(getConfigSections).mockResolvedValue(sections);
+    const node = options._list_update_action.renderWidget();
+    await vi.advanceTimersByTimeAsync(0);
+    return node.children[0];
+  }
+
+  it.each([
+    ['no lists', [rule({})], false],
+    [
+      'built-in lists',
+      [rule({ action: 'bypass', community_lists: ['youtube'] })],
+      true,
+    ],
+    [
+      'remote rule sets',
+      [rule({ action: 'block', rule_set: ['https://example.com/ads.srs'] })],
+      true,
+    ],
+    [
+      'remote subnet lists',
+      [rule({ rule_set_with_subnets: ['https://example.com/mixed.txt'] })],
+      true,
+    ],
+    ['built-in rule set references', [rule({ rule_set: ['youtube'] })], true],
+    ['local rule sets', [rule({ rule_set: ['/etc/forkop/local.srs'] })], false],
+    [
+      'DAT rule sets',
+      [
+        rule({
+          rule_set: ['dat:sites:ru'],
+          rule_set_with_subnets: ['dat:ips:ru'],
+        }),
+      ],
+      false,
+    ],
+    [
+      'disabled sections',
+      [rule({ enabled: '0', community_lists: ['telegram'] })],
+      false,
+    ],
+  ] as const)(
+    'handles visibility for %s',
+    async (_label, sections, expected) => {
+      expect(Boolean(await listAction([...sections]))).toBe(expected);
+    },
+  );
+
+  it('updates all lists once and keeps the action busy across form renders', async () => {
+    type Result = Awaited<ReturnType<typeof updateClashApiRuleProviders>>;
+    let finish!: (result: Result) => void;
+    vi.mocked(updateClashApiRuleProviders).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const sections = [rule({ community_lists: ['youtube'] })];
+    const button = await listAction(sections);
+    expect(button.children).toEqual(['Update lists']);
+    const applied = [
+      ...sections,
+      { '.type': 'settings', '.name': 'settings', yacd_secret_key: 'new-key' },
+    ] satisfies Forkop.ConfigSection[];
+    vi.mocked(getConfigSections).mockResolvedValueOnce(applied);
+    button.click();
+    expect(button.disabled).toBe(true);
+
+    const rerendered = await listAction(sections);
+    expect(rerendered.disabled).toBe(true);
+    rerendered.click();
+    expect(setClashApiConfigSections).toHaveBeenCalledExactlyOnceWith(applied);
+    expect(updateClashApiRuleProviders).toHaveBeenCalledOnce();
+    expect(updateClashApiRuleProviders).toHaveBeenCalledWith();
+
+    finish({ success: true, data: undefined });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(showToast).toHaveBeenCalledWith('Lists updated', 'success');
+    expect(rerendered.disabled).toBe(false);
+  });
+
+  it('reports a failed update and re-enables the button', async () => {
+    vi.spyOn(logger, 'error').mockImplementation(() => {});
+    vi.mocked(updateClashApiRuleProviders).mockResolvedValue({
+      success: false,
+      error: 'update 1 of 3 rule-sets failed',
+    });
+    const button = await listAction([rule({ community_lists: ['youtube'] })]);
+    button.click();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(showToast).toHaveBeenCalledWith('Failed to update lists', 'error');
+    expect(button.disabled).toBe(false);
   });
 });

@@ -18,13 +18,15 @@ export function addRuleSetUpdateOptions(section: CBISection) {
   let o = section.option(
     form.Flag,
     'list_update_enabled',
-    _('Rule set auto update'),
-    _('Update remote lists and rule sets on a schedule'),
+    _('Auto update'),
+    _(
+      'Schedule for built-in lists and remote rule sets. Set the schedule for each DAT source in its own settings',
+    ),
   );
   o.default = '1';
   o.rmempty = false;
 
-  o = section.option(form.Value, 'update_interval', _('List update interval'));
+  o = section.option(form.Value, 'update_interval', _('Update interval'));
   o.depends('list_update_enabled', '1');
   o.retain = true;
   o.placeholder = '1d';
@@ -48,17 +50,14 @@ export function addRuleSetUpdateOptions(section: CBISection) {
   o = section.option(
     form.Flag,
     'download_lists_via_proxy',
-    _('Download lists through a section'),
-    _(
-      'Download the built-in lists and remote rule sets through the selected section',
-    ),
+    _('Download through a section'),
   );
   configureDownloadViaProxyFlag(o, 'download_lists_via_proxy_section');
 
   o = section.option(
     form.ListValue,
     'download_lists_via_proxy_section',
-    _('Download lists through'),
+    _('Download section'),
   );
   o.depends('download_lists_via_proxy', '1');
   o.retain = true;

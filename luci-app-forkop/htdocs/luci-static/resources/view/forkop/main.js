@@ -77,6 +77,9 @@ var DOMAIN_LIST_OPTIONS = {
   youtube: "YouTube",
   ads: "Ads"
 };
+function isBuiltinRulesetValue(value) {
+  return Object.prototype.hasOwnProperty.call(DOMAIN_LIST_OPTIONS, value);
+}
 var RU_BLOCKED_RKN_LISTS = [
   "youtube",
   "discord",
@@ -1472,8 +1475,7 @@ var initialStore = {
   sectionsWidget: {
     loading: true,
     failed: false,
-    data: [],
-    hasRemoteLists: false
+    data: []
   },
   ...initialDiagnosticStore
 };
@@ -2381,12 +2383,6 @@ function getJsonOutbounds(section2) {
 function isConnectionAction(action) {
   return action === "connection";
 }
-function hasRemoteLists(section2) {
-  return section2[".type"] === "section" && section2.enabled !== "0" && (getListValues(section2.community_lists).length > 0 || [
-    ...getListValues(section2.rule_set),
-    ...getListValues(section2.rule_set_with_subnets)
-  ].some((reference) => !reference.startsWith("/")));
-}
 function hasSubscriptionSources(section2) {
   return getSubscriptionSourceCount(section2) > 0;
 }
@@ -2923,7 +2919,6 @@ async function getDashboardSections() {
   const configSections = hydrateConfigSections(await getConfigSections());
   setClashApiConfigSections(configSections);
   const hasSubscriptions = configSections.some(hasSubscriptionSources);
-  const remoteLists = configSections.some(hasRemoteLists);
   const [clashProxies, clashProviders] = await Promise.all([
     getClashApiProxies(),
     hasSubscriptions ? getClashApiProxyProviders() : Promise.resolve({
@@ -2934,8 +2929,7 @@ async function getDashboardSections() {
   if (!clashProxies.success || !clashProxies.data?.proxies) {
     return {
       success: false,
-      data: [],
-      hasRemoteLists: remoteLists
+      data: []
     };
   }
   const proxies = Object.entries(clashProxies.data.proxies).map(
@@ -2994,8 +2988,7 @@ async function getDashboardSections() {
   });
   return {
     success: true,
-    data,
-    hasRemoteLists: remoteLists
+    data
   };
 }
 
@@ -5808,8 +5801,7 @@ function renderWidget(props) {
 // src/forkop/tabs/dashboard/partials/renderToolbar.ts
 function renderToolbar({
   testAll,
-  updateSubscriptions,
-  updateLists
+  updateSubscriptions
 }) {
   const actions = [
     testAll && renderButton({
@@ -5825,13 +5817,6 @@ function renderToolbar({
       text: _("Update subscriptions"),
       loading: updateSubscriptions.busy,
       onClick: updateSubscriptions.onClick
-    }),
-    updateLists && renderButton({
-      classNames: ["fkp_dashboard-page__toolbar__action"],
-      icon: renderDownloadIcon24,
-      text: _("Update lists"),
-      loading: updateLists.busy,
-      onClick: updateLists.onClick
     })
   ].filter((action) => Boolean(action));
   return actions.length ? [textE("div", { class: "fkp_dashboard-page__toolbar" }, actions)] : [];
@@ -10305,7 +10290,7 @@ async function fetchDashboardSectionsOnce(mountId) {
     }
   });
   try {
-    const { data, success, hasRemoteLists: hasRemoteLists2 } = await CustomForkopMethods.getDashboardSections();
+    const { data, success } = await CustomForkopMethods.getDashboardSections();
     if (!dashboardMounted || mountId !== dashboardMountId) {
       return false;
     }
@@ -10318,8 +10303,7 @@ async function fetchDashboardSectionsOnce(mountId) {
         ...current,
         loading: false,
         failed: false,
-        data,
-        hasRemoteLists: hasRemoteLists2
+        data
       }
     });
     return true;
@@ -11418,17 +11402,6 @@ function subscriptionProviderTags() {
     )
   ];
 }
-function handleUpdateLists() {
-  return runToolbarAction("lists", async () => {
-    const response = await CustomForkopMethods.updateClashApiRuleProviders();
-    if (response.success) {
-      showToast(_("Lists updated"), "success");
-      return;
-    }
-    logger.error("[DASHBOARD]", "handleUpdateLists: failed", response.error);
-    showToast(_("Failed to update lists"), "error");
-  });
-}
 function handleUpdateSubscriptions() {
   return runToolbarAction("subscriptions", async () => {
     const response = await CustomForkopMethods.updateClashApiProxyProviders(
@@ -11475,10 +11448,6 @@ async function renderSectionsWidget() {
     updateSubscriptions: subscriptionProviderTags().length ? {
       busy: toolbarActions.has("subscriptions"),
       onClick: () => void handleUpdateSubscriptions()
-    } : void 0,
-    updateLists: sectionsWidget.hasRemoteLists ? {
-      busy: toolbarActions.has("lists"),
-      onClick: () => void handleUpdateLists()
     } : void 0
   });
   const collapsible = sectionsWidget.data.length > 1;
@@ -17144,10 +17113,67 @@ ${PartialStyles}
     overflow-x: auto;
 }
 
-#cbi-${FORKOP_UCI_PACKAGE}-geodata .td[data-name="input"] {
-    max-width: 24rem;
-    white-space: normal;
-    overflow-wrap: anywhere;
+.fkp-geodata {
+    display: grid;
+    gap: 1.5rem;
+    margin-block-end: 1rem;
+}
+
+.fkp-geodata > section {
+    min-width: 0;
+}
+
+.fkp-geodata__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-block-end: 0.625rem;
+}
+
+.fkp-geodata__heading > h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.fkp-geodata__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.fkp-geodata__actions:empty,
+.fkp-geodata__actions > span:empty {
+    display: none;
+}
+
+.fkp-geodata__actions .cbi-button {
+    margin: 0;
+}
+
+.fkp-geodata__panel:has(> [data-name="_dat_sources"]) {
+    padding: 0;
+    border: 0;
+    background: none;
+}
+
+.fkp-geodata__panel > [data-name="_dat_sources"] {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.fkp-geodata__panel > .cbi-value-description {
+    margin: 0.5rem 0 0;
+    padding: 0;
+    color: var(--text-color-medium, inherit);
+    font-size: 0.875em;
+}
+
+#cbi-${FORKOP_UCI_PACKAGE}-geodata > .cbi-section-create:empty {
+    display: none;
 }
 
 #cbi-${FORKOP_UCI_PACKAGE}-geodata .td[data-name="_state"] {
@@ -17156,7 +17182,6 @@ ${PartialStyles}
     overflow-wrap: anywhere;
 }
 
-#cbi-${FORKOP_UCI_PACKAGE}-geodata .td[data-name="_actions"] > div,
 #cbi-${FORKOP_UCI_PACKAGE}-geodata .td.cbi-section-actions > div {
     display: flex;
     flex-wrap: wrap;
@@ -18129,12 +18154,14 @@ function addRuleSetUpdateOptions(section2) {
   let o = section2.option(
     form.Flag,
     "list_update_enabled",
-    _("Rule set auto update"),
-    _("Update remote lists and rule sets on a schedule")
+    _("Auto update"),
+    _(
+      "Schedule for built-in lists and remote rule sets. Set the schedule for each DAT source in its own settings"
+    )
   );
   o.default = "1";
   o.rmempty = false;
-  o = section2.option(form.Value, "update_interval", _("List update interval"));
+  o = section2.option(form.Value, "update_interval", _("Update interval"));
   o.depends("list_update_enabled", "1");
   o.retain = true;
   o.placeholder = "1d";
@@ -18156,16 +18183,13 @@ function addRuleSetUpdateOptions(section2) {
   o = section2.option(
     form.Flag,
     "download_lists_via_proxy",
-    _("Download lists through a section"),
-    _(
-      "Download the built-in lists and remote rule sets through the selected section"
-    )
+    _("Download through a section")
   );
   configureDownloadViaProxyFlag(o, "download_lists_via_proxy_section");
   o = section2.option(
     form.ListValue,
     "download_lists_via_proxy_section",
-    _("Download lists through")
+    _("Download section")
   );
   o.depends("download_lists_via_proxy", "1");
   o.retain = true;
@@ -18376,7 +18400,132 @@ async function showGeodataCatalog(includeGeoip = true, select, sourceId = "") {
   void refresh();
 }
 
+// src/forkop/tabs/geodata/layout.ts
+function renderGroup(id, title, content, actions = []) {
+  const group = textE("section", {}, [
+    textE("header", { class: "fkp-geodata__heading" }, [
+      textE("h4", { id }, title),
+      textE("div", { class: "fkp-geodata__actions" }, actions)
+    ]),
+    textE("div", { class: "cbi-section-node fkp-geodata__panel" }, content)
+  ]);
+  group.setAttribute("aria-labelledby", id);
+  return group;
+}
+function arrangeGeodataGroups(section2) {
+  const renderContents = section2.renderContents;
+  section2.renderContents = async function(...args) {
+    const node = await renderContents.apply(this, args);
+    const body = node.querySelector(":scope > .cbi-section-node");
+    if (!body) return node;
+    const fields = new Map(
+      Array.from(
+        body.querySelectorAll(":scope > [data-name]"),
+        (field2) => [field2.dataset.name, field2]
+      )
+    );
+    const sources = fields.get("_dat_sources");
+    const storage = fields.get("geodata_path");
+    const datRoute = fields.get("geodata_download_section");
+    const datAction = fields.get("_geodata_actions");
+    const listAction = fields.get("_list_update_action");
+    const updateDat = datAction?.querySelector("button");
+    const updateLists2 = listAction?.querySelector(
+      ".fkp-geodata__list-action"
+    );
+    if (!sources || !storage || !datRoute || !updateDat || !updateLists2)
+      return node;
+    const addSource = sources.querySelector(
+      ".cbi-section-create > button"
+    );
+    const applyHint = textE(
+      "p",
+      { class: "cbi-value-description" },
+      _("Save & Apply before downloading newly added or changed sources")
+    );
+    const listSettings = [...fields.values()].filter(
+      (field2) => field2 !== sources && field2 !== storage && field2 !== datRoute && field2 !== datAction && field2 !== listAction
+    );
+    body.classList.replace("cbi-section-node", "fkp-geodata");
+    body.replaceChildren(
+      renderGroup(
+        "fkp-geodata-sources",
+        _("DAT sources"),
+        [sources, applyHint],
+        addSource ? [updateDat, addSource] : [updateDat]
+      ),
+      renderGroup("fkp-geodata-settings", _("DAT settings"), [
+        storage,
+        datRoute
+      ]),
+      renderGroup("fkp-geodata-lists", _("Lists and rule sets"), listSettings, [
+        updateLists2
+      ])
+    );
+    return node;
+  };
+}
+
 // src/forkop/tabs/geodata/index.ts
+async function updateLists() {
+  try {
+    setClashApiConfigSections(await getConfigSections());
+    const response = await updateClashApiRuleProviders();
+    if (!response.success) {
+      throw new Error(response.error);
+    }
+    showToast(_("Lists updated"), "success");
+  } catch (error) {
+    logger.error("[GEODATA]", "updateLists: failed", error);
+    showToast(_("Failed to update lists"), "error");
+  }
+}
+function addListUpdateAction(section2) {
+  let updateRequest;
+  const action = section2.option(form.DummyValue, "_list_update_action", "");
+  action.renderWidget = () => {
+    const container = textE("span", { class: "fkp-geodata__list-action" });
+    void getConfigSections().then((sections) => {
+      const hasRemoteLists = sections.some(
+        (section3) => section3[".type"] === "section" && section3.enabled !== "0" && (normalizeOptionValues(section3.community_lists).length > 0 || [
+          ...normalizeOptionValues(section3.rule_set),
+          ...normalizeOptionValues(section3.rule_set_with_subnets)
+        ].some(
+          (reference) => /^https?:\/\//.test(reference) || isBuiltinRulesetValue(reference)
+        ))
+      );
+      if (!hasRemoteLists) return;
+      const button = textE(
+        "button",
+        {
+          type: "button",
+          class: "cbi-button cbi-button-action",
+          click: () => {
+            if (updateRequest) return;
+            updateRequest = updateLists().finally(() => {
+              updateRequest = void 0;
+            });
+            showBusy(updateRequest);
+          }
+        },
+        _("Update lists")
+      );
+      function showBusy(request) {
+        button.disabled = true;
+        button.classList.add("spinning");
+        void request.then(() => {
+          button.disabled = false;
+          button.classList.remove("spinning");
+        });
+      }
+      if (updateRequest) showBusy(updateRequest);
+      container.appendChild(button);
+    }).catch(
+      (error) => logger.error("[GEODATA]", "getConfigSections: failed", error)
+    );
+    return container;
+  };
+}
 var phases = {
   queued: () => _("Starting\u2026"),
   download: () => _("Downloading"),
@@ -18471,7 +18620,7 @@ function createGeodataContent(map) {
   o = section2.option(
     form.ListValue,
     "geodata_download_section",
-    _("Download DAT through")
+    _("Download section")
   );
   configureDownloadSectionOption(o, "geodata_download_section");
   o.rmempty = true;
@@ -18485,12 +18634,7 @@ function createGeodataContent(map) {
     this.value("", _("Directly"));
     return value;
   };
-  o = section2.option(
-    form.DummyValue,
-    "_geodata_actions",
-    "",
-    _("Save & Apply before downloading newly added or changed sources")
-  );
+  o = section2.option(form.DummyValue, "_geodata_actions", "");
   o.cfgvalue = () => textE(
     "button",
     {
@@ -18512,6 +18656,9 @@ function createGeodataContent(map) {
   grid.addremove = true;
   grid.sortable = false;
   grid.nodescriptions = true;
+  grid.hidetitle = true;
+  grid.addbtntitle = _("Add DAT source");
+  grid.actionstitle = _("Actions");
   grid.handleAdd = function(event) {
     return form.GridSection.prototype.handleAdd.call(
       this,
@@ -18536,6 +18683,7 @@ function createGeodataContent(map) {
   o.rmempty = false;
   o = grid.option(form.Value, "input", _("DAT URL or local path"));
   o.rmempty = false;
+  o.modalonly = true;
   o.validate = (_id, value) => /^https?:\/\//.test(value) ? validateUrl(value) : validatePath(value);
   o = grid.option(form.Flag, "auto_update", _("Auto update"));
   o.default = "1";
@@ -18558,7 +18706,8 @@ function createGeodataContent(map) {
   };
   o.textvalue = o.cfgvalue;
   o = grid.option(form.DummyValue, "_actions", _("Actions"));
-  o.cfgvalue = (id) => textE("div", {}, [
+  o.modalonly = true;
+  const sourceActions = (id) => [
     textE(
       "button",
       {
@@ -18579,9 +18728,17 @@ function createGeodataContent(map) {
       },
       _("Tags")
     )
-  ]);
-  o.textvalue = function(id) {
-    return uci.state.creates.forkop?.[id] ? textE("div") : this.cfgvalue(id);
+  ];
+  o.cfgvalue = (id) => textE("div", {}, sourceActions(id));
+  grid.renderRowActions = function(id) {
+    const cell = form.GridSection.prototype.renderRowActions.call(
+      this,
+      id
+    );
+    if (!uci.state.creates.forkop?.[id]) {
+      cell.querySelector(":scope > div")?.prepend(...sourceActions(id));
+    }
+    return cell;
   };
   const remove = grid.handleRemove;
   grid.handleRemove = function(id, event) {
@@ -18603,6 +18760,8 @@ function createGeodataContent(map) {
     return remove?.call(this, id, event);
   };
   addRuleSetUpdateOptions(section2);
+  addListUpdateAction(section2);
+  arrangeGeodataGroups(section2);
 }
 
 // src/forkop/tabs/mountTab.ts
@@ -26160,9 +26319,6 @@ function loadRulesetValues(option2) {
   Object.entries(DOMAIN_LIST_OPTIONS).forEach(([key, label]) => {
     option2.value(key, label);
   });
-}
-function isBuiltinRulesetValue(value) {
-  return Object.prototype.hasOwnProperty.call(DOMAIN_LIST_OPTIONS, value);
 }
 function builtinListLabel(value) {
   return DOMAIN_LIST_OPTIONS[value] ?? value;

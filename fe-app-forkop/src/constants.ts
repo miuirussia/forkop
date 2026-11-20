@@ -68,6 +68,10 @@ export const DOMAIN_LIST_OPTIONS = {
   ads: 'Ads',
 };
 
+export function isBuiltinRulesetValue(value: string) {
+  return Object.prototype.hasOwnProperty.call(DOMAIN_LIST_OPTIONS, value);
+}
+
 const RU_BLOCKED_RKN_LISTS = [
   'youtube',
   'discord',

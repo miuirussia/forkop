@@ -86,7 +86,7 @@ const latencySortedSections = readSectionNames(
 );
 const collapsedSections = readSectionNames(COLLAPSED_SECTIONS_STORAGE_KEY);
 const selectorRequests = new Set<string>();
-const toolbarActions = new Set<'testAll' | 'subscriptions' | 'lists'>();
+const toolbarActions = new Set<'testAll' | 'subscriptions'>();
 const fallbackPinRequests = new Set<string>();
 let activeDetailsModal: {
   container: HTMLElement;
@@ -155,8 +155,7 @@ async function fetchDashboardSectionsOnce(mountId: number) {
   });
 
   try {
-    const { data, success, hasRemoteLists } =
-      await CustomForkopMethods.getDashboardSections();
+    const { data, success } = await CustomForkopMethods.getDashboardSections();
 
     if (!dashboardMounted || mountId !== dashboardMountId) {
       return false;
@@ -174,7 +173,6 @@ async function fetchDashboardSectionsOnce(mountId: number) {
         loading: false,
         failed: false,
         data,
-        hasRemoteLists,
       },
     });
 
@@ -1549,7 +1547,7 @@ function handleShowTailscaleInfo(outbound: Forkop.Outbound) {
 }
 
 async function runToolbarAction(
-  action: 'testAll' | 'subscriptions' | 'lists',
+  action: 'testAll' | 'subscriptions',
   run: () => Promise<void>,
 ) {
   if (toolbarActions.has(action)) {
@@ -1588,22 +1586,6 @@ function subscriptionProviderTags() {
         ),
     ),
   ];
-}
-
-// Both endpoints answer 204 on success and 503 naming what failed; anything short of every target
-// succeeding is a failure.
-function handleUpdateLists() {
-  return runToolbarAction('lists', async () => {
-    const response = await CustomForkopMethods.updateClashApiRuleProviders();
-
-    if (response.success) {
-      showToast(_('Lists updated'), 'success');
-      return;
-    }
-
-    logger.error('[DASHBOARD]', 'handleUpdateLists: failed', response.error);
-    showToast(_('Failed to update lists'), 'error');
-  });
 }
 
 function handleUpdateSubscriptions() {
@@ -1665,12 +1647,6 @@ async function renderSectionsWidget() {
       ? {
           busy: toolbarActions.has('subscriptions'),
           onClick: () => void handleUpdateSubscriptions(),
-        }
-      : undefined,
-    updateLists: sectionsWidget.hasRemoteLists
-      ? {
-          busy: toolbarActions.has('lists'),
-          onClick: () => void handleUpdateLists(),
         }
       : undefined,
   });
