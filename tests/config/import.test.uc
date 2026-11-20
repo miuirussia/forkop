@@ -136,6 +136,26 @@ t.test("the session's unsaved changes to Forkop give way to the file", () => {
     t.eq(session.changes, []);
 });
 
+t.test("a configuration of this release keeps Geodata sources and DAT references when imported", () => {
+    let file = current();
+    file[0].geodata_path = "/tmp/forkop-geodata";
+    file[0].geodata_download_section = "gone";
+    file[1].rule_set = [ "dat:geodata_b0aaec:youtube", "dat:geodata_27421c:telegram" ];
+    for (let source in [ [ "geodata_b0aaec", "geosite" ], [ "geodata_27421c", "geoip" ] ])
+        push(file, {
+            ".name": source[0], ".type": "geodata", ".anonymous": false,
+            label: "Geo Aggregator", kind: source[1], input: "https://example.com/" + source[1] + ".dat",
+            auto_update: "1", update_interval: "1d"
+        });
+    let session = setup(file, current());
+    t.eq(imports.check(FILE, SESSION), { success: true, from: "2.0.0", to: "2.0.0",
+        warnings: [], changed: true, unsaved: false });
+    t.eq(imports.stage(FILE, SESSION), { success: true });
+    t.eq(shape(session.staged), shape(file));
+    t.eq(uci.__commits(), [], "the import stays among the session's unsaved changes");
+    t.eq(imports.check(FILE, SESSION).changed, false, "the same file again has nothing to change");
+});
+
 t.test("a file holding the configuration changes nothing, and one in another order changes the order", () => {
     setup(current(), current());
     t.eq(imports.check(FILE, SESSION).changed, false);

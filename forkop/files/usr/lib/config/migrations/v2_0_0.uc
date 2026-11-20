@@ -1644,7 +1644,7 @@ return {
     version: "2.0.0",
     types: [
         "settings", "section", "server", "server_client", "subscription_url", "section_interface",
-        "connection_link", "urltest", "fallback_group", "fallback_level", "tunnel", "tunnel_peer"
+        "connection_link", "urltest", "fallback_group", "fallback_level", "tunnel", "tunnel_peer", "geodata"
     ],
     steps: [
         connection_aliases,
