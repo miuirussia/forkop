@@ -7,7 +7,7 @@ import {
 } from '../../../cbi/localDevices';
 import { loadOutgoingDevices } from '../../../cbi/outgoingDevices';
 
-export function addNetworkOptions(section: CBISection) {
+export function addNetworkOptions(section: Pick<CBISection, 'option'>) {
   const excludedDevicesOption = section.option(
     form.DynamicList,
     'routing_excluded_ips',

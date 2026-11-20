@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-20 17:11+0300\n"
-"PO-Revision-Date: 2026-11-20 17:11+0300\n"
+"POT-Creation-Date: 2026-11-20 18:21+0300\n"
+"PO-Revision-Date: 2026-11-20 18:21+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -1116,6 +1116,10 @@ msgstr ""
 msgid "Disables QUIC for compatibility and to fix video streaming"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/settings/form.ts
+msgid "DNS"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/settings/form/dns.ts
 msgid "DNS outside the rules"
 msgstr ""
@@ -2066,6 +2070,10 @@ msgstr ""
 msgid "Latency difference"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/settings/form.ts
+msgid "Latency measurement"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
 msgid "Latency measurement for every server"
 msgstr ""
@@ -2306,6 +2314,7 @@ msgid "Needs an IPv4 subnet"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/form/protocol.ts
+#: fe-app-forkop/src/forkop/tabs/settings/form.ts
 msgid "Network"
 msgstr ""
 
@@ -3328,6 +3337,7 @@ msgid "Servers whose names match the regular expression"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/groups.ts
+#: fe-app-forkop/src/forkop/tabs/settings/form.ts
 msgid "Service"
 msgstr ""
 
@@ -3896,6 +3906,7 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/groups.ts
+#: fe-app-forkop/src/forkop/tabs/settings/form.ts
 msgid "Traffic"
 msgstr ""
 

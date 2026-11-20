@@ -8,7 +8,7 @@ import { currentOptionValue } from '../../sections/subscriptions/model';
 import { addGenerateButton } from '../../servers/controls';
 import { randomHex } from '../../servers/credentials';
 
-export function addTrafficOptions(section: CBISection) {
+export function addYacdOptions(section: Pick<CBISection, 'option'>) {
   let o = section.option(form.Flag, 'enable_yacd', _('Enable YACD'));
   o.default = '0';
   o.rmempty = false;
@@ -53,8 +53,10 @@ export function addTrafficOptions(section: CBISection) {
     return wanAccess ? required().call(this, sectionId, value) : true;
   };
   addGenerateButton(o, () => randomHex(16));
+}
 
-  o = section.option(
+export function addTrafficOptions(section: Pick<CBISection, 'option'>) {
+  let o = section.option(
     form.Flag,
     'disable_quic',
     _('Disable QUIC'),

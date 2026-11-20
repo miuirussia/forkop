@@ -1,6 +1,6 @@
 import { validateSingBoxPath } from '../validators';
 
-export function addServiceOptions(section: CBISection) {
+export function addServiceOptions(section: Pick<CBISection, 'option'>) {
   let o = section.option(form.Value, 'config_path', _('Config File Path'));
   o.value('/etc/sing-box/config.json', 'Flash (/etc/sing-box/config.json)');
   o.value('/tmp/sing-box/config.json', 'RAM (/tmp/sing-box/config.json)');

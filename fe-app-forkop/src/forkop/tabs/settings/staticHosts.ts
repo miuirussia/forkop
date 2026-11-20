@@ -94,7 +94,7 @@ function showStaticHostsModal(textareaNode: HTMLTextAreaElement) {
   });
 }
 
-export function createStaticHostsOption(section: CBISection) {
+export function createStaticHostsOption(section: Pick<CBISection, 'option'>) {
   const option = section.option(
     form.TextValue,
     'static_hosts_text',

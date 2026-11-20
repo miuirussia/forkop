@@ -64,7 +64,7 @@ export function addRuleSetUpdateOptions(section: CBISection) {
   configureDownloadSectionOption(o, 'download_lists_via_proxy_section');
 }
 
-export function addUpdateOptions(section: CBISection) {
+export function addLatencyOptions(section: Pick<CBISection, 'option'>) {
   let o = section.option(
     form.Flag,
     'unified_delay',
@@ -86,10 +86,12 @@ export function addUpdateOptions(section: CBISection) {
   o.validate = function (_section_id: string, value: string) {
     return validateUrlField(value);
   };
+}
 
+export function addWarpOptions(section: Pick<CBISection, 'option'>) {
   // A WARP tunnel requests its profile on every start, and the dialog registers new ones. Shown only
   // with a WARP-capable core, or while on, so it can be switched off.
-  o = section.option(
+  let o = section.option(
     form.Flag,
     'warp_profiles_via_proxy',
     _('Request WARP through a section'),

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-20 17:11+0300\n"
-"PO-Revision-Date: 2026-11-20 17:11+0300\n"
+"POT-Creation-Date: 2026-11-20 18:06+0300\n"
+"PO-Revision-Date: 2026-11-20 18:06+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -794,6 +794,9 @@ msgstr "Отключить QUIC"
 msgid "Disables QUIC for compatibility and to fix video streaming"
 msgstr "Отключает QUIC для совместимости и исправления видеостриминга"
 
+msgid "DNS"
+msgstr "DNS"
+
 msgid "DNS outside the rules"
 msgstr "DNS вне правил"
 
@@ -1477,6 +1480,9 @@ msgstr "Последний раз в сети %s"
 
 msgid "Latency difference"
 msgstr "Разница задержки"
+
+msgid "Latency measurement"
+msgstr "Измерение задержки"
 
 msgid "Latency measurement for every server"
 msgstr "Замер задержки каждого сервера"

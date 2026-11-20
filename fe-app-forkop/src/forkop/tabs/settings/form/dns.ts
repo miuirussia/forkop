@@ -13,7 +13,7 @@ import { validateRequiredSingBoxDuration } from '../../../../validators/validate
 import { required } from '../../../cbi/required';
 import { wholeNumberField } from '../../../../validators/fields';
 
-export function addDnsOptions(section: CBISection) {
+export function addDnsOptions(section: Pick<CBISection, 'option'>) {
   const dnsOption = section.option(
     form.DynamicList,
     'dns_server',

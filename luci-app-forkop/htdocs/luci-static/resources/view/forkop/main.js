@@ -17105,6 +17105,107 @@ ${PartialStyles}
     margin: 0;
 }
 
+.fkp-settings {
+    container: forkop-settings / inline-size;
+}
+
+.fkp-settings__layout > .cbi-tabmenu {
+    display: flex;
+    flex-wrap: wrap;
+    margin-inline: 0;
+    overflow: visible;
+}
+
+.fkp-settings__layout > .cbi-tabmenu > li {
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+}
+
+.fkp-settings__layout > .cbi-tabmenu > li > a {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.fkp-settings__layout > .cbi-tabmenu > li.cbi-tab-disabled:not([data-errors], :hover) > a {
+    color: var(--muted-foreground, inherit);
+}
+
+.fkp-settings__layout > .cbi-tabmenu > li.cbi-tab-disabled[data-errors]::after {
+    content: attr(data-errors);
+    box-sizing: border-box;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    margin: 0;
+    margin-inline-end: 0.375rem;
+    padding: 0 0.25rem;
+    border-radius: 1rem;
+    background: #c43c35;
+    color: #fff;
+    font-size: 0.75rem;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+.fkp-settings__layout > .cbi-section-node-tabbed {
+    min-width: 0;
+}
+
+.fkp-settings__layout > .cbi-section-node-tabbed > [data-tab-active="false"] {
+    display: none;
+}
+
+@container forkop-settings (min-width: 44rem) {
+    .fkp-settings__layout {
+        display: grid;
+        grid-template-columns: 11.5rem minmax(0, 1fr);
+        align-items: start;
+        gap: 1rem;
+    }
+
+    #cbi-${FORKOP_UCI_PACKAGE}-settings .fkp-settings__layout > .cbi-section-node.cbi-section-node-tabbed {
+        margin-block-start: 0;
+    }
+
+    .fkp-settings__layout > .cbi-tabmenu {
+        display: grid;
+        gap: 0.25rem;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: none;
+    }
+
+    .fkp-settings__layout > .cbi-tabmenu > li {
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0.375rem;
+        float: none;
+    }
+
+    .fkp-settings__layout > .cbi-tabmenu > li > a {
+        box-sizing: border-box;
+        display: flex;
+        flex: 1;
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 2.5rem;
+        height: auto;
+        padding: 0.5rem 0.75rem;
+        margin: 0;
+        border: 0;
+        line-height: 1.3;
+    }
+
+    .fkp-settings__layout > .cbi-tabmenu > li.cbi-tab > a {
+        font-weight: 600;
+    }
+}
+
 #cbi-${FORKOP_UCI_PACKAGE}-geodata {
     box-sizing: border-box;
     width: 100%;
@@ -18195,7 +18296,7 @@ function addRuleSetUpdateOptions(section2) {
   o.retain = true;
   configureDownloadSectionOption(o, "download_lists_via_proxy_section");
 }
-function addUpdateOptions(section2) {
+function addLatencyOptions(section2) {
   let o = section2.option(
     form.Flag,
     "unified_delay",
@@ -18215,7 +18316,9 @@ function addUpdateOptions(section2) {
   o.validate = function(_section_id, value) {
     return validateUrlField(value);
   };
-  o = section2.option(
+}
+function addWarpOptions(section2) {
+  let o = section2.option(
     form.Flag,
     "warp_profiles_via_proxy",
     _("Request WARP through a section"),
@@ -31462,7 +31565,7 @@ function addServiceOptions(section2) {
 }
 
 // src/forkop/tabs/settings/form/traffic.ts
-function addTrafficOptions(section2) {
+function addYacdOptions(section2) {
   let o = section2.option(form.Flag, "enable_yacd", _("Enable YACD"));
   o.default = "0";
   o.rmempty = false;
@@ -31497,7 +31600,9 @@ function addTrafficOptions(section2) {
     return wanAccess ? required().call(this, sectionId, value) : true;
   };
   addGenerateButton(o, () => randomHex(16));
-  o = section2.option(
+}
+function addTrafficOptions(section2) {
+  let o = section2.option(
     form.Flag,
     "disable_quic",
     _("Disable QUIC"),
@@ -31517,11 +31622,57 @@ function addTrafficOptions(section2) {
 
 // src/forkop/tabs/settings/form.ts
 function createSettingsContent(section2) {
-  addDnsOptions(section2);
-  addNetworkOptions(section2);
-  addTrafficOptions(section2);
-  addUpdateOptions(section2);
-  addServiceOptions(section2);
+  const groups = [
+    { id: "dns", title: _("DNS"), add: [addDnsOptions] },
+    {
+      id: "network",
+      title: _("Network"),
+      add: [addNetworkOptions, addWarpOptions]
+    },
+    { id: "traffic", title: _("Traffic"), add: [addTrafficOptions] },
+    { id: "yacd", title: "YACD", add: [addYacdOptions] },
+    {
+      id: "latency",
+      title: _("Latency measurement"),
+      add: [addLatencyOptions]
+    },
+    { id: "service", title: _("Service"), add: [addServiceOptions] }
+  ];
+  for (const { id, title, add } of groups) {
+    const tab = `settings-${id}`;
+    section2.tab(tab, title);
+    const fields = { option: section2.taboption.bind(section2, tab) };
+    add.forEach((addOptions) => addOptions(fields));
+  }
+  const renderContents = section2.renderContents;
+  section2.renderContents = async function(...args) {
+    const node = await renderContents.apply(this, args);
+    const body = node.querySelector(":scope > .cbi-section-node-tabbed");
+    if (!body) return node;
+    const layout = textE("div", { class: "fkp-settings__layout" });
+    body.before(layout);
+    layout.appendChild(body);
+    layout.addEventListener(
+      "cbi-tab-active",
+      (event) => {
+        const pane = event.target;
+        if (pane.parentElement !== body) return;
+        const links = layout.querySelectorAll(
+          ":scope > .cbi-tabmenu > li > a"
+        );
+        for (const link of links) {
+          if (link.parentElement?.dataset.tab === pane.dataset.tab) {
+            link.setAttribute("aria-current", "true");
+          } else {
+            link.removeAttribute("aria-current");
+          }
+        }
+      },
+      true
+    );
+    node.classList.add("fkp-settings");
+    return node;
+  };
 }
 
 // src/forkop/cbi/unsavedUci.ts
