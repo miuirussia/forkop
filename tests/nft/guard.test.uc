@@ -4,6 +4,20 @@ let fixture = require("fixture");
 let guard = require("nft.guard");
 let state = require("nft.state");
 
+const OFFLOAD_TABLE = 'table inet fw4 {\n' +
+    '    flowtable ft {\n' +
+    '        hook ingress priority filter\n' +
+    '        devices = { "eth0", "eth1" }\n' +
+    '        flags offload\n' +
+    '        counter\n' +
+    '    }\n' +
+    '    chain forward {\n' +
+    '        type filter hook forward priority filter; policy drop;\n' +
+    '        meta l4proto { tcp, udp } flow add @ft\n' +
+    '        counter packets 42 bytes 1234 accept\n' +
+    '    }\n' +
+    '}\n';
+
 t.test("the guard blocks IPv4 and IPv6 before capture, preserving LAN, excluded devices, and core downloads", () => {
     let text = guard.script({ routing_excluded_ips: "192.168.1.50 2001:db8::50" }, [ "br-lan", "tun0" ], []);
     t.contains(text, "hook prerouting priority -199");
@@ -35,7 +49,8 @@ t.test("arming preserves old interfaces and local prefixes, including wildcard i
     stub.commands([
         [ "nft -j list set inet ForkopTable", { stdout: '{"nftables":[{"set":{"elem":["br-old"]}}]}' } ],
         [ "nft -j list set inet ForkopGuard", { stdout: '{"nftables":[{"set":{"elem":["br-held"]}}]}' } ],
-        [ "nft -j list flowtables", { stdout: '{"nftables":[{"flowtable":{"family":"inet","table":"fw4","name":"ft"}}]}' } ],
+        [ "nft -j list flowtables", { stdout: '{"nftables":[{"flowtable":{"family":"inet","table":"fw4","name":"ft","dev":["eth0","eth1"]}},{"flowtable":{"family":"inet","table":"fw4","name":"ft2","dev":"eth0"}}]}' } ],
+        [ "nft list table inet fw4", { stdout: OFFLOAD_TABLE } ],
         [ "/sbin/ip -o addr show", { stdout: "2: br-new@if3 inet6 2001:4860:1::1/64 scope global\n" +
             "2: br-new inet 192.168.1.1/24 scope global br-new\n" +
             "3: br-old inet6 2001:4860:2::1/64 scope global\n" +
@@ -43,7 +58,8 @@ t.test("arming preserves old interfaces and local prefixes, including wildcard i
         [ "nft -f -", {} ]
     ]);
     guard.arm();
-    written = stub.calls()[4].stdin;
+    written = stub.calls()[5].stdin;
+    t.eq(length(stub.calls()), 6, "a table with multiple flowtables is read and restored once");
     stub.restore();
     state.table_present = real_present;
     t.contains(written, 'interfaces { type ifname; flags interval; auto-merge; }');
@@ -52,8 +68,31 @@ t.test("arming preserves old interfaces and local prefixes, including wildcard i
     t.contains(written, "2001:4860:2::1/64");
     t.contains(written, "192.168.1.1/24");
     t.excludes(written, "2a00:1450::1/64");
-    t.contains(written, 'flush flowtable inet "fw4" "ft"');
+    t.contains(written, "delete table inet fw4\n" + OFFLOAD_TABLE);
+    t.eq(length(split(written, "delete table inet fw4")), 2);
+    t.excludes(written, "flush flowtable");
     t.excludes(written, "delete table inet ForkopTable");
+});
+
+t.test("offload table identifiers cannot inject commands into the guard transaction", () => {
+    let table = { family: "inet", name: "fw4; flush ruleset", definition: OFFLOAD_TABLE };
+    t.contains(t.throws(() => guard.script({}, [], [ table ])).message, "Unsupported offload table identifier");
+});
+
+t.test("an unreadable offload table definition aborts before touching the running rules", () => {
+    fixture.seed({ settings: {} });
+    let real_present = state.table_present;
+    state.table_present = () => false;
+    for (let reply in [ { status: 1 }, { stdout: "" } ]) {
+        stub.commands([
+            [ "nft -j list flowtables", { stdout: '{"nftables":[{"flowtable":{"family":"inet","table":"fw4","name":"ft","dev":["eth0"]}}]}' } ],
+            [ "nft list table inet fw4", reply ]
+        ]);
+        t.contains(t.throws(() => guard.arm()).message, "Failed to read the offload table definition");
+        t.eq(length(stub.calls()), 2);
+        stub.restore();
+    }
+    state.table_present = real_present;
 });
 
 t.test("an unreadable address inventory aborts before changing the running rules", () => {

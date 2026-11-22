@@ -11,7 +11,7 @@ let state = require("nft.state");
 
 const TABLE = "ForkopGuard";
 
-function script(settings, interfaces, flowtables, local) {
+function script(settings, interfaces, offload_tables, local) {
     let lines = [ "add table inet " + TABLE, "flush table inet " + TABLE ];
     let add = (chain, rule) => push(lines, "add rule inet " + TABLE + " " + chain + " " + rule);
     let excluded = connections.excluded_devices(settings);
@@ -63,8 +63,15 @@ function script(settings, interfaces, flowtables, local) {
     }
     // Evict connections previously forwarded directly: otherwise fw4's flowtable
     // would let them skip prerouting and the newly installed guard.
-    for (let flowtable in flowtables)
-        push(lines, "flush flowtable " + flowtable.family + " " + sprintf("%J", flowtable.table) + " " + sprintf("%J", flowtable.name));
+    // nftables has no flush-flowtable command, and detaching its devices keeps
+    // cached flows. Recreate the owning table in this transaction instead: its
+    // rules may reference the flowtable, so it cannot be deleted on its own.
+    for (let table in offload_tables) {
+        if (!match(table.name, /^[a-zA-Z_][a-zA-Z0-9_./-]*$/))
+            die("Unsupported offload table identifier in the traffic guard");
+        push(lines, "delete table " + table.family + " " + table.name);
+        push(lines, table.definition);
+    }
     return join("\n", lines) + "\n";
 }
 
@@ -91,13 +98,23 @@ function arm() {
     let value = common.parse_json(reply.output);
     if (reply.status != 0 || type(value?.nftables) != "array")
         die("Failed to list flowtables for the traffic guard");
-    let flowtables = [];
+    let offload_tables = [];
+    let seen = {};
     for (let item in value.nftables)
         if (item.flowtable != null) {
             let ft = item.flowtable;
             if (index([ "ip", "ip6", "inet", "bridge", "netdev" ], ft.family) < 0 || type(ft.table) != "string" || type(ft.name) != "string")
                 die("Invalid flowtable in the traffic guard");
-            push(flowtables, ft);
+            let key = ft.family + " " + ft.table;
+            if (seen[key])
+                continue;
+            // The native listing preserves rules, sets, counters and offload flags;
+            // JSON output omits some flowtable flags on supported nft versions.
+            let definition = exec.combined([ "nft", "list", "table", ft.family, ft.table ]);
+            if (definition.status != 0 || trim(definition.output) == "")
+                die("Failed to read the offload table definition for the traffic guard");
+            push(offload_tables, { family: ft.family, name: ft.table, definition: definition.output });
+            seen[key] = true;
         }
     // Interface addresses include the on-link LAN prefixes even when those are
     // globally routable. Do not exempt the default route through a LAN gateway.
@@ -119,7 +136,7 @@ function arm() {
             }
         }
     }
-    let result = exec.feed([ "nft", "-f", "-" ], script(settings, interfaces, flowtables, local));
+    let result = exec.feed([ "nft", "-f", "-" ], script(settings, interfaces, offload_tables, local));
     if (result.status != 0)
         die("Failed to block direct traffic while applying Forkop: " + nft.refusal(result));
 }

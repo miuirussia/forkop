@@ -142,6 +142,59 @@ add rule inet GuardTest forward counter drop
     print("Forwarded reply checks passed: IPv4/IPv6 replies stop before fw4 offload; excluded clients remain reachable")
 
 
+def existing_flowtable():
+    # The guard must also arm when fw4 already accelerates forwarded traffic.
+    # Keep a reference from a rule: deleting the flowtable alone would fail.
+    command("nft", "-f", "-", input="""
+table inet fw4 {
+    set allowed {
+        type ipv4_addr;
+        elements = { 192.0.2.1 };
+    }
+    counter preserved {
+        packets 42 bytes 1234
+    }
+    flowtable ft {
+        hook ingress priority 0;
+        devices = { lo };
+        counter;
+    }
+    chain forward {
+        type filter hook forward priority 0;
+        meta l4proto { tcp, udp } flow add @ft
+        ip saddr @allowed counter name preserved accept
+    }
+}
+""")
+    before = command("nft", "list", "table", "inet", "fw4")
+    previous = json.loads(command("nft", "-j", "list", "table", "inet", "fw4"))["nftables"][1]["table"]["handle"]
+    root = Path(__file__).resolve().parents[2]
+    code = 'require("fixture").seed({settings:{source_network_interfaces:"lo"}}); require("nft.guard").arm();'
+    for _ in range(2):
+        result = subprocess.run(["ucode", "-L", "tests/fakes", "-L", "tests/lib", "-L", "forkop/files/usr/lib", "-e", code],
+                                cwd=root, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        assert command("nft", "list", "table", "inet", "fw4") == before, "arming changed the flowtable or its referencing rule"
+        current = json.loads(command("nft", "-j", "list", "table", "inet", "fw4"))["nftables"][1]["table"]["handle"]
+        assert current != previous, "arming kept the old table and its cached connections"
+        previous = current
+        send(socket.AF_INET, "1.1.1.1", blocked=True)
+        send(socket.AF_INET6, "2606:4700:4700::1111", blocked=True)
+    code = 'print(require("nft.guard").script({}, ["lo"], ' + json.dumps([
+        {"family": "inet", "name": "fw4", "definition": before}
+    ]) + '));'
+    transaction = command("ucode", "-L", "tests/fakes", "-L", "tests/lib", "-L", "forkop/files/usr/lib", "-e", code, cwd=root)
+    rejected = subprocess.run(["nft", "-f", "-"], input=transaction +
+                              "add rule inet ForkopGuard missing_chain counter drop\n",
+                              capture_output=True, text=True)
+    assert rejected.returncode != 0
+    assert command("nft", "list", "table", "inet", "fw4") == before, "a failed guard transaction changed the firewall"
+    assert json.loads(command("nft", "-j", "list", "table", "inet", "fw4"))["nftables"][1]["table"]["handle"] == previous
+    send(socket.AF_INET, "1.1.1.1", blocked=True)
+    command("nft", "delete", "table", "inet", "fw4")
+    print("Existing flowtable checks passed: recreation preserves devices, sets, counters and rules; failed transactions roll back")
+
+
 def inside(directory, core):
     command("ip", "link", "set", "lo", "up")
     command("ip", "route", "add", "default", "dev", "lo")
@@ -174,6 +227,7 @@ def inside(directory, core):
     send(socket.AF_INET, "1.1.1.1", blocked=True)
     command("nft", "delete", "table", "inet", "ForkopGuard")
     send(socket.AF_INET, "1.1.1.1")
+    existing_flowtable()
 
     # A delegated LAN prefix is public IPv6 but still local. The interface also
     # carries the default route here: that must not exempt the rest of the Internet.
