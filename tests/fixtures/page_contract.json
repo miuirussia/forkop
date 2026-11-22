@@ -404,6 +404,6 @@
   "installer": {
     "object": "forkop.installer",
     "methods": ["input", "read", "stop"],
-    "actions": ["update", "variant", "uninstall"]
+    "actions": ["update", "reinstall", "variant", "uninstall"]
   }
 }

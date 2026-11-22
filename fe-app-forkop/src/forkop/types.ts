@@ -443,7 +443,13 @@ export namespace Forkop {
   // `status` is what the service is, `busy` what is being done to it; an apply leaves it running.
   export type ServiceBusy = 'start' | 'stop' | 'restart' | 'apply' | 'install';
 
-  export type InstallerAction = 'update' | 'variant' | 'uninstall';
+  export type InstallerAction =
+    | 'update'
+    | 'reinstall'
+    | 'variant'
+    | 'uninstall';
+
+  export type InstallerTranslation = 'keep' | 'ru' | 'en';
 
   // A run of install.sh as service/installer.uc reports it, with its output from `offset` on.
   export interface InstallerSnapshot {

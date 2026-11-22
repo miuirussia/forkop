@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 19:28+0300\n"
-"PO-Revision-Date: 2026-11-22 19:28+0300\n"
+"POT-Creation-Date: 2026-11-22 20:56+0300\n"
+"PO-Revision-Date: 2026-11-22 20:56+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1103,6 +1103,9 @@ msgstr "Для сервера, который пускает только нек
 msgid "For example 30m, 12h or 1d"
 msgstr "Например: 30m, 12h или 1d"
 
+msgid "Forkop and sing-box-forkop will be reinstalled at their current versions. The service may stop briefly."
+msgstr "Forkop и sing-box-forkop будут переустановлены в текущих версиях. Сервис может временно остановиться."
+
 msgid "Forkop configuration"
 msgstr "Конфигурация Forkop"
 
@@ -1117,6 +1120,9 @@ msgstr "Ошибка Forkop"
 
 msgid "Forkop ignores these devices entirely: their traffic is not routed and their DNS is not captured"
 msgstr "Forkop полностью игнорирует эти устройства, их трафик не маршрутизируется, а DNS не перехватывается"
+
+msgid "Forkop interface translation"
+msgstr "Перевод интерфейса Forkop"
 
 msgid "Forkop service proxy"
 msgstr "служебный прокси Forkop"
@@ -1328,6 +1334,9 @@ msgstr "Не определено"
 msgid "insecure: also MD5 and short keys"
 msgstr "insecure: ещё MD5 и короткие ключи"
 
+msgid "Install Russian translation"
+msgstr "Установить русский перевод"
+
 msgid "Installed versions"
 msgstr "Установленные версии"
 
@@ -1501,6 +1510,9 @@ msgstr "JSON outbound"
 
 msgid "JSON outbound: %s"
 msgstr "JSON outbound: %s"
+
+msgid "Keep current translation"
+msgstr "Сохранить текущий перевод"
 
 msgid "Keep settings"
 msgstr "Сохранить настройки"
@@ -2174,6 +2186,12 @@ msgstr "Сброс"
 msgid "Refuse a TLS 1.2 key exchange without forward secrecy"
 msgstr "Отказываться от обмена ключами TLS 1.2 без прямой секретности"
 
+msgid "Reinstall"
+msgstr "Переустановить"
+
+msgid "Reinstall Forkop?"
+msgstr "Переустановить Forkop?"
+
 msgid "remote: no server"
 msgstr "remote: не указан сервер"
 
@@ -2314,9 +2332,6 @@ msgstr "Правила"
 
 msgid "Run Diagnostic"
 msgstr "Запустить диагностику"
-
-msgid "Run the installer"
-msgstr "Запустить установщик"
 
 msgid "running"
 msgstr "работает"
@@ -3058,6 +3073,9 @@ msgstr "URLTest: %s"
 
 msgid "Use an interval from 5m to 365d, for example 12h or 1d"
 msgstr "Укажите интервал от 5m до 365d, например 12h или 1d"
+
+msgid "Use English and remove Russian translation"
+msgstr "Оставить английский и удалить русский перевод"
 
 msgid "Use pin-sha256 instead of a certificate SHA-256"
 msgstr "Нужен pin-sha256, а не SHA-256 сертификата"

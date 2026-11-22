@@ -12,9 +12,10 @@ let lock = require("service.lock");
 
 const OBJECT_NAME = "forkop.installer";
 const SCHEMA = 1;
-const ACTIONS = [ "update", "variant", "uninstall" ];
+const ACTIONS = [ "update", "reinstall", "variant", "uninstall" ];
 const VARIANTS = [ "base", "full", "tiny" ];
 const LANGUAGES = [ "ru", "en" ];
+const TRANSLATIONS = [ "keep", "ru", "en" ];
 // A finished run keeps answering this long, so a page watching it reads the end even when the
 // run removed Forkop and its CLI.
 const LINGER_MS = 60000;
@@ -229,9 +230,11 @@ function status(offset) {
 
 // install.sh's options for a run; a bare --variant asks for the build and goes last. The page
 // offers the log behind a button, so the package manager's output stays in it.
-function install_arguments(action, variant, purge, lang) {
+function install_arguments(action, variant, purge, lang, translation) {
     let argv = [ "--lang", lang, "--quiet" ];
-    if (action == "uninstall") {
+    if (action == "reinstall")
+        push(argv, "--reinstall", "--translation=" + (translation || "keep"));
+    else if (action == "uninstall") {
         push(argv, "--uninstall");
         if (purge)
             push(argv, "--purge");
@@ -293,8 +296,8 @@ function close_inherited(keep) {
     return sprintf("for fd in /proc/$$/fd/*; do fd=${fd##*/}; [ \"$fd\" -gt 2 ] && [ \"$fd\" != %d ] && eval \"exec $fd<&-\"; done; ", keep);
 }
 
-// A run that may ask gets the terminal as its controlling one; a removal asks nothing, because
-// the page asked about the settings already, and without a controlling terminal install.sh
+// A run that may ask gets the terminal as its controlling one. For a removal or reinstall the page
+// asks before starting, and without a controlling terminal install.sh
 // asks nothing while its output keeps the terminal's colors.
 function child_script(interactive) {
     return close_inherited(-1) + (interactive
@@ -366,9 +369,10 @@ function install_command(manifest) {
     return trim(command) == "" ? null : { command: trim(command), version: common.as_string(value.version) };
 }
 
-function valid_run(action, variant, lang) {
+function valid_run(action, variant, lang, translation) {
     return index(ACTIONS, action) >= 0 && index(LANGUAGES, lang) >= 0 &&
-        (variant == "" || (action == "variant" && index(VARIANTS, variant) >= 0));
+        (variant == "" || (action == "variant" && index(VARIANTS, variant) >= 0)) &&
+        (translation == "" || (action == "reinstall" && index(TRANSLATIONS, translation) >= 0));
 }
 
 function new_id() {
@@ -405,12 +409,13 @@ function wait_for_runner(id) {
 }
 
 // Starts a run unless one goes on: { id, started }, the id of the run the page then follows.
-function start(action, variant, purge, lang) {
+function start(action, variant, purge, lang, translation) {
     action = common.as_string(action);
     variant = common.as_string(variant);
     lang = common.as_string(lang);
-    if (!valid_run(action, variant, lang))
-        die("Invalid installer run: " + join(" ", [ action, variant, lang ]));
+    translation = common.as_string(translation);
+    if (!valid_run(action, variant, lang, translation))
+        die("Invalid installer run: " + join(" ", [ action, variant, lang, translation ]));
 
     let owner = common.own_pid();
     if (!common.ensure_dir(common.parent_dir(paths.state)) || !lock.acquire(paths.start_lock, owner, 5))
@@ -432,9 +437,10 @@ function start(action, variant, purge, lang) {
         id,
         action,
         variant: action == "variant" ? variant : null,
+        translation: action == "reinstall" ? (translation || "keep") : null,
         purge: action == "uninstall" && (purge === true || purge == "1"),
         lang,
-        interactive: action != "uninstall",
+        interactive: action == "update" || action == "variant",
         starter_pid: owner,
         runner_pid: null,
         child_pid: null,
@@ -602,7 +608,8 @@ function run(id) {
         start_pump(pump_script(fd));
         size_watch = uloop.interval(1000, () => cap_output(fd));
         child = uloop.process("/bin/sh", [ "-c", child_script(state.interactive), "sh", terminal.tty, paths.script,
-            ...install_arguments(state.action, state.variant ?? "", state.purge, state.lang) ], env, on_child_exit);
+            ...install_arguments(state.action, state.variant ?? "", state.purge, state.lang, state.translation) ],
+            { ...env, FORKOP_INSTALL_FROM_LUCI: "1" }, on_child_exit);
         state = { ...state, child_pid: common.as_string(child.pid()) };
         write_state(state);
     }
@@ -675,7 +682,8 @@ function run(id) {
     function on_script(code) {
         if (code != 0)
             return download_failed(code);
-        if (state.action == "uninstall")
+        // For a reinstall, install.sh checks the manifest of the installed version itself.
+        if (state.action == "uninstall" || state.action == "reinstall")
             return start_install();
         // install.sh reports a release it cannot fetch itself, so a missing release.json only skips this
         fetch("release.json", paths.manifest, check_release);

@@ -3321,7 +3321,7 @@ function parseJson(text8) {
   }
 }
 var installerApi = {
-  async start(action, variant, purge, lang) {
+  async start(action, variant, purge, lang, translation) {
     const response = await executeShellCommand({
       command: "/usr/bin/forkop",
       args: [
@@ -3329,7 +3329,8 @@ var installerApi = {
         action,
         variant,
         purge ? "1" : "0",
-        lang
+        lang,
+        ...translation ? [translation] : []
       ],
       timeout: START_TIMEOUT_MS
     });
@@ -3621,7 +3622,7 @@ function createInstallerRun(options) {
         chain.start(0);
       }
     },
-    async start(action, variant = "", purge = false) {
+    async start(action, variant = "", purge = false, translation) {
       if (state.running || state.starting) {
         return;
       }
@@ -3632,7 +3633,8 @@ function createInstallerRun(options) {
           action,
           variant,
           purge,
-          options.lang()
+          options.lang(),
+          translation
         );
         follow(result.id);
         state = {
@@ -3641,7 +3643,7 @@ function createInstallerRun(options) {
           action: result.started ? action : null,
           starting: false,
           running: true,
-          interactive: result.started ? action !== "uninstall" : false,
+          interactive: result.started && (action === "update" || action === "variant"),
           exit: null,
           interrupted: false,
           stopping: false,
@@ -4084,8 +4086,7 @@ var CONTROL_KEYS = {
 };
 var PLAIN_KEYS = {
   Enter: "\r",
-  Backspace: "\x7F",
-  Tab: "	"
+  Backspace: "\x7F"
 };
 function keyInput(event) {
   if (event.altKey || event.metaKey) {
@@ -4260,6 +4261,7 @@ function createTerminal(options) {
         return;
       }
       inputEnabled = enabled;
+      input.tabIndex = enabled ? 0 : -1;
       root.classList.toggle("fkp_terminal--input", enabled);
       if (!enabled) {
         pending = "";
@@ -4323,7 +4325,10 @@ function initController() {
     onInput: (data) => void run.input(data),
     onInterrupt: () => void run.stop()
   });
-  const runStatus = textE("span", { class: "fkp_components-page__run-status" });
+  const runStatus = textE("span", {
+    class: "fkp_components-page__run-status",
+    role: "status"
+  });
   const copyButton = textE(
     "button",
     {
@@ -4448,9 +4453,16 @@ function initController() {
       button(
         "update",
         renderDownloadIcon24,
-        _("Run the installer"),
+        _("Update"),
         ["cbi-button-apply"],
         () => void run.start("update")
+      ),
+      button(
+        "reinstall",
+        renderRotateCcwIcon24,
+        _("Reinstall"),
+        [],
+        openReinstallDialog
       ),
       button("variant", renderLayersIcon24, _("Change the build"), [], () => {
         void run.start("variant").then(() => terminal.focus());
@@ -4589,6 +4601,67 @@ function initController() {
     } finally {
       setConfigBusy(null);
     }
+  }
+  function openReinstallDialog() {
+    const trigger = document.activeElement;
+    const translation = textE("select", { class: "cbi-input-select" }, [
+      textE("option", { value: "keep" }, _("Keep current translation")),
+      textE("option", { value: "ru" }, _("Install Russian translation")),
+      textE(
+        "option",
+        { value: "en" },
+        _("Use English and remove Russian translation")
+      )
+    ]);
+    ui.showModal(_("Reinstall Forkop?"), [
+      textE(
+        "p",
+        {},
+        _(
+          "Forkop and sing-box-forkop will be reinstalled at their current versions. The service may stop briefly."
+        )
+      ),
+      textE("p", {}, [
+        textE("label", { class: "fkp_components-page__translation" }, [
+          textE("span", {}, _("Forkop interface translation")),
+          translation
+        ])
+      ]),
+      textE("div", { class: "button-row fkp-partial-modal__footer" }, [
+        textE(
+          "button",
+          {
+            type: "button",
+            class: "btn cbi-button",
+            click: () => {
+              ui.hideModal();
+              if (trigger instanceof HTMLElement) {
+                trigger.focus();
+              }
+            }
+          },
+          _("Cancel")
+        ),
+        textE(
+          "button",
+          {
+            type: "button",
+            class: "btn cbi-button cbi-button-apply",
+            click: () => {
+              ui.hideModal();
+              void run.start(
+                "reinstall",
+                "",
+                false,
+                translation.value
+              );
+            }
+          },
+          _("Reinstall")
+        )
+      ])
+    ]);
+    translation.focus();
   }
   function openRemoveDialog() {
     ui.showModal(
@@ -4844,6 +4917,16 @@ controls at least, growing with its output up to its limit. */
     display: flex;
     gap: 10px;
     margin-left: auto;
+}
+
+.fkp_components-page__translation {
+    display: grid;
+    gap: 6px;
+}
+
+.fkp_components-page__translation select {
+    width: 100%;
+    min-width: 0;
 }
 
 .fkp_terminal {

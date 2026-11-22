@@ -209,6 +209,16 @@ controls at least, growing with its output up to its limit. */
     margin-left: auto;
 }
 
+.fkp_components-page__translation {
+    display: grid;
+    gap: 6px;
+}
+
+.fkp_components-page__translation select {
+    width: 100%;
+    min-width: 0;
+}
+
 .fkp_terminal {
     position: relative;
     display: flex;

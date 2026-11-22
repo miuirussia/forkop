@@ -6,6 +6,7 @@ import { Forkop } from '../../types';
 export const INSTALLER_OBJECT = 'forkop.installer';
 export const INSTALLER_ACTIONS: readonly Forkop.InstallerAction[] = [
   'update',
+  'reinstall',
   'variant',
   'uninstall',
 ];
@@ -34,6 +35,7 @@ export const installerApi = {
     variant: string,
     purge: boolean,
     lang: string,
+    translation?: Forkop.InstallerTranslation,
   ): Promise<Forkop.InstallerStartResult> {
     const response = await executeShellCommand({
       command: '/usr/bin/forkop',
@@ -43,6 +45,7 @@ export const installerApi = {
         variant,
         purge ? '1' : '0',
         lang,
+        ...(translation ? [translation] : []),
       ],
       timeout: START_TIMEOUT_MS,
     });

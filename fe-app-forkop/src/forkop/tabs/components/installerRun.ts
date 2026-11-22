@@ -201,6 +201,7 @@ export function createInstallerRun(options: {
       action: Forkop.InstallerAction,
       variant = '',
       purge = false,
+      translation?: Forkop.InstallerTranslation,
     ): Promise<void> {
       if (state.running || state.starting) {
         return;
@@ -213,6 +214,7 @@ export function createInstallerRun(options: {
           variant,
           purge,
           options.lang(),
+          translation,
         );
         follow(result.id);
         state = {
@@ -221,7 +223,8 @@ export function createInstallerRun(options: {
           action: result.started ? action : null,
           starting: false,
           running: true,
-          interactive: result.started ? action !== 'uninstall' : false,
+          interactive:
+            result.started && (action === 'update' || action === 'variant'),
           exit: null,
           interrupted: false,
           stopping: false,

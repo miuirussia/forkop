@@ -94,6 +94,8 @@ t.test("the command line prints install.sh's log, and says when there is none", 
 
 t.test("install.sh gets the language and --quiet, then what the run does; a bare --variant goes last", () => {
     t.eq(installer.install_arguments("update", "", false, "ru"), [ "--lang", "ru", "--quiet" ]);
+    t.eq(installer.install_arguments("reinstall", "", false, "ru"), [ "--lang", "ru", "--quiet", "--reinstall", "--translation=keep" ]);
+    t.eq(installer.install_arguments("reinstall", "", false, "ru", "en"), [ "--lang", "ru", "--quiet", "--reinstall", "--translation=en" ]);
     t.eq(installer.install_arguments("variant", "", false, "en"), [ "--lang", "en", "--quiet", "--variant" ]);
     t.eq(installer.install_arguments("variant", "tiny", false, "ru"), [ "--lang", "ru", "--quiet", "--variant", "tiny" ]);
     t.eq(installer.install_arguments("uninstall", "", false, "ru"), [ "--lang", "ru", "--quiet", "--uninstall" ]);
@@ -218,7 +220,7 @@ t.test("a start launches the runner, and a start while a run goes on follows tha
     stub.restore();
 });
 
-t.test("a removal asks nothing and carries the settings choice", () => {
+t.test("a removal and reinstall carry the page's choice and ask nothing", () => {
     fresh();
     stub.commands([
         [ /installer_run/, () => {
@@ -228,6 +230,9 @@ t.test("a removal asks nothing and carries the settings choice", () => {
     ]);
     installer.start("uninstall", "", "1", "en");
     t.eq([ state().purge, state().interactive, state().variant ], [ true, false, null ]);
+    fresh();
+    installer.start("reinstall", "", "0", "en", "ru");
+    t.eq([ state().action, state().interactive, state().translation ], [ "reinstall", false, "ru" ]);
     stub.restore();
 });
 
@@ -237,6 +242,8 @@ t.test("a start with what install.sh does not take is refused", () => {
     t.contains(t.throws(() => installer.start("update", "full", "0", "ru")).message, "Invalid installer run", "a build only with variant");
     t.contains(t.throws(() => installer.start("variant", "huge", "0", "ru")).message, "Invalid installer run");
     t.contains(t.throws(() => installer.start("update", "", "0", "de")).message, "Invalid installer run");
+    t.contains(t.throws(() => installer.start("update", "", "0", "ru", "en")).message, "Invalid installer run");
+    t.contains(t.throws(() => installer.start("reinstall", "", "0", "ru", "de")).message, "Invalid installer run");
     t.eq(state(), null, "nothing recorded");
 });
 
@@ -339,6 +346,20 @@ t.test("a removal skips the release check, asks nothing and takes the run's file
     t.eq([ seen.finished.running, seen.finished.exit ], [ false, 0 ], "the page reads the end while the run lingers");
     t.eq([ fs.stat(installer.paths.state), fs.stat(installer.paths.output), fs.stat(common.parent_dir(installer.paths.state)) ],
         [ null, null, null ]);
+});
+
+t.test("a reinstall leaves the release check to install.sh and passes the page's translation", () => {
+    run_with({ action: "reinstall", translation: "en", interactive: false }, () => {
+        uloop.__exit(0, 0);
+        let child = uloop.__processes()[2];
+        t.eq(child.executable, "/bin/sh", "no request for the latest manifest");
+        t.eq(slice(child.args, 4), [ installer.paths.script, "--lang", "ru", "--quiet", "--reinstall", "--translation=en" ]);
+        t.eq(child.env.FORKOP_INSTALL_FROM_LUCI, "1");
+        t.contains(child.args[1], "</dev/null");
+        uloop.__exit(2, 0);
+        uloop.__exit(1, 0);
+        uloop.__fire("timer");
+    });
 });
 
 t.test("a stop ends a download of the run's own and says what install.sh says on an interrupt", () => {

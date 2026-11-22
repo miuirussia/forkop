@@ -12,6 +12,7 @@ import {
   renderFileUpIcon24,
   renderLayersIcon24,
   renderLoaderCircleIcon24,
+  renderRotateCcwIcon24,
   renderSquareTerminalIcon24,
   renderTrashIcon24,
 } from '../../../icons';
@@ -100,7 +101,10 @@ export function initController(): void {
     onInput: (data) => void run.input(data),
     onInterrupt: () => void run.stop(),
   });
-  const runStatus = E('span', { class: 'fkp_components-page__run-status' });
+  const runStatus = E('span', {
+    class: 'fkp_components-page__run-status',
+    role: 'status',
+  });
   const copyButton = E(
     'button',
     {
@@ -243,9 +247,16 @@ export function initController(): void {
       button(
         'update',
         renderDownloadIcon24,
-        _('Run the installer'),
+        _('Update'),
         ['cbi-button-apply'],
         () => void run.start('update'),
+      ),
+      button(
+        'reinstall',
+        renderRotateCcwIcon24,
+        _('Reinstall'),
+        [],
+        openReinstallDialog,
       ),
       button('variant', renderLayersIcon24, _('Change the build'), [], () => {
         void run.start('variant').then(() => terminal.focus());
@@ -395,6 +406,68 @@ export function initController(): void {
     } finally {
       setConfigBusy(null);
     }
+  }
+
+  function openReinstallDialog() {
+    const trigger = document.activeElement;
+    const translation = E('select', { class: 'cbi-input-select' }, [
+      E('option', { value: 'keep' }, _('Keep current translation')),
+      E('option', { value: 'ru' }, _('Install Russian translation')),
+      E(
+        'option',
+        { value: 'en' },
+        _('Use English and remove Russian translation'),
+      ),
+    ]) as HTMLSelectElement;
+    ui.showModal(_('Reinstall Forkop?'), [
+      E(
+        'p',
+        {},
+        _(
+          'Forkop and sing-box-forkop will be reinstalled at their current versions. The service may stop briefly.',
+        ),
+      ),
+      E('p', {}, [
+        E('label', { class: 'fkp_components-page__translation' }, [
+          E('span', {}, _('Forkop interface translation')),
+          translation,
+        ]),
+      ]),
+      E('div', { class: 'button-row fkp-partial-modal__footer' }, [
+        E(
+          'button',
+          {
+            type: 'button',
+            class: 'btn cbi-button',
+            click: () => {
+              ui.hideModal();
+              if (trigger instanceof HTMLElement) {
+                trigger.focus();
+              }
+            },
+          },
+          _('Cancel'),
+        ),
+        E(
+          'button',
+          {
+            type: 'button',
+            class: 'btn cbi-button cbi-button-apply',
+            click: () => {
+              ui.hideModal();
+              void run.start(
+                'reinstall',
+                '',
+                false,
+                translation.value as Forkop.InstallerTranslation,
+              );
+            },
+          },
+          _('Reinstall'),
+        ),
+      ]),
+    ]);
+    translation.focus();
   }
 
   function openRemoveDialog() {

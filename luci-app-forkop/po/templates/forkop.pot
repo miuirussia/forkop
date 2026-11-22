@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 19:28+0300\n"
-"PO-Revision-Date: 2026-11-22 19:28+0300\n"
+"POT-Creation-Date: 2026-11-22 20:56+0300\n"
+"PO-Revision-Date: 2026-11-22 20:56+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -590,6 +590,7 @@ msgid "Cache File Path"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/components/configFile.ts
+#: fe-app-forkop/src/forkop/tabs/components/initController.ts
 #: fe-app-forkop/src/forkop/tabs/components/removeDialog.ts
 msgid "Cancel"
 msgstr ""
@@ -1552,6 +1553,10 @@ msgstr ""
 msgid "For example 30m, 12h or 1d"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/components/initController.ts
+msgid "Forkop and sing-box-forkop will be reinstalled at their current versions. The service may stop briefly."
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/diagnostic/report.ts
 msgid "Forkop configuration"
 msgstr ""
@@ -1571,6 +1576,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/network.ts
 msgid "Forkop ignores these devices entirely: their traffic is not routed and their DNS is not captured"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/components/initController.ts
+msgid "Forkop interface translation"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/constants.ts
@@ -1859,6 +1868,10 @@ msgstr ""
 msgid "insecure: also MD5 and short keys"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/components/initController.ts
+msgid "Install Russian translation"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/components/render.ts
 msgid "Installed versions"
 msgstr ""
@@ -2096,6 +2109,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/outboundJson.ts
 msgid "JSON outbound: %s"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/components/initController.ts
+msgid "Keep current translation"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/components/removeDialog.ts
@@ -3038,6 +3055,14 @@ msgstr ""
 msgid "Refuse a TLS 1.2 key exchange without forward secrecy"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/components/initController.ts
+msgid "Reinstall"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/components/initController.ts
+msgid "Reinstall Forkop?"
+msgstr ""
+
 #: fe-app-forkop/src/helpers/parseOpenVPNConfig.ts
 msgid "remote: no server"
 msgstr ""
@@ -3231,10 +3256,6 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/partials/renderRunAction.ts
 msgid "Run Diagnostic"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/components/initController.ts
-msgid "Run the installer"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/helpers/serviceStatusDisplay.ts
@@ -4174,6 +4195,7 @@ msgstr ""
 msgid "Up to %d characters"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/components/initController.ts
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 msgid "Update"
 msgstr ""
@@ -4265,6 +4287,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/services/geodata.service.ts
 msgid "Use an interval from 5m to 365d, for example 12h or 1d"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/components/initController.ts
+msgid "Use English and remove Russian translation"
 msgstr ""
 
 #: fe-app-forkop/src/helpers/parseOpenConnectConfig.ts

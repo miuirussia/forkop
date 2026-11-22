@@ -7,6 +7,8 @@
 #
 # Options: --variant base|full|tiny, the core's build (the installed one, or base, by default),
 # with no value asked for at the terminal; --uninstall [--purge], with --purge the settings too;
+# --reinstall, reinstall the installed Forkop and core versions and choose the page's translation;
+# --translation=keep|ru|en sets the translation for a reinstall without a terminal prompt;
 # --quiet, the package manager's output in the log alone, as the page has it; --lang ru|en, by
 # default LuCI's language, Russian while that is auto, since a console has no browser to follow.
 # Exit codes: 0 done or nothing to do, 1 failed before anything changed, 2 bad options, 3 failed
@@ -52,7 +54,8 @@ APK_OFFLINE="--no-network --repositories-file /dev/null"
 # The defaults a package manager leaves beside a config it keeps.
 CONFFILE_COPIES="/etc/config/forkop-opkg /etc/config/forkop.apk-new /etc/config/sing-box-opkg /etc/config/sing-box.apk-new /etc/sing-box/config.json-opkg /etc/sing-box/config.json.apk-new"
 
-MODE=install VARIANT='' ASK_VARIANT=0 PURGE=0 QUIET=0 LANG_OPT='' BAD_ARG=''
+MODE=install VARIANT='' ASK_VARIANT=0 PURGE=0 QUIET=0 LANG_OPT='' BAD_ARG='' REINSTALL=0
+TRANSLATION=''
 RU=0 INTERACTIVE=0 ASKED=0 PROMPTING=0 ANSWER='' C_STEP='' C_OK='' C_WARN='' C_ERR='' C_BOLD='' C_OFF=''
 WORK='' LOCKED=0
 PM='' PM_DB='' EXT='' ARCH='' RELEASE='' FLASH_MOUNT=/ FLASH_FS=''
@@ -153,13 +156,15 @@ usage_error() {
 	variant) message=$(t 'The option --variant takes base, full or tiny' 'Параметр --variant принимает base, full или tiny') ;;
 	lang) message=$(t 'The option --lang takes ru or en' 'Параметр --lang принимает ru или en') ;;
 	purge) message=$(t 'The option --purge goes with --uninstall' 'Параметр --purge работает только с --uninstall') ;;
+	reinstall) message=$(t 'The option --reinstall takes no --uninstall or --variant' 'Параметр --reinstall не сочетается с --uninstall или --variant') ;;
+	translation) message=$(t 'Use --translation=keep, --translation=ru or --translation=en with --reinstall' 'С параметром --reinstall используйте --translation=keep, --translation=ru или --translation=en') ;;
 	uninstall) message=$(t 'The option --uninstall takes no --variant' 'Параметр --uninstall не сочетается с --variant') ;;
 	variant_tty) message=$(t 'The option --variant with no value asks for the build and needs a terminal' 'Параметр --variant без значения спрашивает сборку и работает только в терминале') ;;
 	value:*) message=$(t '%s needs a value' 'Параметру %s нужно значение' "${BAD_ARG#value:}") ;;
 	*) message=$(t 'Unknown option: %s' 'Неизвестный параметр: %s' "${BAD_ARG#unknown:}") ;;
 	esac
 	say '[x]' "$C_ERR" "$message" >&2
-	detail "$(t 'Options: --variant [base|full|tiny], --uninstall [--purge], --quiet, --lang ru|en' 'Параметры: --variant [base|full|tiny], --uninstall [--purge], --quiet, --lang ru|en')" >&2
+	detail "$(t 'Options: --reinstall [--translation=keep|ru|en], --variant [base|full|tiny], --uninstall [--purge], --quiet, --lang ru|en' 'Параметры: --reinstall [--translation=keep|ru|en], --variant [base|full|tiny], --uninstall [--purge], --quiet, --lang ru|en')" >&2
 	exit 2
 }
 
@@ -238,14 +243,21 @@ choose_variant() { # choose_variant [KEEP]: CORE_VARIANT from a menu at the term
 	log "build chosen: $CORE_VARIANT"
 }
 
-ask_translation() { # a first install asks whether Forkop's page gets its Russian translation
-	[ -z "$FORKOP_OLD" ] && may_ask || return 0
-	question_block
-	if ask "$(t 'Install the Russian translation of the Forkop page?' 'Установить русский перевод страницы Forkop?')" "$I18N"; then
-		I18N=1
-	else
-		I18N=0
-	fi
+choose_translation() { # apply the explicit choice, or ask on a first install or reinstall
+	case "$TRANSLATION" in
+	keep) return 0 ;;
+	ru) I18N=1 ;;
+	en) I18N=0 ;;
+	'')
+		{ [ -z "$FORKOP_OLD" ] || [ "$REINSTALL" = 1 ]; } && may_ask || return 0
+		question_block
+		if ask "$(t 'Install the Russian translation of the Forkop page?' 'Установить русский перевод страницы Forkop?')" "$I18N"; then
+			I18N=1
+		else
+			I18N=0
+		fi
+		;;
+	esac
 	NEED_I18N=$I18N
 	log "translation chosen: $I18N"
 }
@@ -844,11 +856,14 @@ fetch_or_fail() { # fetch_or_fail URL FILE NAME RELEASE: a file of a release, or
 	fail 1 network "$(t 'Cannot download %s' 'Не удалось скачать %s' "$3")" "$(network_hint)"
 }
 
-fetch_release() { # fetch_release forkop|core: the latest release's manifest, and from the API its files
-	local repo=$FORKOP_REPO name=Forkop package=forkop manifest="$WORK/$1.json" url status=0
+fetch_release() { # fetch_release forkop|core: the selected release's manifest, and from the API its files
+	local repo=$FORKOP_REPO name=Forkop package=forkop manifest="$WORK/$1.json" url status=0 release=latest
 	[ "$1" = forkop ] || repo=$CORE_REPO name=sing-box-forkop package=sing-box-forkop
+	if [ "$REINSTALL" = 1 ]; then
+		if [ "$1" = forkop ]; then release="tags/$F_TAG"; else release="tags/$C_TAG"; fi
+	fi
 	if [ -z "$MIRROR" ]; then
-		download "$API_URL/repos/$repo/releases/latest" "$WORK/$1.release"
+		download "$API_URL/repos/$repo/releases/$release" "$WORK/$1.release"
 		status=$?
 	fi
 	if [ "$status" = 0 ]; then
@@ -859,7 +874,7 @@ fetch_release() { # fetch_release forkop|core: the latest release's manifest, an
 	case $status in
 	0) ;;
 	2)
-		fail 1 release "$(t 'The latest %s release has no release.json' 'В последнем релизе %s нет release.json' "$name")" \
+		fail 1 release "$(t 'The %s release (%s) has no release.json' 'В релизе %s (%s) нет release.json' "$name" "$release")" \
 			"$(t 'Download the latest install.sh' 'Скачайте свежий install.sh')"
 		;;
 	3) rate_limited ;;
@@ -886,16 +901,49 @@ fetch_release() { # fetch_release forkop|core: the latest release's manifest, an
 }
 
 resolve_release() {
-	step release "$(t 'Looking for the latest version' 'Поиск последней версии')"
+	if [ "$REINSTALL" = 1 ]; then
+		[ -n "$FORKOP_OLD" ] && [ -n "$CORE_OLD" ] ||
+			fail 1 not_installed "$(t 'Reinstallation needs Forkop and sing-box-forkop to be installed' 'Для переустановки должны быть установлены Forkop и sing-box-forkop')"
+		[ -z "$FORK_URL" ] ||
+			fail 1 foreign_fork "$(t 'This Forkop package comes from another project' 'Этот пакет Forkop установлен из другого проекта')" \
+				"$(t 'Use that project’s installer to keep its configuration' 'Для сохранения настроек воспользуйтесь установщиком этого проекта')"
+		if [ "$PM" = apk ] && ! apk add --help 2>&1 | grep -q -- '--force-reinstall'; then
+			fail 1 apk_reinstall "$(t 'This version of apk cannot reinstall packages of the same version' 'Эта версия apk не умеет переустанавливать пакеты той же версии')" \
+				"$(t 'Update OpenWrt to 25.12.1 or newer and try again' 'Обновите OpenWrt до 25.12.1 или новее и повторите попытку')"
+		fi
+		case "$CORE_OLD_VARIANT" in
+		base | full | tiny) ;;
+		*) fail 1 custom_core "$(t 'A custom core cannot be reinstalled from a release' 'Кастомное ядро нельзя переустановить из релиза')" \
+			"$(t 'Choose an official build first: --variant base, full or tiny' 'Сначала выберите официальную сборку: --variant base, full или tiny')" ;;
+		esac
+		F_TAG=$FORKOP_OLD C_TAG=v$CORE_OLD
+		step release "$(t 'Looking for the installed versions' 'Поиск установленных версий')"
+	else
+		step release "$(t 'Looking for the latest version' 'Поиск последней версии')"
+	fi
 	fetch_release forkop
+	if [ "$REINSTALL" = 1 ] && [ "${FORKOP_INSTALL_FROM_LUCI:-}" = 1 ]; then
+		local command
+		command=$(jsonfilter -i "$WORK/forkop.json" -e '@.install_command' 2>/dev/null)
+		if printf '%s' "$command" | grep -q '[^[:space:]]'; then
+			warn command_only "$(t 'Forkop %s installs only with this command in a console:' 'Forkop %s устанавливается только этой командой в консоли:' "$F_VERSION")"
+			printf '%s\n' "$command"
+			finish 1 command_only
+		fi
+	fi
 	fetch_release core
+	if [ "$REINSTALL" = 1 ]; then
+		[ "$F_VERSION" = "$FORKOP_OLD" ] && [ "$C_VERSION" = "$CORE_OLD" ] ||
+			fail 1 release "$(t 'The release versions differ from the installed versions' 'Версии релизов отличаются от установленных версий')"
+	fi
 	decide_forkop
 	decide_core
-	ask_translation
+	choose_translation
 	[ "$ASKED" = 0 ] || printf '\n' >/dev/tty
 	# opkg keeps an installed package of the version it is given and refuses an older one: a fork's
 	# go and Forkop's come in, whatever versions the fork took
 	[ -z "$FORK_URL" ] || OPKG_FLAGS='--force-downgrade --force-reinstall'
+	[ "$REINSTALL" = 0 ] || OPKG_FLAGS=--force-reinstall
 }
 
 decide_forkop() { # the Forkop packages to install, NEED_*, and the Forkop that will run
@@ -906,7 +954,7 @@ decide_forkop() { # the Forkop packages to install, NEED_*, and the Forkop that 
 		case "$(uci -q get luci.main.lang)" in '' | auto | ru*) I18N=1 ;; esac
 	fi
 	RESULT_FORKOP=$F_VERSION
-	if [ -n "$FORK_URL" ]; then
+	if [ -n "$FORK_URL" ] || [ "$REINSTALL" = 1 ]; then
 		# a fork goes whatever its version says: Forkop's packages take its place
 		NEED_FORKOP=1 NEED_APP=1 NEED_I18N=$I18N
 		return 0
@@ -968,7 +1016,7 @@ decide_core() { # the build, the core release and whether the core is installed
 		if [ "$order" = 1 ]; then
 			info "$(t 'sing-box-forkop %s is newer than the latest release %s and stays' 'sing-box-forkop %s новее последнего релиза %s и остаётся' "$CORE_OLD" "$C_VERSION")"
 			RESULT_CORE=$CORE_OLD RESULT_VARIANT=$CORE_OLD_VARIANT
-		elif [ "$order" != 0 ] || [ "$CORE_VARIANT" != "$CORE_OLD_VARIANT" ] ||
+		elif [ "$REINSTALL" = 1 ] || [ "$order" != 0 ] || [ "$CORE_VARIANT" != "$CORE_OLD_VARIANT" ] ||
 			{ [ "$CORE_VARIANT" != tiny ] && ! core_has_phobos; }; then
 			CORE_ACTION=install
 			[ "$order" != 0 ] || CORE_REINSTALL=1
@@ -1151,6 +1199,9 @@ plan_removals() {
 	[ "$CORE_ACTION" = install ] || [ -n "$FOREIGN_PKGS$FOREIGN_FILES" ] || return 0
 	REMOVE_PKGS=$(dependents "$FOREIGN_PKGS")
 	REMOVE_PKGS=${REMOVE_PKGS% }
+	if [ "$REINSTALL" = 1 ] && [ "$I18N" = 0 ] && [ -n "$I18N_OLD" ]; then
+		REMOVE_PKGS="${REMOVE_PKGS:+$REMOVE_PKGS }luci-i18n-forkop-ru"
+	fi
 	REMOVE_FILES=${FOREIGN_FILES# }
 	# a core whose package stays owns these files and goes on running
 	[ "$CORE_ACTION" = install ] || [ -z "$CORE_OLD" ] || REMOVE_FILES=''
@@ -1263,6 +1314,7 @@ preflight() { # every package manager command apply runs, simulated
 	for name in "$FILE_CORE" "$FILE_FORKOP" "$FILE_APP" "$FILE_I18N" "$FILE_IP"; do [ -z "$name" ] || set -- "$@" "$name"; done
 	if [ "$PM" = apk ]; then
 		for name in $(apk_constraints); do set -- "$@" "$name"; done
+		[ "$REINSTALL" = 0 ] || set -- --force-reinstall "$@"
 		# as the transaction runs once the dependencies are in
 		# shellcheck disable=SC2086
 		[ -n "$DEPS_MISSING" ] || set -- $APK_OFFLINE "$@"
@@ -1474,6 +1526,7 @@ transaction() {
 	for name in "$FILE_CORE" "$FILE_FORKOP" "$FILE_APP" "$FILE_I18N" "$FILE_IP"; do [ -z "$name" ] || set -- "$@" "$name"; done
 	if [ "$PM" = apk ]; then
 		for name in $(apk_constraints); do set -- "$@" "$name"; done
+		[ "$REINSTALL" = 0 ] || set -- --force-reinstall "$@"
 		# the dependencies are in: the feed indexes would take RAM and the network while Forkop is down
 		# shellcheck disable=SC2086
 		perform "$out" detached apk add --allow-untrusted $APK_OFFLINE "$@" || status=$?
@@ -1639,7 +1692,9 @@ finale() { # the closing line, set apart: what the run achieved
 summary() {
 	local result runs
 	runs=$(t ' and running' ' и запущен')
-	if [ -n "$FORK_URL" ] || [ -z "$FORKOP_OLD" ]; then
+	if [ "$REINSTALL" = 1 ]; then
+		result=$(t 'Forkop %s and sing-box-forkop %s (%s) are reinstalled' 'Forkop %s и sing-box-forkop %s (%s) переустановлены' "$RESULT_FORKOP" "$RESULT_CORE" "$RESULT_VARIANT")
+	elif [ -n "$FORK_URL" ] || [ -z "$FORKOP_OLD" ]; then
 		result=$(t 'Forkop %s is installed' 'Forkop %s установлен' "$RESULT_FORKOP")
 	elif [ "$NEED_FORKOP" = 1 ]; then
 		result=$(t 'Forkop is updated to %s' 'Forkop обновлён до %s' "$RESULT_FORKOP")
@@ -1741,7 +1796,12 @@ parse_args() { # BAD_ARG names the first mistake, reported once the language is 
 			[ -n "$VARIANT" ] || ASK_VARIANT=1
 			;;
 		--lang=*) LANG_OPT=${1#*=} ;;
+		--translation=*)
+			TRANSLATION=${1#*=}
+			case "$TRANSLATION" in keep | ru | en) ;; *) BAD_ARG=translation; return ;; esac
+			;;
 		--uninstall) MODE=uninstall ;;
+		--reinstall) REINSTALL=1 ;;
 		--purge) PURGE=1 ;;
 		--quiet) QUIET=1 ;;
 		*) BAD_ARG="unknown:$1" && return ;;
@@ -1750,6 +1810,8 @@ parse_args() { # BAD_ARG names the first mistake, reported once the language is 
 	done
 	case "$LANG_OPT" in '' | ru | en) ;; *) LANG_OPT='' BAD_ARG=lang && return ;; esac
 	case "$VARIANT" in '' | base | full | tiny) ;; *) BAD_ARG=variant && return ;; esac
+	[ "$REINSTALL" = 0 ] || { [ "$MODE" = install ] && [ -z "$VARIANT" ] && [ "$ASK_VARIANT" = 0 ]; } || { BAD_ARG=reinstall; return; }
+	[ -z "$TRANSLATION" ] || [ "$REINSTALL" = 1 ] || { BAD_ARG=translation; return; }
 	[ "$PURGE" = 0 ] || [ "$MODE" = uninstall ] || { BAD_ARG=purge && return; }
 	[ "$MODE" = install ] || { [ -z "$VARIANT" ] && [ "$ASK_VARIANT" = 0 ]; } || BAD_ARG=uninstall
 }

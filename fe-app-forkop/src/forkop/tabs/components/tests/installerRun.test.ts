@@ -207,27 +207,40 @@ describe('following a run of install.sh', () => {
     expect(page.after).toEqual(['reload']);
   });
 
-  it('starts a run and follows the one the router names', async () => {
-    const page = setup({ id: '' });
-    page.run.setShown(true);
-    await vi.advanceTimersByTimeAsync(0);
-    Object.assign(page.router, {
-      id: 'r9',
-      action: 'variant',
-      running: true,
-      output: 'menu',
-    });
-    await page.run.start('variant');
-    expect(page.api.start).toHaveBeenCalledWith('variant', '', false, 'ru');
-    expect(page.state()).toMatchObject({
-      id: 'r9',
-      action: 'variant',
-      running: true,
-      interactive: true,
-    });
-    await vi.advanceTimersByTimeAsync(0);
-    expect(page.written.join('')).toContain('menu');
-  });
+  it.each([
+    ['variant', true, undefined],
+    ['reinstall', false, 'en'],
+  ] as const)(
+    'starts a %s run and follows the one the router names',
+    async (action, interactive, translation) => {
+      const page = setup({ id: '' });
+      page.run.setShown(true);
+      await vi.advanceTimersByTimeAsync(0);
+      Object.assign(page.router, {
+        id: 'r9',
+        action,
+        running: true,
+        interactive,
+        output: 'menu',
+      });
+      await page.run.start(action, '', false, translation);
+      expect(page.api.start).toHaveBeenCalledWith(
+        action,
+        '',
+        false,
+        'ru',
+        translation,
+      );
+      expect(page.state()).toMatchObject({
+        id: 'r9',
+        action,
+        running: true,
+        interactive,
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(page.written.join('')).toContain('menu');
+    },
+  );
 
   it('says why a start was refused and stays as it was', async () => {
     const page = setup({ id: '' });

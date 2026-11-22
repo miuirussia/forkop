@@ -51,10 +51,10 @@ describe('terminal lines', () => {
 });
 
 describe('terminal keys', () => {
-  it('sends Enter, Backspace and Tab as a terminal does', () => {
+  it('sends Enter and Backspace, and leaves Tab for keyboard navigation', () => {
     expect(keyInput(key('Enter'))).toBe('\r');
     expect(keyInput(key('Backspace'))).toBe('\u007f');
-    expect(keyInput(key('Tab'))).toBe('\t');
+    expect(keyInput(key('Tab'))).toBeUndefined();
   });
 
   it('sends Ctrl+D and Ctrl+U, and leaves other shortcuts to the browser', () => {

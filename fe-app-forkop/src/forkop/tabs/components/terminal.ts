@@ -86,7 +86,6 @@ const CONTROL_KEYS: Record<string, string> = {
 const PLAIN_KEYS: Record<string, string> = {
   Enter: '\r',
   Backspace: '\u007f',
-  Tab: '\t',
 };
 
 interface KeyEvent {
@@ -311,6 +310,7 @@ export function createTerminal(options: {
         return;
       }
       inputEnabled = enabled;
+      input.tabIndex = enabled ? 0 : -1;
       root.classList.toggle('fkp_terminal--input', enabled);
       if (!enabled) {
         pending = '';
