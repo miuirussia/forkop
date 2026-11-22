@@ -2198,6 +2198,13 @@ function getClashApiConnections() {
     CLASH_API_FETCH_TIMEOUT_MS
   );
 }
+function getClashApiAutodetect() {
+  return requestClashApi(
+    "/autodetect",
+    void 0,
+    CLASH_API_FETCH_TIMEOUT_MS
+  );
+}
 function summarizeConnections(snapshot) {
   return {
     downloadTotal: snapshot?.downloadTotal || 0,
@@ -10167,14 +10174,14 @@ function showTailscaleDetailsModal(title, tag, notRunning) {
         ...pings.results.get(address),
         pending: true
       });
-      render6();
+      render7();
       void pingPeer(tag, address).then((result) => {
         pings.results.set(address, result);
-        render6();
+        render7();
       });
     }
   };
-  const render6 = () => {
+  const render7 = () => {
     if (load && shows()) {
       dom.content(content, renderTailscaleContent(load, notRunning, pings));
     }
@@ -10187,7 +10194,7 @@ function showTailscaleDetailsModal(title, tag, notRunning) {
     }
     void loadTailscaleEndpoint(tag).then((next) => {
       load = next;
-      render6();
+      render7();
     });
   };
   refresh();
@@ -11337,16 +11344,16 @@ function refreshDetailsModal() {
     redrawn.scrollTop = scrollTop;
   }
 }
-function showDetailsModal(title, render6) {
+function showDetailsModal(title, render7) {
   closeDetailsModal();
   const container = textE(
     "div",
     { class: "fkp_dashboard-page__urltest-details" },
-    render6()
+    render7()
   );
   activeDetailsModal = {
     container,
-    render: render6,
+    render: render7,
     unsubscribe: store.subscribeKey("sectionsWidget", () => {
       refreshDetailsModal();
     })
@@ -16991,8 +16998,145 @@ var LogsTab = {
   styles: styles7
 };
 
+// src/forkop/tabs/autodetect/index.ts
+var verdicts = {
+  blocked: () => _("Likely blocked"),
+  restricted: () => _("HTTP restriction"),
+  accessible: () => _("Direct HTTPS responds"),
+  inconclusive: () => _("Inconclusive")
+};
+function probeDescription(probe) {
+  const stages = {
+    tcp: "TCP / DNS",
+    tls: "TLS",
+    http: "HTTP",
+    body: _("Response transfer")
+  };
+  if (probe.error) {
+    return `${probe.status ? `HTTP ${probe.status} \xB7 ` : ""}${stages[probe.stage] || probe.stage}: ${probe.error}`;
+  }
+  if (probe.status)
+    return `HTTP ${probe.status} \xB7 ${probe.duration_ms} ${_("ms")}`;
+  return `${stages[probe.stage] || probe.stage}: ${probe.error || _("No response")}`;
+}
+function renderResult(result) {
+  const signals = {
+    no_reply: _("No reply"),
+    early_close: _("Connection closed early"),
+    stalled: _("Transfer stalled")
+  };
+  return textE("tr", { class: "tr" }, [
+    textE("td", { class: "td" }, [
+      textE("strong", {}, result.domain),
+      textE("div", {}, result.target),
+      textE("div", { class: "fkp-autodetect__source" }, result.source)
+    ]),
+    textE("td", { class: "td" }, [
+      textE("strong", {}, verdicts[result.verdict]?.() || _("Inconclusive")),
+      textE("div", {}, signals[result.signal] || "")
+    ]),
+    textE("td", { class: "td" }, probeDescription(result.direct)),
+    textE("td", { class: "td" }, probeDescription(result.proxy)),
+    textE("td", { class: "td" }, new Date(result.checked_at).toLocaleString())
+  ]);
+}
+function render6() {
+  return textE("div", { id: "forkop-autodetect", class: "fkp-autodetect" }, [
+    textE(
+      "p",
+      {},
+      _(
+        "sing-box checks suspicious HTTPS connections directly and through the selected VPN section. Checks continue after you close this page."
+      )
+    ),
+    textE(
+      "p",
+      {},
+      _(
+        "A likely block is reported after the configured number of consecutive failed direct checks with successful VPN checks. Autodetect does not change routing rules."
+      )
+    ),
+    textE(
+      "p",
+      { id: "autodetect-status", role: "status", "aria-live": "polite" },
+      _("Loading\u2026")
+    ),
+    textE("div", { class: "fkp-autodetect__scroll" }, [
+      textE("table", { class: "table" }, [
+        textE("thead", {}, [
+          textE(
+            "tr",
+            { class: "tr table-titles" },
+            [
+              _("Domain"),
+              _("Result"),
+              _("Directly"),
+              _("Through VPN"),
+              _("Last check")
+            ].map((title) => textE("th", { class: "th", scope: "col" }, title))
+          )
+        ]),
+        textE("tbody", { id: "autodetect-results" })
+      ])
+    ])
+  ]);
+}
+var initialized = false;
+async function initController6() {
+  if (initialized) return;
+  initialized = true;
+  const root = await onMount("forkop-autodetect");
+  const status = root.querySelector("#autodetect-status");
+  const body = root.querySelector("#autodetect-results");
+  const polling = createPollChain(
+    async () => {
+      if (!root.isConnected || !isActiveLuciTab("autodetect")) return;
+      const response = await getClashApiAutodetect();
+      if (!response.success) {
+        status.textContent = response.status === 404 ? _(
+          "Autodetect requires sing-box-forkop 1.14.4-r8 or newer. Update the core."
+        ) : response.error;
+        return;
+      }
+      const snapshot = response.data;
+      if (!snapshot || !Array.isArray(snapshot.results)) {
+        status.textContent = _("Invalid Autodetect response");
+        return;
+      }
+      status.textContent = snapshot.error || (!snapshot.enabled ? _("Save and apply the settings to start Autodetect.") : snapshot.checking ? `${_("Checking")}: ${snapshot.checking} \xB7 ${_("VPN section")}: ${snapshot.proxy}` : `${_("Watching connections")} \xB7 ${_("VPN section")}: ${snapshot.proxy}`);
+      body.replaceChildren(
+        ...snapshot.results.length ? snapshot.results.map(renderResult) : [
+          textE("tr", { class: "tr" }, [
+            textE(
+              "td",
+              { class: "td", colSpan: 5 },
+              _(
+                "No suspicious connections detected yet. Open a site that is not loading on a device routed through Forkop."
+              )
+            )
+          ])
+        ]
+      );
+    },
+    () => 3e3
+  );
+  polling.start(0);
+}
+var AutodetectTab = {
+  render: render6,
+  initController: initController6,
+  styles: `
+    .fkp-autodetect { min-width: 0; }
+    .fkp-autodetect > p { max-width: 80em; }
+    .fkp-autodetect__scroll { overflow-x: auto; }
+    .fkp-autodetect .td { overflow-wrap: anywhere; min-width: 9em; }
+    .fkp-autodetect__source { font-size: 0.9em; opacity: 0.7; }
+  `
+};
+
 // src/styles.ts
 var GlobalStyles = `
+${AutodetectTab.styles}
 ${DashboardTab.styles}
 ${DiagnosticTab.styles}
 ${MonitoringTab.styles}
@@ -18883,15 +19027,15 @@ function createGeodataContent(map) {
 
 // src/forkop/tabs/mountTab.ts
 var mountNodes = /* @__PURE__ */ new Map();
-function mountTab(key, render6, initController6) {
+function mountTab(key, render7, initController7) {
   let node = mountNodes.get(key);
   if (!node) {
-    node = render6();
+    node = render7();
     mountNodes.set(key, node);
   }
   const report2 = (error) => console.error(`[TABS] Failed to start the ${key} controller`, error);
   try {
-    Promise.resolve(initController6()).catch(report2);
+    Promise.resolve(initController7()).catch(report2);
   } catch (error) {
     report2(error);
   }
@@ -31418,6 +31562,81 @@ function addDnsOptions(section2) {
   o.rmempty = false;
 }
 
+// src/forkop/tabs/settings/form/autodetect.ts
+function addAutodetectOptions(section2) {
+  let o = section2.option(
+    form.Flag,
+    "enable_autodetect",
+    _("Enable Autodetect"),
+    _(
+      "Check suspicious HTTPS connections directly and through VPN. Requires sing-box-forkop 1.14.4-r8 or newer."
+    )
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o = section2.option(
+    form.ListValue,
+    "autodetect_proxy_section",
+    _("Autodetect comparison section"),
+    _("Compare direct HTTPS access with this VPN section")
+  );
+  configureDownloadSectionOption(o, "autodetect_proxy_section");
+  o.depends("enable_autodetect", "1");
+  o.retain = true;
+  const fields = [
+    {
+      key: "autodetect_timeout",
+      title: _("Request timeout (seconds)"),
+      value: 8,
+      min: 1,
+      max: 60
+    },
+    {
+      key: "autodetect_confirmations",
+      title: _("Consecutive confirmations"),
+      value: 2,
+      min: 1,
+      max: 5
+    },
+    {
+      key: "autodetect_stall_timeout",
+      title: _("Stall threshold (seconds)"),
+      value: 9,
+      min: 3,
+      max: 300
+    },
+    {
+      key: "autodetect_response_limit",
+      title: _("Probe response limit (KiB)"),
+      value: 64,
+      min: 1,
+      max: 1024
+    },
+    {
+      key: "autodetect_recheck_interval",
+      title: _("Recheck interval (minutes)"),
+      value: 15,
+      min: 1,
+      max: 1440
+    },
+    {
+      key: "autodetect_history_limit",
+      title: _("Result history size"),
+      value: 100,
+      min: 10,
+      max: 100
+    }
+  ];
+  for (const field2 of fields) {
+    o = section2.option(form.Value, field2.key, field2.title);
+    o.default = `${field2.value}`;
+    o.datatype = `range(${field2.min},${field2.max})`;
+    o.validate = required(wholeNumberField(field2.min, field2.max));
+    o.depends("enable_autodetect", "1");
+    o.retain = true;
+  }
+}
+
 // src/forkop/tabs/settings/form/network.ts
 function addNetworkOptions(section2) {
   const excludedDevicesOption = section2.option(
@@ -31664,7 +31883,8 @@ function createSettingsContent(section2) {
       title: _("Latency measurement"),
       add: [addLatencyOptions]
     },
-    { id: "service", title: _("Service"), add: [addServiceOptions] }
+    { id: "service", title: _("Service"), add: [addServiceOptions] },
+    { id: "autodetect", title: "Autodetect", add: [addAutodetectOptions] }
   ];
   for (const { id, title, add } of groups) {
     const tab = `settings-${id}`;
@@ -31941,6 +32161,36 @@ function configureServerVisibility(section2, option2) {
   };
 }
 
+// src/forkop/entry/autodetectVisibility.ts
+function configureAutodetectVisibility(section2, option2) {
+  let pane = null;
+  let contents = [];
+  const setVisible = (enabled) => {
+    pane?.replaceChildren(...enabled ? contents : []);
+  };
+  const renderContents = section2.renderContents;
+  section2.renderContents = async function(...args) {
+    pane = await renderContents.apply(this, args);
+    contents = Array.from(pane.childNodes);
+    setVisible(
+      uci.get(FORKOP_UCI_PACKAGE, "settings", "enable_autodetect") === "1"
+    );
+    return pane;
+  };
+  option2.onchange = (_event, sectionId, value) => {
+    uci.set(
+      FORKOP_UCI_PACKAGE,
+      sectionId,
+      "enable_autodetect",
+      value === "1" ? "1" : "0"
+    );
+    setVisible(value === "1");
+    pane?.dispatchEvent(
+      new CustomEvent("dependency-update", { bubbles: true })
+    );
+  };
+}
+
 // src/forkop/entry/view.ts
 function addMountedTab(map, type, title, tab) {
   const section2 = map.section(form.TypedSection, type, title);
@@ -31950,6 +32200,7 @@ function addMountedTab(map, type, title, tab) {
     return [type];
   };
   mountTabOption(section2, type, tab);
+  return section2;
 }
 var ForkopView = {
   // The forms offer only what the installed core can run, so its features load first.
@@ -32022,6 +32273,10 @@ var ForkopView = {
     addMountedTab(forkopMap, "diagnostic", _("Status"), DiagnosticTab);
     addMountedTab(forkopMap, "dashboard", _("Dashboard"), DashboardTab);
     addMountedTab(forkopMap, "monitoring", _("Monitoring"), MonitoringTab);
+    configureAutodetectVisibility(
+      addMountedTab(forkopMap, "autodetect", "Autodetect", AutodetectTab),
+      settingsSection.children.find((o) => o.option === "enable_autodetect")
+    );
     addMountedTab(forkopMap, "logs", _("Logs"), LogsTab);
     addMountedTab(forkopMap, "components", _("Components"), ComponentsTab);
     const rendered = await forkopMap.render();

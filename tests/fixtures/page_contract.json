@@ -1,6 +1,12 @@
 {
   "defaults_dropped_on_save": {
     "settings": {
+      "autodetect_timeout": "8",
+      "autodetect_confirmations": "2",
+      "autodetect_stall_timeout": "9",
+      "autodetect_response_limit": "64",
+      "autodetect_recheck_interval": "15",
+      "autodetect_history_limit": "100",
       "badwan_reload_delay": "2000",
       "cache_path": "/tmp/sing-box/cache.db",
       "config_path": "/etc/sing-box/config.json",

@@ -7,8 +7,10 @@ import { LogsTab } from './forkop/tabs/logs';
 import { PartialStyles } from './partials';
 import { FORKOP_UCI_PACKAGE as FORKOP_CBI_PREFIX } from './constants';
 import { SPIN_PERIOD_MS } from './helpers/spinPhase';
+import { AutodetectTab } from './forkop/tabs/autodetect';
 
 export const GlobalStyles = `
+${AutodetectTab.styles}
 ${DashboardTab.styles}
 ${DiagnosticTab.styles}
 ${MonitoringTab.styles}

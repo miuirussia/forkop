@@ -175,6 +175,17 @@ function clash_api_config(settings, service_address) {
     let secret = option(settings, "yacd_secret_key", "");
     if (secret != "")
         result.secret = secret;
+    if (bool_option(settings, "enable_autodetect", false))
+        result.autodetect = {
+            direct: runtime_constants.DIRECT_OUTBOUND_TAG,
+            proxy: outbound_tag(option(settings, "autodetect_proxy_section", "")),
+            timeout: option(settings, "autodetect_timeout", "8") + "s",
+            confirmations: int(option(settings, "autodetect_confirmations", "2")),
+            stall_timeout: option(settings, "autodetect_stall_timeout", "9") + "s",
+            response_limit: int(option(settings, "autodetect_response_limit", "64")) * 1024,
+            recheck_interval: option(settings, "autodetect_recheck_interval", "15") + "m",
+            history_limit: int(option(settings, "autodetect_history_limit", "100"))
+        };
     if (bool_option(settings, "enable_yacd", false)) {
         result.external_ui = runtime_constants.CLASH_API_UI_DIRECTORY;
         result.external_ui_download_detour = runtime_constants.DIRECT_OUTBOUND_TAG;
@@ -1873,6 +1884,7 @@ function build(context) {
         config.dns.rules = filter(config.dns.rules, (rule) => rule.server != runtime_constants.FAKEIP_DNS_SERVER_TAG);
         add_tunnel_dns_rules(config);
         delete config.experimental.clash_api.external_ui;
+        delete config.experimental.clash_api.autodetect;
         assert_unique_outbound_tags(config);
         assert_compatible_wireguard_endpoints(config);
         return strip_internal_fields(config);

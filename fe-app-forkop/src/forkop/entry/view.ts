@@ -24,6 +24,8 @@ import { createPageStatus } from './pageStatus';
 import { pageTitle } from './pageTitle';
 import { bindInlineValidation } from '../cbi/validation';
 import { configureServerVisibility } from './serverVisibility';
+import { configureAutodetectVisibility } from './autodetectVisibility';
+import { AutodetectTab } from '../tabs/autodetect';
 
 // A tab that renders itself: one anonymous section holding the node its controller binds to.
 function addMountedTab(
@@ -39,6 +41,7 @@ function addMountedTab(
     return [type];
   };
   mountTabOption(section, type, tab);
+  return section;
 }
 
 export const ForkopView = {
@@ -118,6 +121,10 @@ export const ForkopView = {
     addMountedTab(forkopMap, 'diagnostic', _('Status'), DiagnosticTab);
     addMountedTab(forkopMap, 'dashboard', _('Dashboard'), DashboardTab);
     addMountedTab(forkopMap, 'monitoring', _('Monitoring'), MonitoringTab);
+    configureAutodetectVisibility(
+      addMountedTab(forkopMap, 'autodetect', 'Autodetect', AutodetectTab),
+      settingsSection.children.find((o) => o.option === 'enable_autodetect')!,
+    );
     addMountedTab(forkopMap, 'logs', _('Logs'), LogsTab);
     addMountedTab(forkopMap, 'components', _('Components'), ComponentsTab);
 

@@ -132,6 +132,7 @@ const EXPECTED_TABS = [
   'diagnostic',
   'dashboard',
   'monitoring',
+  'autodetect',
   'logs',
   'components',
 ];

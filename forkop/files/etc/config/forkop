@@ -1,4 +1,5 @@
 config settings 'settings'
+        option enable_autodetect '0'
         option config_version '2.0.0'
         list dns_server '77.88.8.8'
         list bootstrap_dns_server '77.88.8.8'

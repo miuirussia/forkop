@@ -6,6 +6,7 @@ import {
 } from '../../../helpers/getClashApiUrl';
 import { ForkopShellMethods } from '../shell';
 import { DEFAULT_LATENCY_TEST_URL } from '../../../constants';
+import type { AutodetectSnapshot } from '../../tabs/autodetect/types';
 
 type ClashConnectionsSnapshot = {
   downloadTotal?: number;
@@ -433,6 +434,14 @@ export function getClashApiProxyProviders() {
 export function getClashApiConnections() {
   return requestClashApi<unknown>(
     '/connections',
+    undefined,
+    CLASH_API_FETCH_TIMEOUT_MS,
+  );
+}
+
+export function getClashApiAutodetect() {
+  return requestClashApi<AutodetectSnapshot>(
+    '/autodetect',
     undefined,
     CLASH_API_FETCH_TIMEOUT_MS,
   );

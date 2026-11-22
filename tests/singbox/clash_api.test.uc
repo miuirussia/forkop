@@ -92,6 +92,18 @@ t.test("the pages' own requests pass, with their methods and bodies", () => {
     t.eq([ requests[7].body, requests[7].headers["content-length"] ], [ "", null ], "a request without a body sends none");
 });
 
+t.test("Autodetect results use the existing authenticated read-only transport", () => {
+    config(controller.endpoint);
+    controller.reply({ status: 200, body: "{\"enabled\":true,\"results\":[]}" });
+    received();
+    let result = call([ "clash_api", "GET", "/autodetect" ]);
+    t.eq(json(result.reply.body), { enabled: true, results: [] });
+    t.eq(received()[0].line, "GET /autodetect HTTP/1.0");
+    let denied = call([ "clash_api", "PUT", "/autodetect", "{}" ]);
+    t.eq(denied.status, 1);
+    t.eq(received(), []);
+});
+
 t.test("the reply is handed back as the controller sent it, its status and its body", () => {
     config(controller.endpoint);
     let large = sprintf("{\"proxies\":{%s}}", join(",", map(numbers(4000), (i) => sprintf("\"node-%d\":{\"type\":\"VLESS\",\"history\":[]}", i))));

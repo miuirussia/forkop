@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 16:31+0300\n"
-"PO-Revision-Date: 2026-11-22 16:31+0300\n"
+"POT-Creation-Date: 2026-11-22 18:09+0300\n"
+"PO-Revision-Date: 2026-11-22 18:09+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -166,6 +166,9 @@ msgstr "Пользовательский объект sing-box outbound"
 
 msgid "A JSON object merged into every server. Parameters a server does not support are skipped, matching parameters are overwritten"
 msgstr "JSON-объект, добавляемый к каждому серверу. Неподдерживаемые параметры пропускаются, совпадающие перезаписываются"
+
+msgid "A likely block is reported after the configured number of consecutive failed direct checks with successful VPN checks. Autodetect does not change routing rules."
+msgstr "Статус «Вероятная блокировка» появляется после заданного числа неудачных проверок напрямую при успешных проверках через VPN. Подтверждения должны идти подряд. Autodetect не меняет правила маршрутизации."
 
 msgid "A link cannot be built from these settings."
 msgstr "Из этих настроек ссылку собрать нельзя."
@@ -374,6 +377,12 @@ msgstr "Автообновление"
 msgid "Auto update"
 msgstr "Автообновление"
 
+msgid "Autodetect comparison section"
+msgstr "Секция сравнения Autodetect"
+
+msgid "Autodetect requires sing-box-forkop 1.14.4-r8 or newer. Update the core."
+msgstr "Для Autodetect требуется sing-box-forkop версии 1.14.4-r8 или новее. Обновите ядро."
+
 msgid "Availability check for every server"
 msgstr "Проверка доступности каждого сервера"
 
@@ -464,6 +473,9 @@ msgstr "Интервал проверки"
 msgid "Check IP"
 msgstr "Проверить IP"
 
+msgid "Check suspicious HTTPS connections directly and through VPN. Requires sing-box-forkop 1.14.4-r8 or newer."
+msgstr "Проверять подозрительные HTTPS-соединения напрямую и через VPN. Требуется sing-box-forkop версии 1.14.4-r8 или новее."
+
 msgid "Check timeout"
 msgstr "Таймаут проверки"
 
@@ -472,6 +484,9 @@ msgstr "URL проверки"
 
 msgid "Checked from top to bottom until the first working server"
 msgstr "Проверяются сверху вниз до первого рабочего сервера"
+
+msgid "Checking"
+msgstr "Проверка"
 
 msgid "Checking, please wait"
 msgstr "Проверяем, пожалуйста, подождите"
@@ -566,6 +581,9 @@ msgstr "Имя CN (name)"
 msgid "comp-lzo: unsupported mode %s"
 msgstr "comp-lzo: режим %s не поддерживается"
 
+msgid "Compare direct HTTPS access with this VPN section"
+msgstr "Сравнивать прямой доступ по HTTPS с этой VPN-секцией"
+
 msgid "Compiling rule sets"
 msgstr "Преобразование наборов правил"
 
@@ -611,6 +629,9 @@ msgstr "Подключаться к серверу через другую се�
 msgid "Connect to the tunnel server through another section"
 msgstr "Подключаться к серверу туннеля через другую секцию"
 
+msgid "Connection closed early"
+msgstr "Соединение закрылось раньше времени"
+
 msgid "connection failed"
 msgstr "соединение не установлено"
 
@@ -625,6 +646,9 @@ msgstr "Соединения"
 
 msgid "Connections are unavailable"
 msgstr "Подключения недоступны"
+
+msgid "Consecutive confirmations"
+msgstr "Подтверждений подряд"
 
 msgid "Control channel key"
 msgstr "Ключ управляющего канала"
@@ -782,6 +806,9 @@ msgstr "Отчёт диагностики"
 msgid "Direct"
 msgstr "Напрямую"
 
+msgid "Direct HTTPS responds"
+msgstr "Прямой HTTPS отвечает"
+
 msgid "Directly"
 msgstr "Напрямую"
 
@@ -839,6 +866,9 @@ msgstr "не слушает %s"
 msgid "does not use the router's DNS"
 msgstr "не использует DNS роутера"
 
+msgid "Domain"
+msgstr "Домен"
+
 msgid "Domain Resolver"
 msgstr "Резолвер доменов"
 
@@ -895,6 +925,9 @@ msgstr "пусто"
 
 msgid "Enable"
 msgstr "Включить"
+
+msgid "Enable Autodetect"
+msgstr "Включить Autodetect"
 
 msgid "Enable autostart"
 msgstr "Включить автостарт"
@@ -1232,6 +1265,9 @@ msgstr "HTTP"
 msgid "HTTP error"
 msgstr "Ошибка HTTP"
 
+msgid "HTTP restriction"
+msgstr "Ограничение HTTP"
+
 msgid "HTTP status codes of a successful check. * is any response, or values and ranges: 204/200-299"
 msgstr "HTTP-коды успешной проверки. * — любой ответ, либо коды и диапазоны: 204/200-299"
 
@@ -1280,6 +1316,9 @@ msgstr "Включить серверы"
 msgid "Includes connection setup and the TLS handshake"
 msgstr "Учитывает установку соединения и TLS-рукопожатие"
 
+msgid "Inconclusive"
+msgstr "Не определено"
+
 msgid "insecure: also MD5 and short keys"
 msgstr "insecure: ещё MD5 и короткие ключи"
 
@@ -1324,6 +1363,9 @@ msgstr "Неверный %s"
 
 msgid "Invalid AmneziaWG parameters"
 msgstr "Неверные параметры AmneziaWG"
+
+msgid "Invalid Autodetect response"
+msgstr "Некорректный ответ Autodetect"
 
 msgid "Invalid base32 secret"
 msgstr "Неверный секрет base32"
@@ -1475,6 +1517,9 @@ msgstr "key без cert"
 msgid "LAN subnets that tailnet devices can reach"
 msgstr "LAN-подсети, доступные устройствам сети"
 
+msgid "Last check"
+msgstr "Последняя проверка"
+
 msgid "Last online %s"
 msgstr "Последний раз в сети %s"
 
@@ -1501,6 +1546,9 @@ msgstr "Уровень"
 
 msgid "License key"
 msgstr "Лицензионный ключ"
+
+msgid "Likely blocked"
+msgstr "Вероятная блокировка"
 
 msgid "Line breaks are not allowed"
 msgstr "Переносы строк недопустимы"
@@ -1615,6 +1663,9 @@ msgstr "Мониторинг"
 
 msgid "More details"
 msgstr "Подробнее"
+
+msgid "ms"
+msgstr "мс"
 
 msgid "MSS clamping"
 msgstr "Ограничение MSS"
@@ -1748,6 +1799,12 @@ msgstr "публичный адрес не указан"
 msgid "No remote directive"
 msgstr "Нет директивы remote"
 
+msgid "No reply"
+msgstr "Нет ответа"
+
+msgid "No response"
+msgstr "Нет ответа"
+
 msgid "No sections with a proxy"
 msgstr "Нет секций с прокси"
 
@@ -1756,6 +1813,9 @@ msgstr "Не указан сервер"
 
 msgid "No servers to check"
 msgstr "Нет серверов для проверки"
+
+msgid "No suspicious connections detected yet. Open a site that is not loading on a device routed through Forkop."
+msgstr "Подозрительных соединений пока нет. Откройте проблемный сайт на устройстве, чей трафик проходит через Forkop."
 
 msgid "No tag field"
 msgstr "Нет поля tag"
@@ -2048,6 +2108,9 @@ msgstr "Путь к приватному ключу на роутере"
 msgid "Probably a subscription URL: paste it into Subscription"
 msgstr "Возможно, это URL подписки: вставьте его в поле «Подписка»"
 
+msgid "Probe response limit (KiB)"
+msgstr "Объём пробного ответа, КиБ"
+
 msgid "Profile"
 msgstr "Профиль"
 
@@ -2092,6 +2155,9 @@ msgstr "Публичный ключ Reality"
 
 msgid "Reality short ID"
 msgstr "Reality short ID"
+
+msgid "Recheck interval (minutes)"
+msgstr "Повторная проверка, минуты"
 
 msgid "Reconnect after silence, seconds"
 msgstr "Переподключение после тишины, секунд"
@@ -2144,6 +2210,9 @@ msgstr "Запрашивать через"
 msgid "Request through a section"
 msgstr "Запрашивать через секцию"
 
+msgid "Request timeout (seconds)"
+msgstr "Тайм-аут запроса, секунды"
+
 msgid "Request WARP through"
 msgstr "Запрашивать WARP через"
 
@@ -2168,6 +2237,9 @@ msgstr "Резолвит домены, совпавшие с условиями 
 msgid "resolves past Forkop"
 msgstr "резолвит мимо Forkop"
 
+msgid "Response transfer"
+msgstr "Передача ответа"
+
 msgid "Restart"
 msgstr "Перезапустить"
 
@@ -2176,6 +2248,12 @@ msgstr "перезапускается..."
 
 msgid "Restarting..."
 msgstr "Перезапуск..."
+
+msgid "Result"
+msgstr "Результат"
+
+msgid "Result history size"
+msgstr "Размер истории результатов"
 
 msgid "Route"
 msgstr "Маршрут"
@@ -2248,6 +2326,9 @@ msgstr "Сохранить"
 
 msgid "Save & Apply before downloading newly added or changed sources"
 msgstr "Сохраните и примените настройки перед загрузкой новых или изменённых источников"
+
+msgid "Save and apply the settings to start Autodetect."
+msgstr "Сохраните и примените настройки для запуска Autodetect."
 
 msgid "Schedule for built-in lists and remote rule sets. Set the schedule for each DAT source in its own settings"
 msgstr "Расписание для встроенных списков и удалённых наборов правил. Расписание DAT задаётся в настройках каждого источника"
@@ -2438,6 +2519,9 @@ msgstr "Вход по сертификату, отдельно или вмест
 msgid "sing-box %s, not sing-box-forkop"
 msgstr "sing-box %s, а не sing-box-forkop"
 
+msgid "sing-box checks suspicious HTTPS connections directly and through the selected VPN section. Checks continue after you close this page."
+msgstr "sing-box проверяет подозрительные HTTPS-соединения напрямую и через выбранную VPN-секцию. Проверки продолжаются после закрытия страницы."
+
 msgid "sing-box Clash API"
 msgstr "Clash API sing-box"
 
@@ -2491,6 +2575,9 @@ msgstr "Ключи SSH-сервера"
 
 msgid "SSO and SAML through the sing-box dashboard, which the tunnel waits for at every connection"
 msgstr "SSO и SAML через панель sing-box: туннель будет ждать входа при каждом подключении"
+
+msgid "Stall threshold (seconds)"
+msgstr "Порог зависания, секунды"
 
 msgid "Start"
 msgstr "Запустить"
@@ -2768,6 +2855,9 @@ msgstr "Это не профиль OpenVPN"
 msgid "This JSON is not an openconnect endpoint"
 msgstr "Этот JSON — не endpoint openconnect"
 
+msgid "Through VPN"
+msgstr "Через VPN"
+
 msgid "Time"
 msgstr "Время"
 
@@ -2812,6 +2902,9 @@ msgstr "Обфускация трафика"
 
 msgid "Traffic Total"
 msgstr "Всего трафика"
+
+msgid "Transfer stalled"
+msgstr "Передача данных остановилась"
 
 msgid "Transport"
 msgstr "Транспорт"
@@ -3005,6 +3098,9 @@ msgstr "Приватный ключ VLESS Encryption"
 msgid "VLESS Encryption public key"
 msgstr "Публичный ключ VLESS Encryption"
 
+msgid "VPN section"
+msgstr "VPN-секция"
+
 msgid "VPN server"
 msgstr "VPN-сервер"
 
@@ -3028,6 +3124,9 @@ msgstr "Адрес сервера WARP"
 
 msgid "WARP server port"
 msgstr "Порт сервера WARP"
+
+msgid "Watching connections"
+msgstr "Наблюдение за соединениями"
 
 msgid "What the update changes in it:"
 msgstr "Что изменится при переводе:"

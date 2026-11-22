@@ -49,7 +49,7 @@ function allowed(method, path, body) {
     if (method == "GET") {
         if (body != "")
             return false;
-        if (path == "/proxies" || path == "/providers/proxies" || path == "/connections" || path == "/tailscale")
+        if (path == "/proxies" || path == "/providers/proxies" || path == "/connections" || path == "/tailscale" || path == "/autodetect")
             return true;
         let query = index(path, "?");
         if (query < 0) {

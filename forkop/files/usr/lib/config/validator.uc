@@ -30,6 +30,7 @@ let parse_number = core_common.parse_number;
 
 const CONFIG_NAME = "forkop";
 const DEFAULT_LATENCY_TEST_URL = "https://www.gstatic.com/generate_204";
+const AUTODETECT_REQUIRED_VERSION = "1.14.4-r8";
 const TAILSCALE_FWMARK_MASK = 0x00ff0000;
 
 function string_starts_with(value, prefix) {
@@ -1781,6 +1782,23 @@ function validate_runtime_config(context) {
     for (let purpose in [ "lists", "warp_profiles" ])
         if (connections.download_via_proxy_enabled(settings, purpose))
             validate_download_section(sections, connections.download_via_proxy_section(settings, purpose));
+    if (bool_option(settings, "enable_autodetect", false)) {
+        outbound_section(sections, "Autodetect", option(settings, "autodetect_proxy_section", ""));
+        for (let field in [
+            [ "autodetect_timeout", "8", 1, 60 ],
+            [ "autodetect_confirmations", "2", 1, 5 ],
+            [ "autodetect_stall_timeout", "9", 3, 300 ],
+            [ "autodetect_response_limit", "64", 1, 1024 ],
+            [ "autodetect_recheck_interval", "15", 1, 1440 ],
+            [ "autodetect_history_limit", "100", 10, 100 ]
+        ]) {
+            let value = as_string(option(settings, field[0], field[1]));
+            if (match(value, /^[0-9]+$/) == null || int(value) < field[2] || int(value) > field[3])
+                fail_validation("Autodetect: '" + field[0] + "' must be a whole number from " + field[2] + " to " + field[3]);
+        }
+        if (!core_version.version_at_least(context.sing_box_version, AUTODETECT_REQUIRED_VERSION))
+            fail_validation("Autodetect requires sing-box-forkop " + AUTODETECT_REQUIRED_VERSION + " or newer. Update sing-box-forkop or disable Autodetect");
+    }
     if (connections.download_via_proxy_enabled(settings, "warp_profiles"))
         validate_warp_profile_section(connections.download_via_proxy_section(settings, "warp_profiles"));
 
@@ -1802,6 +1820,7 @@ function context_from_runtime() {
         nft_outbound_mark: as_string(constants.NFT_OUTBOUND_MARK),
         nft_router_mark: as_string(constants.NFT_ROUTER_MARK),
         sing_box_required_version: as_string(constants.SB_REQUIRED_VERSION),
+        sing_box_version: features.version(),
         // Unknown without a core to ask, which the requirement check refuses first.
         core_tags: features.tags()
     };

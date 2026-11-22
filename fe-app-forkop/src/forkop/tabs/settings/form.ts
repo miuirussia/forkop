@@ -1,5 +1,6 @@
 import { E } from '../../../helpers/element';
 import { addDnsOptions } from './form/dns';
+import { addAutodetectOptions } from './form/autodetect';
 import { addNetworkOptions } from './form/network';
 import { addServiceOptions } from './form/service';
 import { addTrafficOptions, addYacdOptions } from './form/traffic';
@@ -21,6 +22,7 @@ export function createSettingsContent(section: CBISection) {
       add: [addLatencyOptions],
     },
     { id: 'service', title: _('Service'), add: [addServiceOptions] },
+    { id: 'autodetect', title: 'Autodetect', add: [addAutodetectOptions] },
   ];
   for (const { id, title, add } of groups) {
     const tab = `settings-${id}`;
