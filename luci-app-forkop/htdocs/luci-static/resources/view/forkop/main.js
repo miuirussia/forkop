@@ -17045,9 +17045,7 @@ function render6() {
     textE(
       "p",
       {},
-      _(
-        "Compares HTTPS access directly and through the selected section."
-      )
+      _("Compares HTTPS access directly and through the selected section.")
     ),
     textE(
       "p",
