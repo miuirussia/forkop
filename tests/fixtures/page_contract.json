@@ -1,6 +1,7 @@
 {
   "defaults_dropped_on_save": {
     "settings": {
+      "autodetect_ports": ["443"],
       "autodetect_timeout": "8",
       "autodetect_confirmations": "2",
       "autodetect_stall_timeout": "9",

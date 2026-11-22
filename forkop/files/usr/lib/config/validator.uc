@@ -14,6 +14,7 @@ let rulesets = require("singbox.rulesets");
 let runtime_dns = require("singbox.dns");
 let runtime_servers = require("singbox.servers");
 let features = require("singbox.features");
+let autodetect = require("config.autodetect");
 let amnezia = require("singbox.amnezia");
 let runtime_urltest = require("singbox.urltest");
 let subscription_headers_module = require("singbox.subscription_headers");
@@ -31,6 +32,7 @@ let parse_number = core_common.parse_number;
 const CONFIG_NAME = "forkop";
 const DEFAULT_LATENCY_TEST_URL = "https://www.gstatic.com/generate_204";
 const AUTODETECT_REQUIRED_VERSION = "1.14.4-r8";
+const AUTODETECT_PORTS_REQUIRED_VERSION = "1.14.4-r9";
 const TAILSCALE_FWMARK_MASK = 0x00ff0000;
 
 function string_starts_with(value, prefix) {
@@ -1784,6 +1786,7 @@ function validate_runtime_config(context) {
             validate_download_section(sections, connections.download_via_proxy_section(settings, purpose));
     if (bool_option(settings, "enable_autodetect", false)) {
         outbound_section(sections, "Autodetect", option(settings, "autodetect_proxy_section", ""));
+        let ports = autodetect.ports(settings);
         for (let field in [
             [ "autodetect_timeout", "8", 1, 60 ],
             [ "autodetect_confirmations", "2", 1, 5 ],
@@ -1798,6 +1801,9 @@ function validate_runtime_config(context) {
         }
         if (!core_version.version_at_least(context.sing_box_version, AUTODETECT_REQUIRED_VERSION))
             fail_validation("Autodetect requires sing-box-forkop " + AUTODETECT_REQUIRED_VERSION + " or newer. Update sing-box-forkop or disable Autodetect");
+        if ((length(ports) != 1 || ports[0] != 443) &&
+            !core_version.version_at_least(context.sing_box_version, AUTODETECT_PORTS_REQUIRED_VERSION))
+            fail_validation("Autodetect ports other than 443 require sing-box-forkop " + AUTODETECT_PORTS_REQUIRED_VERSION + " or newer. Update sing-box-forkop or use port 443");
     }
     if (connections.download_via_proxy_enabled(settings, "warp_profiles"))
         validate_warp_profile_section(connections.download_via_proxy_section(settings, "warp_profiles"));

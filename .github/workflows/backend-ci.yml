@@ -61,3 +61,7 @@ jobs:
       - name: Check traffic guard with kernel packets
         shell: bash
         run: sudo env "PATH=$PATH" python3 tests/nft/guard-netns.py
+
+      - name: Check Autodetect capture with kernel packets
+        shell: bash
+        run: sudo env "PATH=$PATH" python3 tests/nft/autodetect-netns.py

@@ -9,6 +9,7 @@ it('keeps Autodetect settings in their own group and preserves them when disable
   const values = {
     enable_autodetect: '1',
     autodetect_proxy_section: 'vpn',
+    autodetect_ports: ['443', '8443'],
     autodetect_timeout: '20',
     autodetect_confirmations: '3',
     autodetect_stall_timeout: '30',
@@ -34,11 +35,15 @@ it('keeps Autodetect settings in their own group and preserves them when disable
   expect(timeout.validate('settings', '0')).not.toBe(true);
   expect(timeout.validate('settings', '61')).not.toBe(true);
   expect(timeout.validate('settings', '20')).toBe(true);
+  const ports = section.children.find((o) => o.option === 'autodetect_ports');
+  expect(ports.validate('settings', '8443')).toBe(true);
+  for (const port of ['0', '65536', '443-8443', 'tcp:443', '443; reboot'])
+    expect(ports.validate('settings', port)).not.toBe(true);
   harness.uci.set('forkop', 'settings', 'enable_autodetect', '0');
   await section.load();
   await section.parse();
   for (const [key, value] of Object.entries(values)) {
     if (key !== 'enable_autodetect')
-      expect(harness.uci.get('forkop', 'settings', key)).toBe(value);
+      expect(harness.uci.get('forkop', 'settings', key)).toEqual(value);
   }
 });

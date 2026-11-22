@@ -54,16 +54,7 @@ function render() {
     E(
       'p',
       {},
-      _(
-        'sing-box checks suspicious HTTPS connections directly and through the selected VPN section. Checks continue after you close this page.',
-      ),
-    ),
-    E(
-      'p',
-      {},
-      _(
-        'A likely block is reported after the configured number of consecutive failed direct checks with successful VPN checks. Autodetect does not change routing rules.',
-      ),
+      _('Compares HTTPS access directly and through the selected section.'),
     ),
     E(
       'p',
@@ -80,7 +71,7 @@ function render() {
               _('Domain'),
               _('Result'),
               _('Directly'),
-              _('Through VPN'),
+              _('Through section'),
               _('Last check'),
             ].map((title) => E('th', { class: 'th', scope: 'col' }, title)),
           ),
@@ -105,9 +96,7 @@ async function initController() {
       if (!response.success) {
         status.textContent =
           response.status === 404
-            ? _(
-                'Autodetect requires sing-box-forkop 1.14.4-r8 or newer. Update the core.',
-              )
+            ? _('Autodetect is unavailable.')
             : response.error;
         return;
       }
@@ -121,8 +110,8 @@ async function initController() {
         (!snapshot.enabled
           ? _('Save and apply the settings to start Autodetect.')
           : snapshot.checking
-            ? `${_('Checking')}: ${snapshot.checking} · ${_('VPN section')}: ${snapshot.proxy}`
-            : `${_('Watching connections')} · ${_('VPN section')}: ${snapshot.proxy}`);
+            ? `${_('Checking')}: ${snapshot.checking} · ${_('Comparison section')}: ${snapshot.proxy}`
+            : `${_('Comparison section')}: ${snapshot.proxy}`);
       body.replaceChildren(
         ...(snapshot.results.length
           ? snapshot.results.map(renderResult)

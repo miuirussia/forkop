@@ -17046,14 +17046,7 @@ function render6() {
       "p",
       {},
       _(
-        "sing-box checks suspicious HTTPS connections directly and through the selected VPN section. Checks continue after you close this page."
-      )
-    ),
-    textE(
-      "p",
-      {},
-      _(
-        "A likely block is reported after the configured number of consecutive failed direct checks with successful VPN checks. Autodetect does not change routing rules."
+        "Compares HTTPS access directly and through the selected section."
       )
     ),
     textE(
@@ -17071,7 +17064,7 @@ function render6() {
               _("Domain"),
               _("Result"),
               _("Directly"),
-              _("Through VPN"),
+              _("Through section"),
               _("Last check")
             ].map((title) => textE("th", { class: "th", scope: "col" }, title))
           )
@@ -17093,9 +17086,7 @@ async function initController6() {
       if (!root.isConnected || !isActiveLuciTab("autodetect")) return;
       const response = await getClashApiAutodetect();
       if (!response.success) {
-        status.textContent = response.status === 404 ? _(
-          "Autodetect requires sing-box-forkop 1.14.4-r8 or newer. Update the core."
-        ) : response.error;
+        status.textContent = response.status === 404 ? _("Autodetect is unavailable.") : response.error;
         return;
       }
       const snapshot = response.data;
@@ -17103,7 +17094,7 @@ async function initController6() {
         status.textContent = _("Invalid Autodetect response");
         return;
       }
-      status.textContent = snapshot.error || (!snapshot.enabled ? _("Save and apply the settings to start Autodetect.") : snapshot.checking ? `${_("Checking")}: ${snapshot.checking} \xB7 ${_("VPN section")}: ${snapshot.proxy}` : `${_("Watching connections")} \xB7 ${_("VPN section")}: ${snapshot.proxy}`);
+      status.textContent = snapshot.error || (!snapshot.enabled ? _("Save and apply the settings to start Autodetect.") : snapshot.checking ? `${_("Checking")}: ${snapshot.checking} \xB7 ${_("Comparison section")}: ${snapshot.proxy}` : `${_("Comparison section")}: ${snapshot.proxy}`);
       body.replaceChildren(
         ...snapshot.results.length ? snapshot.results.map(renderResult) : [
           textE("tr", { class: "tr" }, [
@@ -31568,9 +31559,7 @@ function addAutodetectOptions(section2) {
     form.Flag,
     "enable_autodetect",
     _("Enable Autodetect"),
-    _(
-      "Check suspicious HTTPS connections directly and through VPN. Requires sing-box-forkop 1.14.4-r8 or newer."
-    )
+    _("Check HTTPS access directly and through the selected section.")
   );
   o.default = "0";
   o.rmempty = false;
@@ -31578,9 +31567,20 @@ function addAutodetectOptions(section2) {
     form.ListValue,
     "autodetect_proxy_section",
     _("Autodetect comparison section"),
-    _("Compare direct HTTPS access with this VPN section")
+    _("Compare direct HTTPS access with access through this section")
   );
   configureDownloadSectionOption(o, "autodetect_proxy_section");
+  o.depends("enable_autodetect", "1");
+  o.retain = true;
+  o = section2.option(
+    form.DynamicList,
+    "autodetect_ports",
+    _("HTTPS ports"),
+    _("TCP ports to monitor, one per entry. Default: 443.")
+  );
+  o.default = ["443"];
+  o.datatype = "port";
+  o.validate = requiredList(portField);
   o.depends("enable_autodetect", "1");
   o.retain = true;
   const fields = [

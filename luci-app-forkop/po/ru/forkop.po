@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 18:09+0300\n"
-"PO-Revision-Date: 2026-11-22 18:09+0300\n"
+"POT-Creation-Date: 2026-11-22 19:28+0300\n"
+"PO-Revision-Date: 2026-11-22 19:28+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -166,9 +166,6 @@ msgstr "Пользовательский объект sing-box outbound"
 
 msgid "A JSON object merged into every server. Parameters a server does not support are skipped, matching parameters are overwritten"
 msgstr "JSON-объект, добавляемый к каждому серверу. Неподдерживаемые параметры пропускаются, совпадающие перезаписываются"
-
-msgid "A likely block is reported after the configured number of consecutive failed direct checks with successful VPN checks. Autodetect does not change routing rules."
-msgstr "Статус «Вероятная блокировка» появляется после заданного числа неудачных проверок напрямую при успешных проверках через VPN. Подтверждения должны идти подряд. Autodetect не меняет правила маршрутизации."
 
 msgid "A link cannot be built from these settings."
 msgstr "Из этих настроек ссылку собрать нельзя."
@@ -380,8 +377,8 @@ msgstr "Автообновление"
 msgid "Autodetect comparison section"
 msgstr "Секция сравнения Autodetect"
 
-msgid "Autodetect requires sing-box-forkop 1.14.4-r8 or newer. Update the core."
-msgstr "Для Autodetect требуется sing-box-forkop версии 1.14.4-r8 или новее. Обновите ядро."
+msgid "Autodetect is unavailable."
+msgstr "Autodetect недоступен."
 
 msgid "Availability check for every server"
 msgstr "Проверка доступности каждого сервера"
@@ -467,14 +464,14 @@ msgstr "Изменить параметры серверов, которые д�
 msgid "Check again"
 msgstr "Проверить снова"
 
+msgid "Check HTTPS access directly and through the selected section."
+msgstr "Проверять доступ по HTTPS напрямую и через выбранную секцию."
+
 msgid "Check interval"
 msgstr "Интервал проверки"
 
 msgid "Check IP"
 msgstr "Проверить IP"
-
-msgid "Check suspicious HTTPS connections directly and through VPN. Requires sing-box-forkop 1.14.4-r8 or newer."
-msgstr "Проверять подозрительные HTTPS-соединения напрямую и через VPN. Требуется sing-box-forkop версии 1.14.4-r8 или новее."
 
 msgid "Check timeout"
 msgstr "Таймаут проверки"
@@ -581,8 +578,14 @@ msgstr "Имя CN (name)"
 msgid "comp-lzo: unsupported mode %s"
 msgstr "comp-lzo: режим %s не поддерживается"
 
-msgid "Compare direct HTTPS access with this VPN section"
-msgstr "Сравнивать прямой доступ по HTTPS с этой VPN-секцией"
+msgid "Compare direct HTTPS access with access through this section"
+msgstr "Сравнивать доступ по HTTPS напрямую и через эту секцию"
+
+msgid "Compares HTTPS access directly and through the selected section."
+msgstr "Сравнение доступа по HTTPS напрямую и через выбранную секцию."
+
+msgid "Comparison section"
+msgstr "Секция сравнения"
 
 msgid "Compiling rule sets"
 msgstr "Преобразование наборов правил"
@@ -1270,6 +1273,9 @@ msgstr "Ограничение HTTP"
 
 msgid "HTTP status codes of a successful check. * is any response, or values and ranges: 204/200-299"
 msgstr "HTTP-коды успешной проверки. * — любой ответ, либо коды и диапазоны: 204/200-299"
+
+msgid "HTTPS ports"
+msgstr "Порты HTTPS"
 
 msgid "Idle timeout"
 msgstr "Таймаут простоя"
@@ -2519,9 +2525,6 @@ msgstr "Вход по сертификату, отдельно или вмест
 msgid "sing-box %s, not sing-box-forkop"
 msgstr "sing-box %s, а не sing-box-forkop"
 
-msgid "sing-box checks suspicious HTTPS connections directly and through the selected VPN section. Checks continue after you close this page."
-msgstr "sing-box проверяет подозрительные HTTPS-соединения напрямую и через выбранную VPN-секцию. Проверки продолжаются после закрытия страницы."
-
 msgid "sing-box Clash API"
 msgstr "Clash API sing-box"
 
@@ -2693,6 +2696,9 @@ msgstr "TAP (уровень 2) не поддерживается, только T
 msgid "TCP and UDP"
 msgstr "TCP и UDP"
 
+msgid "TCP ports to monitor, one per entry. Default: 443."
+msgstr "TCP-порты для наблюдения, по одному в строке. По умолчанию — 443."
+
 msgid "Terminal"
 msgstr "Терминал"
 
@@ -2855,8 +2861,8 @@ msgstr "Это не профиль OpenVPN"
 msgid "This JSON is not an openconnect endpoint"
 msgstr "Этот JSON — не endpoint openconnect"
 
-msgid "Through VPN"
-msgstr "Через VPN"
+msgid "Through section"
+msgstr "Через секцию"
 
 msgid "Time"
 msgstr "Время"
@@ -3098,9 +3104,6 @@ msgstr "Приватный ключ VLESS Encryption"
 msgid "VLESS Encryption public key"
 msgstr "Публичный ключ VLESS Encryption"
 
-msgid "VPN section"
-msgstr "VPN-секция"
-
 msgid "VPN server"
 msgstr "VPN-сервер"
 
@@ -3124,9 +3127,6 @@ msgstr "Адрес сервера WARP"
 
 msgid "WARP server port"
 msgstr "Порт сервера WARP"
-
-msgid "Watching connections"
-msgstr "Наблюдение за соединениями"
 
 msgid "What the update changes in it:"
 msgstr "Что изменится при переводе:"

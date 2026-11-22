@@ -8,6 +8,7 @@ let connections = require("config.connections");
 let singbox_constants = require("singbox.constants");
 let nft_state = require("nft.state");
 let nft_sections = require("nft.sections");
+let autodetect = require("config.autodetect");
 
 const CONFIG_NAME = "forkop";
 const TABLE = constants.NFT_TABLE_NAME;
@@ -300,6 +301,20 @@ function add_fakeip_output() {
             add_rule("mangle_output", [ pair[0], "daddr", pair[1], "meta", "l4proto", proto, "meta", "mark", "set", ROUTER_MARK, "counter" ]);
 }
 
+function add_autodetect_capture(settings) {
+    if (!common.bool_option(settings, "enable_autodetect", false))
+        return;
+    let ports = "forkop_autodetect_ports";
+    add_set(ports, PORT_SET);
+    add_elements(ports, autodetect.ports(settings));
+    // Unmatched HTTPS must reach the core too. Earlier returns and section verdicts
+    // preserve device exclusions, local destinations, and explicit bypass rules.
+    add_rule("mangle", [ "iifname", "@" + INTERFACES, "tcp", "dport", "@" + ports,
+        "meta", "mark", "set", FAKEIP_MARK, "counter" ]);
+    add_rule("mangle_output", [ "meta", "mark", "0", "tcp", "dport", "@" + ports,
+        "meta", "mark", "set", ROUTER_MARK, "counter" ]);
+}
+
 // Only loopback is captured, so the resolver's upstream queries never come back here;
 // sing-box marks its own sockets, so its queries to the resolver pass.
 function add_router_dns(excluded_router) {
@@ -344,6 +359,7 @@ function build() {
     for (let entry in planned.sections)
         add_section_rules(entry.matchers);
     add_fakeip_output();
+    add_autodetect_capture(settings);
     add_router_dns(excluded.router);
     for (let entry in planned.sections)
         fill_section_sets(entry.section, entry.matchers);

@@ -28,6 +28,31 @@ function before(lines, first, second, label) {
 
 const T = "add rule inet ForkopTable ";
 
+t.test("Autodetect captures unmatched HTTPS only when enabled and preserves exclusions and section priority", () => {
+    lacks(script_lines({ settings: {} }), "forkop_autodetect_ports");
+    let lines = script_lines({ settings: {
+        enable_autodetect: "1", routing_excluded_ips: "192.168.1.50 @system"
+    }, section: [ { ".name": "bypass", action: "bypass", destinations: "1.1.1.1" } ] });
+    has(lines, "add set inet ForkopTable forkop_autodetect_ports { type inet_service; flags interval; auto-merge; }");
+    has(lines, "add element inet ForkopTable forkop_autodetect_ports { 443 }");
+    let client = T + "mangle iifname @forkop_interfaces tcp dport @forkop_autodetect_ports meta mark set 0x04000000 counter";
+    let router = T + "mangle_output meta mark 0 tcp dport @forkop_autodetect_ports meta mark set 0x10000000 counter";
+    for (let previous in [
+        "mangle ip saddr @forkop_excluded counter return", "mangle ct status dnat return", "mangle ct direction reply return",
+        "mangle iifname @forkop_interfaces ip daddr @localv4 return",
+        "mangle iifname @forkop_interfaces ip6 daddr @localv6 return", "mangle jump priority_rules"
+    ])
+        before(lines, T + previous, client, "client exemptions and routing win over observation");
+    for (let previous in [
+        "mangle_output counter return", "mangle_output ip daddr @localv4 return", "mangle_output ip6 daddr @localv6 return",
+        "mangle_output meta mark & 0x08000000 == 0x08000000 counter return", "mangle_output jump priority_output_rules"
+    ])
+        before(lines, T + previous, router, "router exemptions and core sockets are not intercepted");
+    lacks(lines, "udp dport @forkop_autodetect_ports");
+    lines = script_lines({ settings: { enable_autodetect: "1", autodetect_ports: [ "8443", "443", "08443" ] } });
+    has(lines, "add element inet ForkopTable forkop_autodetect_ports { 8443,443 }");
+});
+
 t.test("the base table captures the source interfaces, FakeIP and the TProxy inbounds", () => {
     let lines = script_lines({ settings: { source_network_interfaces: "br-lan tun0" } });
     t.eq(lines[0], "add table inet ForkopTable");

@@ -13,6 +13,7 @@ let subscription_headers_module = require("singbox.subscription_headers");
 let subscription_crypto = require("singbox.subscription_crypto");
 let runtime_urltest = require("singbox.urltest");
 let connections = require("config.connections");
+let autodetect = require("config.autodetect");
 let runtime_settings_cache = null;
 
 let as_string = common.as_string;
@@ -175,7 +176,7 @@ function clash_api_config(settings, service_address) {
     let secret = option(settings, "yacd_secret_key", "");
     if (secret != "")
         result.secret = secret;
-    if (bool_option(settings, "enable_autodetect", false))
+    if (bool_option(settings, "enable_autodetect", false)) {
         result.autodetect = {
             direct: runtime_constants.DIRECT_OUTBOUND_TAG,
             proxy: outbound_tag(option(settings, "autodetect_proxy_section", "")),
@@ -186,6 +187,10 @@ function clash_api_config(settings, service_address) {
             recheck_interval: option(settings, "autodetect_recheck_interval", "15") + "m",
             history_limit: int(option(settings, "autodetect_history_limit", "100"))
         };
+        let ports = autodetect.ports(settings);
+        if (length(ports) != 1 || ports[0] != 443)
+            result.autodetect.ports = ports;
+    }
     if (bool_option(settings, "enable_yacd", false)) {
         result.external_ui = runtime_constants.CLASH_API_UI_DIRECTORY;
         result.external_ui_download_detour = runtime_constants.DIRECT_OUTBOUND_TAG;

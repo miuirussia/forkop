@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 18:09+0300\n"
-"PO-Revision-Date: 2026-11-22 18:09+0300\n"
+"POT-Creation-Date: 2026-11-22 19:28+0300\n"
+"PO-Revision-Date: 2026-11-22 19:28+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -216,10 +216,6 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/overrides.ts
 msgid "A JSON object merged into every server. Parameters a server does not support are skipped, matching parameters are overwritten"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
-msgid "A likely block is reported after the configured number of consecutive failed direct checks with successful VPN checks. Autodetect does not change routing rules."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/details.ts
@@ -520,7 +516,7 @@ msgid "Autodetect comparison section"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
-msgid "Autodetect requires sing-box-forkop 1.14.4-r8 or newer. Update the core."
+msgid "Autodetect is unavailable."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/fallback.ts
@@ -639,6 +635,10 @@ msgstr ""
 msgid "Check again"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
+msgid "Check HTTPS access directly and through the selected section."
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
 #: fe-app-forkop/src/forkop/tabs/sections/fallback.ts
 #: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
@@ -647,10 +647,6 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts
 msgid "Check IP"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
-msgid "Check suspicious HTTPS connections directly and through VPN. Requires sing-box-forkop 1.14.4-r8 or newer."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
@@ -810,7 +806,15 @@ msgid "comp-lzo: unsupported mode %s"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
-msgid "Compare direct HTTPS access with this VPN section"
+msgid "Compare direct HTTPS access with access through this section"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
+msgid "Compares HTTPS access directly and through the selected section."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
+msgid "Comparison section"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
@@ -1780,6 +1784,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/healthCheck.ts
 msgid "HTTP status codes of a successful check. * is any response, or values and ranges: 204/200-299"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
+msgid "HTTPS ports"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
@@ -3526,10 +3534,6 @@ msgstr ""
 msgid "sing-box %s, not sing-box-forkop"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
-msgid "sing-box checks suspicious HTTPS connections directly and through the selected VPN section. Checks continue after you close this page."
-msgstr ""
-
 #: fe-app-forkop/src/forkop/tabs/servers/constants.ts
 msgid "sing-box Clash API"
 msgstr ""
@@ -3763,6 +3767,10 @@ msgstr ""
 msgid "TCP and UDP"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
+msgid "TCP ports to monitor, one per entry. Default: 443."
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/components/initController.ts
 msgid "Terminal"
 msgstr ""
@@ -3982,7 +3990,7 @@ msgid "This JSON is not an openconnect endpoint"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
-msgid "Through VPN"
+msgid "Through section"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/monitoring/connectionList.ts
@@ -4321,10 +4329,6 @@ msgstr ""
 msgid "VLESS Encryption public key"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
-msgid "VPN section"
-msgstr ""
-
 #: fe-app-forkop/src/forkop/entry/view.ts
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/groups.ts
 msgid "VPN server"
@@ -4356,10 +4360,6 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "WARP server port"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
-msgid "Watching connections"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/components/configFile.ts

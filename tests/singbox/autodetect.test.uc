@@ -107,4 +107,19 @@ t.test("Autodetect checks the version reported by the installed binary", () => {
     }
 });
 
+t.test("custom HTTPS ports are passed to a supporting core, while port 443 remains compatible with r8", () => {
+    let custom = data({ enable_autodetect: "1", autodetect_proxy_section: "main", autodetect_ports: [ "443", "8443", "08443" ] });
+    v.refuses(custom, "ports other than 443 require sing-box-forkop 1.14.4-r9", { sing_box_version: "1.14.4-r8" });
+    v.accepts(custom, { sing_box_version: "1.14.4-r9" });
+    fixture.seed(custom);
+    t.eq(generator.build({ service_address: "127.0.0.1" }).experimental.clash_api.autodetect.ports, [ 443, 8443 ]);
+    let standard = data({ enable_autodetect: "1", autodetect_proxy_section: "main", autodetect_ports: [ "443", "0443" ] });
+    v.accepts(standard, { sing_box_version: "1.14.4-r8" });
+    fixture.seed(standard);
+    t.eq(generator.build({ service_address: "127.0.0.1" }).experimental.clash_api.autodetect.ports, null);
+    for (let port in [ "0", "65536", "443-8443", "443,8443", "tcp:443", "443; reboot", "1.5" ])
+        v.refuses(data({ enable_autodetect: "1", autodetect_proxy_section: "main", autodetect_ports: [ port ] }), "autodetect_ports");
+    v.accepts(data({ enable_autodetect: "0", autodetect_ports: [ "invalid" ] }), { sing_box_version: "1.14.4-r8" });
+});
+
 t.done();

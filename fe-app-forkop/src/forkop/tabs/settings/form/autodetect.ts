@@ -1,5 +1,5 @@
-import { wholeNumberField } from '../../../../validators/fields';
-import { required } from '../../../cbi/required';
+import { portField, wholeNumberField } from '../../../../validators/fields';
+import { required, requiredList } from '../../../cbi/required';
 import { configureDownloadSectionOption } from '../sectionChoices';
 
 export function addAutodetectOptions(section: Pick<CBISection, 'option'>) {
@@ -7,9 +7,7 @@ export function addAutodetectOptions(section: Pick<CBISection, 'option'>) {
     form.Flag,
     'enable_autodetect',
     _('Enable Autodetect'),
-    _(
-      'Check suspicious HTTPS connections directly and through VPN. Requires sing-box-forkop 1.14.4-r8 or newer.',
-    ),
+    _('Check HTTPS access directly and through the selected section.'),
   );
   o.default = '0';
   o.rmempty = false;
@@ -18,9 +16,21 @@ export function addAutodetectOptions(section: Pick<CBISection, 'option'>) {
     form.ListValue,
     'autodetect_proxy_section',
     _('Autodetect comparison section'),
-    _('Compare direct HTTPS access with this VPN section'),
+    _('Compare direct HTTPS access with access through this section'),
   );
   configureDownloadSectionOption(o, 'autodetect_proxy_section');
+  o.depends('enable_autodetect', '1');
+  o.retain = true;
+
+  o = section.option(
+    form.DynamicList,
+    'autodetect_ports',
+    _('HTTPS ports'),
+    _('TCP ports to monitor, one per entry. Default: 443.'),
+  );
+  o.default = ['443'];
+  o.datatype = 'port';
+  o.validate = requiredList(portField);
   o.depends('enable_autodetect', '1');
   o.retain = true;
 
