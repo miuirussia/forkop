@@ -16,7 +16,7 @@ vi.mock('../../../services/geodata.service', () => ({
   validateGeodataInterval: vi.fn(),
 }));
 vi.mock('../../settings/sectionChoices', () => ({
-  configureDownloadSectionOption: vi.fn(),
+  configureDirectDownloadSectionOption: vi.fn(),
 }));
 vi.mock('../../settings/form/updates', () => ({
   addRuleSetUpdateOptions: vi.fn(),

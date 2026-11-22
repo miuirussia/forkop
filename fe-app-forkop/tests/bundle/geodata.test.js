@@ -53,33 +53,89 @@ describe('the Geodata tab', () => {
     ).toEqual(['Update', 'Tags']);
   });
 
-  it('accepts and saves direct downloads without a connection section', async () => {
-    const option = geodata().children.find(
-      (item) => item.option === 'geodata_download_section',
+  it.each(['geodata_download_section', 'download_lists_via_proxy_section'])(
+    '%s accepts and saves direct downloads without a connection section',
+    async (name) => {
+      const option = geodata().children.find((item) => item.option === name);
+      await option.load('settings');
+      expect(option.keylist).toContain('');
+      expect(option.validate('settings', '')).toBe(true);
+      await option.parse('settings');
+      expect(harness.uci.get('forkop', 'settings', option.option)).toBeNull();
+    },
+  );
+
+  it.each(['geodata_download_section', 'download_lists_via_proxy_section'])(
+    '%s keeps unavailable download sections invalid while allowing direct downloads',
+    async (name) => {
+      harness.uci.set('forkop', 'settings', 'download_lists_via_proxy', '1');
+      harness.uci.set('forkop', 'settings', name, 'missing');
+      const option = geodata().children.find((item) => item.option === name);
+      await option.load('settings');
+      expect(option.validate('settings', 'missing')).not.toBe(true);
+      expect(option.validate('settings', '')).toBe(true);
+      option.write('settings', '');
+      expect(harness.uci.get('forkop', 'settings', option.option)).toBeNull();
+    },
+  );
+
+  it('selects list downloads directly in the dropdown and keeps the backend flag in sync', async () => {
+    harness.uci.add('forkop', 'section', 'proxy');
+    Object.assign(harness.store.get('proxy'), {
+      action: 'connection',
+      enabled: '1',
+      label: 'Proxy',
+    });
+    const tab = geodata();
+    expect(
+      tab.children.some((item) => item.option === 'download_lists_via_proxy'),
+    ).toBe(false);
+    const option = tab.children.find(
+      (item) => item.option === 'download_lists_via_proxy_section',
     );
     await option.load('settings');
-    expect(option.keylist).toContain('');
-    expect(option.validate('settings', '')).toBe(true);
+    expect(option.isActive('settings')).toBe(true);
+    expect(option.keylist).toEqual(['proxy', '']);
+    expect(option.vallist).toEqual(['Proxy', 'Directly']);
+
+    const formvalue = vi.spyOn(option, 'formvalue').mockReturnValue('proxy');
+    await option.parse('settings');
+    expect(harness.uci.get('forkop', 'settings', option.option)).toBe('proxy');
+    expect(
+      harness.uci.get('forkop', 'settings', 'download_lists_via_proxy'),
+    ).toBe('1');
+    expect(await option.load('settings')).toBe('proxy');
+    formvalue.mockRestore();
+    await option.parse('settings');
+    expect(harness.uci.get('forkop', 'settings', option.option)).toBe('proxy');
+
+    vi.spyOn(option, 'formvalue').mockReturnValue('');
     await option.parse('settings');
     expect(harness.uci.get('forkop', 'settings', option.option)).toBeNull();
+    expect(
+      harness.uci.get('forkop', 'settings', 'download_lists_via_proxy'),
+    ).toBe('0');
   });
 
-  it('keeps unavailable download sections invalid while allowing direct downloads', async () => {
-    harness.uci.set(
-      'forkop',
-      'settings',
-      'geodata_download_section',
-      'missing',
-    );
-    const option = geodata().children.find(
-      (item) => item.option === 'geodata_download_section',
-    );
-    await option.load('settings');
-    expect(option.validate('settings', 'missing')).not.toBe(true);
-    expect(option.validate('settings', '')).toBe(true);
-    option.write('settings', '');
-    expect(harness.uci.get('forkop', 'settings', option.option)).toBeNull();
-  });
+  it.each([undefined, '0'])(
+    'keeps list downloads direct when the stored proxy flag is %s',
+    async (enabled) => {
+      Object.assign(harness.store.get('settings'), {
+        download_lists_via_proxy: enabled,
+        download_lists_via_proxy_section: 'stale',
+      });
+      const option = geodata().children.find(
+        (item) => item.option === 'download_lists_via_proxy_section',
+      );
+      expect(await option.load('settings')).toBe('');
+      expect(option.keylist).toEqual(['']);
+      await option.parse('settings');
+      expect(harness.uci.get('forkop', 'settings', option.option)).toBeNull();
+      expect(
+        harness.uci.get('forkop', 'settings', 'download_lists_via_proxy'),
+      ).toBe('0');
+    },
+  );
 
   it('creates sources with explicit names that survive edits and removal of another source', async () => {
     harness.uci.add('forkop', 'geodata', 'older');

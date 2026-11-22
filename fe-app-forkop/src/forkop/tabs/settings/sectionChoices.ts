@@ -58,6 +58,24 @@ export function configureDownloadSectionOption(
   };
 }
 
+export function configureDirectDownloadSectionOption(
+  option: CBIOption,
+  sectionOption: string,
+) {
+  configureDownloadSectionOption(option, sectionOption);
+  option.rmempty = true;
+  const validate = option.validate;
+  option.validate = function (id: string, value: string) {
+    return value === '' ? true : validate.call(this, id, value);
+  };
+  const load = option.load;
+  option.load = function (id: string) {
+    const value = load.call(this, id);
+    this.value('', _('Directly'));
+    return value;
+  };
+}
+
 export function configureDownloadViaProxyFlag(
   option: CBIOption,
   sectionOption: string,

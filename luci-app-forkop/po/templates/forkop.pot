@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 09:41+0300\n"
-"PO-Revision-Date: 2026-11-22 09:41+0300\n"
+"POT-Creation-Date: 2026-11-22 11:23+0300\n"
+"PO-Revision-Date: 2026-11-22 11:23+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -1100,7 +1100,7 @@ msgstr ""
 msgid "Direct"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+#: fe-app-forkop/src/forkop/tabs/settings/sectionChoices.ts
 msgid "Directly"
 msgstr ""
 
@@ -1229,10 +1229,6 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/options.ts
 msgid "Download the subscription through another section instead of directly"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
-msgid "Download through a section"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/monitoring/connectionList.ts

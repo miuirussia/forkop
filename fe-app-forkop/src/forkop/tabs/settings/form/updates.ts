@@ -5,6 +5,7 @@ import {
 } from '../../../../constants';
 import { validateRequiredSingBoxDuration } from '../../../../validators/validateSingBoxDuration';
 import {
+  configureDirectDownloadSectionOption,
   configureDownloadSectionOption,
   configureDownloadViaProxyFlag,
 } from '../sectionChoices';
@@ -48,20 +49,32 @@ export function addRuleSetUpdateOptions(section: CBISection) {
   };
 
   o = section.option(
-    form.Flag,
-    'download_lists_via_proxy',
-    _('Download through a section'),
-  );
-  configureDownloadViaProxyFlag(o, 'download_lists_via_proxy_section');
-
-  o = section.option(
     form.ListValue,
     'download_lists_via_proxy_section',
     _('Download section'),
   );
-  o.depends('download_lists_via_proxy', '1');
-  o.retain = true;
-  configureDownloadSectionOption(o, 'download_lists_via_proxy_section');
+  configureDirectDownloadSectionOption(o, 'download_lists_via_proxy_section');
+  const cfgvalue = o.cfgvalue;
+  o.cfgvalue = function (id: string) {
+    return uci.get(FORKOP_UCI_PACKAGE, id, 'download_lists_via_proxy') === '1'
+      ? cfgvalue.call(this, id)
+      : '';
+  };
+  const write = o.write;
+  o.write = function (id: string, value: string) {
+    write.call(this, id, value);
+    uci.set(
+      FORKOP_UCI_PACKAGE,
+      id,
+      'download_lists_via_proxy',
+      value.trim() ? '1' : '0',
+    );
+  };
+  const remove = o.remove;
+  o.remove = function (id: string) {
+    remove.call(this, id);
+    uci.set(FORKOP_UCI_PACKAGE, id, 'download_lists_via_proxy', '0');
+  };
 }
 
 export function addLatencyOptions(section: Pick<CBISection, 'option'>) {

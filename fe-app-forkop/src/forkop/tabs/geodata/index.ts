@@ -18,7 +18,7 @@ import {
   validateGeodataInterval,
 } from '../../services/geodata.service';
 import { logger } from '../../services/logger.service';
-import { configureDownloadSectionOption } from '../settings/sectionChoices';
+import { configureDirectDownloadSectionOption } from '../settings/sectionChoices';
 import { addRuleSetUpdateOptions } from '../settings/form/updates';
 import { showGeodataCatalog } from './catalog';
 import { arrangeGeodataGroups } from './layout';
@@ -212,18 +212,7 @@ export function createGeodataContent(map: CBIMap) {
     'geodata_download_section',
     _('Download section'),
   );
-  configureDownloadSectionOption(o, 'geodata_download_section');
-  o.rmempty = true;
-  const validate = o.validate;
-  o.validate = function (id: string, value: string) {
-    return value === '' ? true : validate.call(this, id, value);
-  };
-  const load = o.load;
-  o.load = function (id: string) {
-    const value = load.call(this, id);
-    this.value('', _('Directly'));
-    return value;
-  };
+  configureDirectDownloadSectionOption(o, 'geodata_download_section');
   o = section.option(form.DummyValue, '_geodata_actions', '');
   o.cfgvalue = () =>
     E(

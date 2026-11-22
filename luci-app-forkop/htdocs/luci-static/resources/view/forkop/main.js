@@ -18206,6 +18206,20 @@ function configureDownloadSectionOption(option2, sectionOption) {
     return validateSectionChoice(this, value);
   };
 }
+function configureDirectDownloadSectionOption(option2, sectionOption) {
+  configureDownloadSectionOption(option2, sectionOption);
+  option2.rmempty = true;
+  const validate = option2.validate;
+  option2.validate = function(id, value) {
+    return value === "" ? true : validate.call(this, id, value);
+  };
+  const load = option2.load;
+  option2.load = function(id) {
+    const value = load.call(this, id);
+    this.value("", _("Directly"));
+    return value;
+  };
+}
 function configureDownloadViaProxyFlag(option2, sectionOption) {
   option2.default = "0";
   option2.rmempty = false;
@@ -18282,19 +18296,30 @@ function addRuleSetUpdateOptions(section2) {
     return validateRequiredSingBoxDuration(value);
   };
   o = section2.option(
-    form.Flag,
-    "download_lists_via_proxy",
-    _("Download through a section")
-  );
-  configureDownloadViaProxyFlag(o, "download_lists_via_proxy_section");
-  o = section2.option(
     form.ListValue,
     "download_lists_via_proxy_section",
     _("Download section")
   );
-  o.depends("download_lists_via_proxy", "1");
-  o.retain = true;
-  configureDownloadSectionOption(o, "download_lists_via_proxy_section");
+  configureDirectDownloadSectionOption(o, "download_lists_via_proxy_section");
+  const cfgvalue = o.cfgvalue;
+  o.cfgvalue = function(id) {
+    return uci.get(FORKOP_UCI_PACKAGE, id, "download_lists_via_proxy") === "1" ? cfgvalue.call(this, id) : "";
+  };
+  const write2 = o.write;
+  o.write = function(id, value) {
+    write2.call(this, id, value);
+    uci.set(
+      FORKOP_UCI_PACKAGE,
+      id,
+      "download_lists_via_proxy",
+      value.trim() ? "1" : "0"
+    );
+  };
+  const remove = o.remove;
+  o.remove = function(id) {
+    remove.call(this, id);
+    uci.set(FORKOP_UCI_PACKAGE, id, "download_lists_via_proxy", "0");
+  };
 }
 function addLatencyOptions(section2) {
   let o = section2.option(
@@ -18725,18 +18750,7 @@ function createGeodataContent(map) {
     "geodata_download_section",
     _("Download section")
   );
-  configureDownloadSectionOption(o, "geodata_download_section");
-  o.rmempty = true;
-  const validate = o.validate;
-  o.validate = function(id, value) {
-    return value === "" ? true : validate.call(this, id, value);
-  };
-  const load = o.load;
-  o.load = function(id) {
-    const value = load.call(this, id);
-    this.value("", _("Directly"));
-    return value;
-  };
+  configureDirectDownloadSectionOption(o, "geodata_download_section");
   o = section2.option(form.DummyValue, "_geodata_actions", "");
   o.cfgvalue = () => textE(
     "button",
