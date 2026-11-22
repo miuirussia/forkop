@@ -360,6 +360,12 @@ t.test("domain Bootstrap DNS", () => {
     }, "must use an IP address");
 });
 
+t.test("network DNS is accepted only as a bootstrap setting", () => {
+    v.accepts({ settings: { bootstrap_dns_server: [ "network", "1.1.1.1" ] } });
+    v.refuses({ settings: { dns_server: [ "network" ] } }, "Invalid main DNS server");
+    v.refuses({ settings: { bootstrap_dns_server: [ "network://" ] } }, "unsupported DNS server URI scheme");
+});
+
 t.test("bad DNS strategy", () => {
     v.refuses({
         "settings": {

@@ -180,15 +180,15 @@ function bootstrap_host(values, servers, config) {
 function dns() {
     let values = settings();
     let servers = runtime_dns.server_list(values, "dns_server", "77.88.8.8");
-    let bootstraps = runtime_dns.server_list(values, "bootstrap_dns_server", "77.88.8.8");
+    let bootstraps = runtime_dns.bootstrap_servers(values);
     let host = bootstrap_host(values, servers, runtime_config());
     let testable = host == "" ? [] : filter(bootstraps, (server) => plain_server(server) != null);
 
     let main = lookup(uncached_name(), [ DNS_INBOUND + "#53" ], 4000);
     let local = lookup("localhost", [ "127.0.0.1#53" ], 3000);
     let bootstrap = null;
-    if (length(testable) > 0) {
-        bootstrap = { servers: join(", ", testable), host, answered: false, ms: -1 };
+    if (length(testable) > 0 || (host != "" && length(bootstraps) == 0)) {
+        bootstrap = { servers: join(", ", testable) || runtime_dns.NETWORK_DNS, host, answered: false, ms: -1 };
         for (let server in testable) {
             let result = lookup(host, [ plain_server(server) ], 3000);
             if (result.answered) {

@@ -18982,6 +18982,7 @@ function offerPublicResolvers(option2, options = {}) {
 function configureDnsServerList(option2, options = {}) {
   const check = requiredList(function(_section_id, value) {
     const server2 = value.trim();
+    if (options.networkDefault && server2 === "network") return true;
     const validation = validateDNS(server2, options.ipOnly);
     return validation === true ? validateCoreFeature(/^(quic|h3):\/\//i.test(server2) ? "quic" : "") : validation;
   });
@@ -19008,7 +19009,8 @@ function configureDnsQueryMode(modeOption, dnsServerOptionName, options = {}) {
         return lookup ? lookup[0].formvalue(lookup[1]) === expected : false;
       }
     );
-    return satisfied && siblingValues(this.map, dnsServerOptionName, section_id).length > 1;
+    const servers2 = siblingValues(this.map, dnsServerOptionName, section_id);
+    return satisfied && (servers2.length > 1 || options.networkDefault === true && servers2.includes("network"));
   };
 }
 
@@ -31328,12 +31330,16 @@ function addDnsOptions(section2) {
     "bootstrap_dns_server",
     _("Bootstrap DNS Servers"),
     _(
-      "Resolve the addresses of the main DNS servers and proxies. Several servers give automatic failover. The protocol is set by a prefix: %s"
+      "Resolve the addresses of the main DNS servers and proxies. Select Network default DNS to use the DNS servers provided by your network. Several servers give automatic failover. The protocol is set by a prefix: %s"
     ).format(dnsServerPrefixes())
   );
   bootstrapOption.default = ["77.88.8.8"];
+  bootstrapOption.value("network", _("Network default DNS"));
   offerPublicResolvers(bootstrapOption, { bootstrap: true });
-  configureDnsServerList(bootstrapOption, { ipOnly: true });
+  configureDnsServerList(bootstrapOption, {
+    ipOnly: true,
+    networkDefault: true
+  });
   o = section2.option(
     form.ListValue,
     "dns_bootstrap_fallback_strategy",
@@ -31342,7 +31348,7 @@ function addDnsOptions(section2) {
       "Parallel asks every server at once and is faster. Sequential asks them in turn until the first answer"
     )
   );
-  configureDnsQueryMode(o, "bootstrap_dns_server");
+  configureDnsQueryMode(o, "bootstrap_dns_server", { networkDefault: true });
   o = section2.option(
     form.Value,
     "dns_rewrite_ttl",

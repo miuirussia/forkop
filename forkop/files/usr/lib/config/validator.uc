@@ -398,6 +398,8 @@ function validate_dns_settings(settings, sections, context) {
             fail_validation("Invalid main DNS server '" + value + "': " + parsed.unsupported);
     }
     for (let value in bootstrap_servers) {
+        if (value == runtime_dns.NETWORK_DNS)
+            continue;
         let parsed = runtime_dns.parse_server_uri(value, true);
         if (parsed.unsupported)
             fail_validation("Invalid Bootstrap DNS server '" + value + "': " + parsed.unsupported);

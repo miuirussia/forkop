@@ -55,12 +55,14 @@ export function configureDnsServerList(
   options: {
     // Bootstrap servers resolve the other servers, so they must be addresses.
     ipOnly?: boolean;
+    networkDefault?: boolean;
     // For a field inside a dialog that can switch the whole resolver off.
     appliesTo?: (option: CBIOption, section_id: string) => boolean;
   } = {},
 ) {
   const check = requiredList(function (_section_id, value) {
     const server = value.trim();
+    if (options.networkDefault && server === 'network') return true;
     const validation = validateDNS(server, options.ipOnly);
     // DoQ and DoH3 need QUIC, which a core may be built without.
     return validation === true
@@ -76,11 +78,12 @@ export function configureDnsServerList(
   };
 }
 
-// Shown only once there is a second server to fall back to.
+// Network DNS can supply several upstreams even when it is the only list entry.
 export function configureDnsQueryMode(
   modeOption: CBIOption,
   dnsServerOptionName: string,
   options: {
+    networkDefault?: boolean;
     // As depends() pairs, so LuCI re-checks the mode when any of them changes; read back in checkDepends.
     alsoDependsOn?: Record<string, string>;
   } = {},
@@ -104,9 +107,11 @@ export function configureDnsQueryMode(
       },
     );
 
+    const servers = siblingValues(this.map, dnsServerOptionName, section_id);
     return (
       satisfied &&
-      siblingValues(this.map, dnsServerOptionName, section_id).length > 1
+      (servers.length > 1 ||
+        (options.networkDefault === true && servers.includes('network')))
     );
   };
 }

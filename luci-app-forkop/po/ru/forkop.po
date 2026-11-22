@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-20 18:06+0300\n"
-"PO-Revision-Date: 2026-11-20 18:06+0300\n"
+"POT-Creation-Date: 2026-11-22 09:41+0300\n"
+"PO-Revision-Date: 2026-11-22 09:41+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1658,6 +1658,9 @@ msgstr "Нужна подсеть IPv4"
 msgid "Network"
 msgstr "Сеть"
 
+msgid "Network default DNS"
+msgstr "DNS сети по умолчанию"
+
 msgid "Network interface"
 msgstr "Сетевой интерфейс"
 
@@ -2156,8 +2159,8 @@ msgstr "Reserved не поддерживается: добавьте тунне�
 msgid "Reserved name"
 msgstr "Зарезервированное имя"
 
-msgid "Resolve the addresses of the main DNS servers and proxies. Several servers give automatic failover. The protocol is set by a prefix: %s"
-msgstr "Резолвят адреса основных DNS-серверов и прокси. Несколько серверов дают автоматическое переключение при сбоях. Протокол задаётся префиксом: %s"
+msgid "Resolve the addresses of the main DNS servers and proxies. Select Network default DNS to use the DNS servers provided by your network. Several servers give automatic failover. The protocol is set by a prefix: %s"
+msgstr "Узнают адреса основных DNS-серверов и прокси. Выберите «DNS сети по умолчанию», чтобы использовать DNS-серверы вашей сети. Несколько серверов страхуют друг друга. Протокол задаётся префиксом: %s"
 
 msgid "Resolves domains that match the section conditions. Several servers give automatic failover. The protocol is set by a prefix: %s"
 msgstr "Резолвит домены, совпавшие с условиями секции. Несколько серверов дают автоматическое переключение при сбоях. Протокол задаётся префиксом: %s"

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-20 18:21+0300\n"
-"PO-Revision-Date: 2026-11-20 18:21+0300\n"
+"POT-Creation-Date: 2026-11-22 09:41+0300\n"
+"PO-Revision-Date: 2026-11-22 09:41+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -2318,6 +2318,10 @@ msgstr ""
 msgid "Network"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/settings/form/dns.ts
+msgid "Network default DNS"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/providers.ts
 msgid "Network interface"
 msgstr ""
@@ -3014,7 +3018,7 @@ msgid "Reserved name"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/dns.ts
-msgid "Resolve the addresses of the main DNS servers and proxies. Several servers give automatic failover. The protocol is set by a prefix: %s"
+msgid "Resolve the addresses of the main DNS servers and proxies. Select Network default DNS to use the DNS servers provided by your network. Several servers give automatic failover. The protocol is set by a prefix: %s"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/form.ts

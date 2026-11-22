@@ -2,11 +2,52 @@ let t = require("t");
 let fixture = require("fixture");
 let q = require("sbconfig");
 let generator = require("singbox.generator");
+let runtime_dns = require("singbox.dns");
+let fs = require("fs");
+let dir = require("stub").tmpdir();
+runtime_dns.paths.network_resolv = dir + "/resolv.conf.auto";
+runtime_dns.paths.legacy_network_resolv = dir + "/legacy-resolv.conf.auto";
 
 function build(data) {
     fixture.seed(data);
     return generator.build({ service_address: "192.168.1.1" });
 }
+
+function network_config(settings) {
+    return build({ settings, section: [ { ".name": "direct", enabled: "1", action: "bypass", destinations: "example.org" } ] });
+}
+
+t.test("network bootstrap uses netifd's upstreams and the selected fallback strategy", () => {
+    fs.writefile(runtime_dns.paths.network_resolv, "# Interface wan\nnameserver 192.0.2.53\n nameserver\t2001:db8::53 # IPv6\nnameserver 192.0.2.53\nnameserver 127.0.0.1\nnameserver 127.0.0.42\nnameserver ::1\nnameserver 0:0:0:0:0:0:0:1\nnameserver 0.0.0.0\nnameserver ::\nnameserver invalid\nsearch lan\n");
+    let config = network_config({ dns_server: [ "https://dns.example/dns-query" ],
+        bootstrap_dns_server: [ "network", "192.0.2.53", "1.1.1.1" ], dns_bootstrap_fallback_strategy: "sequential" });
+    let group = q.dns_server_tag(config, "bootstrap-dns-server");
+    t.eq([ group.type, group.strategy ], [ "fallback", "sequential" ]);
+    t.eq(map(group.servers, (tag) => q.dns_server_tag(config, tag).server), [ "192.0.2.53", "2001:db8::53", "1.1.1.1" ]);
+    for (let tag in group.servers) {
+        let server = q.dns_server_tag(config, tag);
+        t.eq([ server.type, server.server_port, server.detour, server.domain_resolver ], [ "udp", 53, null, null ]);
+    }
+    t.eq(q.dns_server_tag(config, "dns-server").domain_resolver, "bootstrap-dns-server");
+});
+
+t.test("network bootstrap reads the legacy netifd path and refreshes addresses on each build", () => {
+    fs.unlink(runtime_dns.paths.network_resolv);
+    fs.writefile(runtime_dns.paths.legacy_network_resolv, "nameserver 192.0.2.54\n");
+    let settings = { bootstrap_dns_server: [ "network" ] };
+    t.eq(q.dns_server_tag(network_config(settings), "bootstrap-dns-server").server, "192.0.2.54");
+    fs.writefile(runtime_dns.paths.network_resolv, "nameserver 192.0.2.55\n");
+    t.eq(q.dns_server_tag(network_config(settings), "bootstrap-dns-server").server, "192.0.2.55");
+    fs.unlink(runtime_dns.paths.network_resolv);
+    fs.unlink(runtime_dns.paths.legacy_network_resolv);
+});
+
+t.test("missing network DNS requires an explicit bootstrap alternative", () => {
+    let result = runtime_dns.config({ bootstrap_dns_server: [ "network" ] });
+    t.contains(result.unsupported, "No network DNS servers are available for bootstrap");
+    let config = network_config({ bootstrap_dns_server: [ "network", "1.1.1.1" ] });
+    t.eq(q.dns_server_tag(config, "bootstrap-dns-server").server, "1.1.1.1");
+});
 
 t.test("a single DNS server is used directly", () => {
     let single = build({

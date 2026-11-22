@@ -41,12 +41,16 @@ export function addDnsOptions(section: Pick<CBISection, 'option'>) {
     'bootstrap_dns_server',
     _('Bootstrap DNS Servers'),
     _(
-      'Resolve the addresses of the main DNS servers and proxies. Several servers give automatic failover. The protocol is set by a prefix: %s',
+      'Resolve the addresses of the main DNS servers and proxies. Select Network default DNS to use the DNS servers provided by your network. Several servers give automatic failover. The protocol is set by a prefix: %s',
     ).format(dnsServerPrefixes()),
   );
   bootstrapOption.default = ['77.88.8.8'];
+  bootstrapOption.value('network', _('Network default DNS'));
   offerPublicResolvers(bootstrapOption, { bootstrap: true });
-  configureDnsServerList(bootstrapOption, { ipOnly: true });
+  configureDnsServerList(bootstrapOption, {
+    ipOnly: true,
+    networkDefault: true,
+  });
 
   o = section.option(
     form.ListValue,
@@ -56,7 +60,7 @@ export function addDnsOptions(section: Pick<CBISection, 'option'>) {
       'Parallel asks every server at once and is faster. Sequential asks them in turn until the first answer',
     ),
   );
-  configureDnsQueryMode(o, 'bootstrap_dns_server');
+  configureDnsQueryMode(o, 'bootstrap_dns_server', { networkDefault: true });
 
   o = section.option(
     form.Value,

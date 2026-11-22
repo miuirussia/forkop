@@ -6,6 +6,10 @@ let runtime_constants = require("singbox.constants");
 let runtime_url = require("core.url");
 let domain_config = require("config.domain");
 let connections = require("config.connections");
+let fs = require("fs");
+
+const NETWORK_DNS = "network";
+const paths = { network_resolv: "/tmp/resolv.conf.d/resolv.conf.auto", legacy_network_resolv: "/tmp/resolv.conf.auto" };
 
 let as_string = common.as_string;
 let bool_option = common.bool_option;
@@ -47,6 +51,30 @@ function detour_tag(settings) {
         return "";
     let section_name = option(settings, "dns_detour_section", "");
     return section_name == "" ? "" : runtime_constants.outbound_tag(connections.section_display_name(section_name));
+}
+
+// Read netifd's upstreams, never /etc/resolv.conf, which points back to the router.
+function bootstrap_servers(settings) {
+    let result = [];
+    for (let value in server_list(settings, "bootstrap_dns_server", "77.88.8.8")) {
+        let values = [ value ];
+        if (value == NETWORK_DNS) {
+            values = [];
+            let content = fs.readfile(paths.network_resolv) ?? fs.readfile(paths.legacy_network_resolv) ?? "";
+            for (let line in split(content, "\n")) {
+                let fields = split(trim(line), /[ \t\r]+/);
+                let address = fields[1];
+                if (fields[0] == "nameserver" && core_ip.valid_ip(address) &&
+                    !core_ip.prefix_contains("127.0.0.0/8", address) && !core_ip.prefix_contains("::1/128", address) &&
+                    address != "0.0.0.0" && !core_ip.prefix_contains("::/128", address))
+                    push(values, address);
+            }
+        }
+        for (let server in values)
+            if (index(result, server) < 0)
+                push(result, server);
+    }
+    return result;
 }
 
 function dns_domain_valid(value) {
@@ -222,7 +250,9 @@ function config(settings) {
     let servers = [];
     let main_strategy = option(settings, "dns_main_fallback_strategy", "parallel");
     let bootstrap_strategy = option(settings, "dns_bootstrap_fallback_strategy", "parallel");
-    let bootstrap_values = server_list(settings, "bootstrap_dns_server", "77.88.8.8");
+    let bootstrap_values = bootstrap_servers(settings);
+    if (length(bootstrap_values) == 0)
+        return { unsupported: "No network DNS servers are available for bootstrap. Check the network DNS settings or add an explicit Bootstrap DNS server" };
     let main_values = server_list(settings, "dns_server", "77.88.8.8");
     let detour = detour_tag(settings);
 
@@ -258,6 +288,9 @@ function default_domain_resolver(settings) {
 }
 
 return {
+    NETWORK_DNS,
+    paths,
+    bootstrap_servers,
     add_uri_server_group,
     config,
     default_domain_resolver,

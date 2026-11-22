@@ -39,21 +39,45 @@ describe('the DNS server fields', () => {
     ]);
   });
 
-  it('offer only unfiltered resolvers over UDP as a bootstrap server', () => {
+  it('offer network DNS and unfiltered resolvers over UDP as bootstrap servers', () => {
     const bootstrap = settingsOption('bootstrap_dns_server');
 
     expect(bootstrap.keylist).toEqual([
+      'network',
       '77.88.8.8',
       '1.1.1.1',
       '8.8.8.8',
       '9.9.9.9',
     ]);
     expect(bootstrap.vallist).toEqual([
+      'Network default DNS',
       '77.88.8.8 (Yandex)',
       '1.1.1.1 (Cloudflare)',
       '8.8.8.8 (Google)',
       '9.9.9.9 (Quad9)',
     ]);
+  });
+
+  it('accept network DNS only in the bootstrap list', () => {
+    expect(
+      settingsOption('bootstrap_dns_server').validate('settings', 'network'),
+    ).toBe(true);
+    expect(
+      settingsOption('dns_server').validate('settings', 'network'),
+    ).not.toBe(true);
+  });
+
+  it.each([
+    [['77.88.8.8'], false],
+    [['network'], true],
+    [['network', '1.1.1.1'], true],
+    [['1.1.1.1', '8.8.8.8'], true],
+  ])('shows the bootstrap query mode for %j: %s', async (servers, visible) => {
+    harness.uci.set('forkop', 'settings', 'bootstrap_dns_server', servers);
+    const mode = settingsOption('dns_bootstrap_fallback_strategy');
+    await mode.map.load();
+
+    expect(mode.checkDepends('settings')).toBe(visible);
   });
 
   it('accept every resolver they offer', () => {

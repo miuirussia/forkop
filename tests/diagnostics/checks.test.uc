@@ -232,6 +232,29 @@ t.test("with DNS sent through a section, bootstrap finds the proxy servers", () 
     t.eq([ value.bootstrap?.host, value.bootstrap?.ms ], [ "proxy.example", 5 ]);
 });
 
+t.test("network bootstrap checks the upstream addresses and reports missing network DNS", () => {
+    let runtime_dns = require("singbox.dns");
+    let saved_paths = { ...runtime_dns.paths };
+    runtime_dns.paths.network_resolv = dir + "/resolv.conf.auto";
+    runtime_dns.paths.legacy_network_resolv = dir + "/legacy-resolv.conf.auto";
+    fixture.seed({ settings: { dns_server: [ "https://dns.example/dns-query" ],
+        bootstrap_dns_server: [ "network" ], config_path: dir + "/config.json" } });
+    fs.writefile(runtime_dns.paths.network_resolv, "nameserver 192.0.2.53\n");
+    let asked = dns_replies([
+        [ /@127\.0\.0\.42#53$/, rcode("NOERROR") ],
+        [ /^localhost@/, rcode("NOERROR") ],
+        [ /^dns\.example@192\.0\.2\.53#53$/, records("A", "203.0.113.7"), 7 ]
+    ]);
+    t.eq(checks.dns().bootstrap, { servers: "192.0.2.53", host: "dns.example", answered: true, ms: 7 });
+    t.eq(length(asked), 3);
+    fs.unlink(runtime_dns.paths.network_resolv);
+    t.eq(checks.dns().bootstrap, { servers: "network", host: "dns.example", answered: false, ms: -1 });
+    t.eq(length(asked), 5, "missing network DNS never falls back to the system resolver");
+    runtime_dns.paths.network_resolv = saved_paths.network_resolv;
+    runtime_dns.paths.legacy_network_resolv = saved_paths.legacy_network_resolv;
+    stub.restore();
+});
+
 t.test("the router's own traffic is checked the way a client's goes, and the exit through the first section", () => {
     fixture.seed({ settings: { config_path: dir + "/config.json" } });
     write_config({ route: { rules: [ { action: "sniff" }, { action: "route", inbound: [ "tproxy-in" ], outbound: "Main", domain: "ip.podkop.fyi" } ] } });
