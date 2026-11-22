@@ -20,12 +20,23 @@ t.test("Phobos validates and generates a native endpoint preserving zeros", () =
     let config = generator.build({ service_address: "127.0.0.1" });
     let endpoint = q.endpoint(config, "vpn/Phobos");
     t.eq(endpoint.type, "phobos");
+    t.eq([ endpoint.system, endpoint.kernel, endpoint.name ], [ null, null, null ]);
     t.eq(endpoint.obfuscation, obf);
     t.eq(endpoint.peers[0].address, "vpn.example.com");
 });
 t.test("Phobos refuses invalid obfuscation before starting the core", () => {
     for (let obf in [ {}, { key: "test", masking: "TLS" }, { key: "test", max_dummy: 1025 } ])
         v.refuses(data(obf), "invalid Phobos");
+});
+t.test("a Phobos tunnel can request kernel mode", () => {
+    let d = data({ key: "test" });
+    d.tunnel[0].wireguard_mode = "kernel";
+    v.accepts(d);
+    fixture.seed(d);
+    let endpoint = q.endpoint(generator.build({ service_address: "127.0.0.1", bootstrap: true }), "vpn/Phobos");
+    t.eq([ endpoint.system, endpoint.kernel, endpoint.name ], [ null, true, "forkop-wg0" ]);
+    d.tunnel[0].wireguard_mode = "invalid";
+    v.refuses(d, "invalid WireGuard mode");
 });
 t.test("a saved Phobos connection_link becomes an endpoint rather than a parser outbound", () => {
     let d = data({ key: "test" });
@@ -38,10 +49,22 @@ t.test("a saved Phobos connection_link becomes an endpoint rather than a parser 
     let config = generator.build({ service_address: "127.0.0.1" });
     let endpoint = q.endpoint(config, "vpn/work");
     t.eq(endpoint.type, "phobos");
+    t.eq([ endpoint.system, endpoint.kernel, endpoint.name ], [ null, null, null ]);
     t.eq(endpoint.obfuscation.max_dummy, 0);
     t.eq(endpoint.peers[0].address, "vpn.example.com");
     t.eq(length(filter(config.outbounds, (outbound) => outbound.type == "parser")), 0);
     t.contains(q.outbound(config, "vpn").outbounds, "vpn/work");
+    for (let mode, expected in {
+        userspace: [ false, null, null ],
+        system: [ true, null, "forkop-wg0" ],
+        kernel: [ null, true, "forkop-wg0" ]
+    }) {
+        d.connection_link[0].wireguard_mode = mode;
+        v.accepts(d);
+        fixture.seed(d);
+        endpoint = q.endpoint(generator.build({ service_address: "127.0.0.1" }), "vpn/work");
+        t.eq([ endpoint.system, endpoint.kernel, endpoint.name ], expected, mode);
+    }
     d.connection_link[0].uri = "phobos://broken";
     v.refuses(d, "Invalid Phobos");
 });

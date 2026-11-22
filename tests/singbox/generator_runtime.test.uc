@@ -62,7 +62,7 @@ t.test("tunnels become native endpoints with the fields their kind allows", () =
             {
                 ".name": "tun_warp", section: "tunnels", order: "0",
                 kind: "warp", name: "Cloudflare WARP", amnezia_jc: "7",
-                warp_profile_id: "profile-id", warp_profile_auth_token: "auth-token",
+                wireguard_mode: "kernel", warp_profile_id: "profile-id", warp_profile_auth_token: "auth-token",
                 warp_profile_private_key: "private-key", warp_profile_license_key: "license-key",
                 amnezia_i1: "<r 1>", amnezia_content_padding_addition: "8-16", amnezia_disable_cookies: "1",
                 amnezia_s1: "40", amnezia_h1: "100-200",
@@ -70,7 +70,7 @@ t.test("tunnels become native endpoints with the fields their kind allows", () =
             },
             {
                 ".name": "tun_amnezia", section: "tunnels", order: "1",
-                kind: "amneziawg", name: "Amnezia", address: [ "10.0.0.2/32" ],
+                kind: "amneziawg", name: "Amnezia", address: [ "10.0.0.2/32" ], wireguard_mode: "system",
                 private_key: "private-amnezia", amnezia_jc: "5", amnezia_h1: "100",
                 amnezia_random_trailers: "1", amnezia_disable_cookies: "1"
             },
@@ -80,7 +80,7 @@ t.test("tunnels become native endpoints with the fields their kind allows", () =
             },
             {
                 ".name": "tun_plain", section: "tunnels", order: "4",
-                kind: "wireguard", name: "Plain", address: [ "10.0.0.3/32" ],
+                kind: "wireguard", name: "Plain", address: [ "10.0.0.3/32" ], wireguard_mode: "system",
                 private_key: "private-plain", amnezia_jc: "3", amnezia_i1: "<r 2>", amnezia_disable_cookies: "1",
                 amnezia_s1: "64", amnezia_h1: "100-200",
                 amnezia_header_protection_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
@@ -110,6 +110,8 @@ t.test("tunnels become native endpoints with the fields their kind allows", () =
 
     let warp = q.endpoint(config, "tunnels/Cloudflare WARP");
     t.eq(warp.type, "warp");
+    t.eq(warp.kernel, true);
+    t.eq(warp.system, null);
     t.eq(warp.profile.license_key, "license-key");
     t.eq(warp.profile.recreate, null, "the core keys its profile cache by the profile, so one it already fetched is not asked for again");
     t.eq(warp.amnezia, { jc: 7, i1: "<r 1>", content_padding_addition: "8-16" },
@@ -117,10 +119,15 @@ t.test("tunnels become native endpoints with the fields their kind allows", () =
 
     let amnezia = q.endpoint(config, "tunnels/Amnezia");
     t.eq(amnezia.type, "amneziawg");
+    t.eq(amnezia.system, true);
     t.eq(amnezia.amnezia, { jc: 5, h1: 100, random_trailers: true, disable_cookies: true });
 
     let plain = q.endpoint(config, "tunnels/Plain");
     t.eq(plain.type, "wireguard");
+    t.eq(plain.system, true);
+    t.ok(plain.name != amnezia.name);
+    let bare = q.endpoint(config, "tunnels/Bare");
+    t.eq([ bare.system, bare.kernel, bare.name ], [ null, null, null ]);
     t.eq(plain.amnezia, { jc: 3, i1: "<r 2>" },
         "a WireGuard endpoint carries only one-sided Amnezia fields");
     for (let endpoint in config.endpoints)
@@ -778,6 +785,31 @@ t.test("WARP profile requests go through the chosen section: the tunnel names it
     let direct = build(data());
     t.eq([ q.endpoint(direct, "tunnels/WARP").profile.detour, q.inbound(direct, "service-warp-in") ], [ null, null ],
         "without a section the profile goes the way the router's own traffic goes");
+});
+
+t.test("WARP mode changes preserve Userspace as the default and accept the old Kernel flag", () => {
+    let data = {
+        settings: settings(),
+        section: [ { ".name": "vpn", enabled: "1", action: "connection" } ],
+        tunnel: [ { ".name": "profile", section: "vpn", kind: "warp", name: "WARP",
+            warp_profile_id: "profile-id", warp_profile_auth_token: "auth-token", warp_profile_private_key: "private-key" } ]
+    };
+    let endpoint = q.endpoint(build(data), "vpn/WARP");
+    t.eq([ endpoint.system, endpoint.kernel, endpoint.name ], [ null, null, null ]);
+
+    data.tunnel[0].warp_kernel = "1";
+    endpoint = q.endpoint(build(data), "vpn/WARP");
+    t.eq([ endpoint.system, endpoint.kernel, endpoint.name ], [ null, true, "forkop-wg0" ]);
+
+    for (let mode, expected in {
+        userspace: [ false, null, null ],
+        system: [ true, null, "forkop-wg0" ],
+        kernel: [ null, true, "forkop-wg0" ]
+    }) {
+        data.tunnel[0].wireguard_mode = mode;
+        endpoint = q.endpoint(build(data), "vpn/WARP");
+        t.eq([ endpoint.system, endpoint.kernel, endpoint.name ], expected, mode);
+    }
 });
 
 t.test("the Clash API dashboard downloads its interface direct, wherever the lists download", () => {

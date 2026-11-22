@@ -65,6 +65,11 @@ import {
 } from '../outboundNames';
 import { refreshOutboundDetourSectionOptionValues } from '../references';
 import {
+  WIREGUARD_MODE_TUNNEL_KINDS,
+  WIREGUARD_TUNNEL_KINDS,
+  addWireGuardModeOption,
+} from '../wireguardMode';
+import {
   CASCADE_TUNNEL_KINDS,
   SERVER_DNS_TUNNEL_KINDS,
   applyImportedTunnelEndpoint,
@@ -473,6 +478,11 @@ export function showTunnelSettingsModal(
     'openconnect',
     'ssh',
   ].forEach((kind: string) => o.depends('tunnel_type', kind));
+
+  const mode = addWireGuardModeOption(itemSection);
+  WIREGUARD_MODE_TUNNEL_KINDS.forEach((kind) =>
+    mode.depends('tunnel_type', kind),
+  );
 
   const importButton = itemSection.option(
     form.Button,
@@ -954,11 +964,7 @@ export function showTunnelSettingsModal(
       const storage = tunnelStorageSettings(settings);
       const itemIds = L.toArray(settings.peer_ids).filter(Boolean);
       const itemId = createTunnelItem(section_id, tunnelId, storage);
-      if (
-        settings.tunnel_type === 'wireguard' ||
-        settings.tunnel_type === 'phobos' ||
-        settings.tunnel_type === 'amneziawg'
-      ) {
+      if (WIREGUARD_TUNNEL_KINDS.includes(`${settings.tunnel_type}`)) {
         materializeTunnelPeers(tunnelId, itemIds, peersOption);
       } else {
         materializeTunnelPeers(tunnelId, [], peersOption);

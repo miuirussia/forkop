@@ -484,13 +484,17 @@ function canonical_json(value) {
     return sprintf("%J", value);
 }
 
+function is_wireguard_type(type_name) {
+    return type_name == "phobos" || type_name == "wireguard" || type_name == "amneziawg";
+}
+
 function wireguard_identities(endpoint) {
     let type_name = lc(as_string(endpoint.type || ""));
     if (type_name == "warp") {
         let key = as_string(object_or_empty(endpoint.profile).private_key || "");
         return key == "" ? [] : [ "warp/" + key ];
     }
-    if (type_name != "phobos" && type_name != "wireguard" && type_name != "amneziawg")
+    if (!is_wireguard_type(type_name))
         return [];
     return map(array_or_empty(endpoint.peers), (peer) =>
         as_string(endpoint.private_key || "") + "/" + as_string(object_or_empty(peer).public_key || ""));
@@ -500,6 +504,7 @@ function wireguard_identities(endpoint) {
 // other settings would be two devices taking one session from each other.
 function assert_compatible_wireguard_endpoints(config) {
     let holders = {};
+    let default_modes = { system: false, kernel: false };
     for (let endpoint in array_or_empty(config.endpoints)) {
         if (type(endpoint) != "object")
             continue;
@@ -513,13 +518,64 @@ function assert_compatible_wireguard_endpoints(config) {
             for (let name in keys(first)) names[name] = true;
             for (let name in keys(endpoint)) names[name] = true;
             let differences = filter(sort(keys(names)), (name) =>
-                name != "tag" && canonical_json(first[name]) != canonical_json(endpoint[name]));
+                name != "tag" &&
+                canonical_json(first[name] ?? default_modes[name]) != canonical_json(endpoint[name] ?? default_modes[name]));
             if (length(differences) > 0)
                 runtime_generate_unsupported("endpoints '" + first.tag + "' and '" + endpoint.tag +
                     "' use the same WireGuard key for the same server with different " + join(", ", differences) +
                     ", so they would take the one session the server keeps per key from each other." +
                     " Make these settings the same, or give one of them its own client on the server");
         }
+    }
+}
+
+function share_warp_endpoints(config) {
+    let profiles = {};
+    config.endpoints = filter(config.endpoints, (endpoint) => {
+        if (endpoint?.type != "warp" || (endpoint.system !== true && endpoint.kernel !== true))
+            return true;
+        let identity = wireguard_identities(endpoint)[0];
+        if (identity == null)
+            return true;
+        let primary = profiles[identity];
+        if (primary == null) {
+            profiles[identity] = endpoint.tag;
+            return true;
+        }
+        // Each WARP endpoint may pick a different peer port, so route both tags to one endpoint.
+        push(config.outbounds, { type: "selector", tag: endpoint.tag, outbounds: [ primary ] });
+        return false;
+    });
+}
+
+function assign_wireguard_interface_names(config) {
+    let endpoints = filter(config.endpoints, (endpoint) => {
+        let type_name = lc(as_string(endpoint?.type));
+        return (endpoint?.system === true || endpoint?.kernel === true) &&
+            (is_wireguard_type(type_name) || type_name == "warp");
+    });
+    let used = {};
+    for (let endpoint in endpoints)
+        if (endpoint.name)
+            used[endpoint.name] = true;
+
+    let shared = {};
+    let next_index = 0;
+    for (let endpoint in endpoints) {
+        if (endpoint.name)
+            continue;
+        // Compatible endpoints for the same peers use one device even when their tags differ.
+        let identity = wireguard_identities(endpoint)[0];
+        let name = identity == null ? null : shared[identity];
+        if (name == null) {
+            name = "forkop-wg" + next_index++;
+            while (used[name])
+                name = "forkop-wg" + next_index++;
+            used[name] = true;
+            if (identity != null)
+                shared[identity] = name;
+        }
+        endpoint.name = name;
     }
 }
 
@@ -621,7 +677,9 @@ function add_manual_link_outbounds(config, section, selector_tags, urltest_candi
         let tag_name = child_outbound_tag(section, connections.link_display_name(link));
         let uri = connections.option(link, "uri", "");
         let is_phobos = core_url.scheme(uri) == "phobos";
-        let outbound = is_phobos ? phobos.endpoint(uri) : { type: "parser", link: uri };
+        let outbound = is_phobos
+            ? { ...phobos.endpoint(uri), ...connections.wireguard_mode_options(link) }
+            : { type: "parser", link: uri };
         outbound.tag = tag_name;
         let detour = cascade_tag(link);
         if (detour != "")
@@ -1882,6 +1940,11 @@ function build(context) {
             runtime_servers.add_server(config, server);
     for (let section in sections)
         add_outbound_for_section(config, section);
+
+    assert_compatible_wireguard_endpoints(config);
+    share_warp_endpoints(config);
+    assign_wireguard_interface_names(config);
+
     if (context.bootstrap) {
         // Only the controller and outbounds run while DAT-dependent rules are unavailable.
         config.inbounds = [];
@@ -1891,7 +1954,6 @@ function build(context) {
         delete config.experimental.clash_api.external_ui;
         delete config.experimental.clash_api.autodetect;
         assert_unique_outbound_tags(config);
-        assert_compatible_wireguard_endpoints(config);
         return strip_internal_fields(config);
     }
     add_service_route_rules(config, sections);
@@ -1904,7 +1966,6 @@ function build(context) {
     add_service_mixed_proxy(config, settings);
 
     assert_unique_outbound_tags(config);
-    assert_compatible_wireguard_endpoints(config);
     return strip_internal_fields(config);
 }
 

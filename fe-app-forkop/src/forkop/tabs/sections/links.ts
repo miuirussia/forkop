@@ -18,6 +18,7 @@ import { required } from '../../cbi/required';
 import { E } from '../../../helpers/element';
 import { addCascadeOptions } from './cascade';
 import { validateConnectionUriCore } from './coreSupport';
+import { addWireGuardModeOption } from './wireguardMode';
 import {
   refreshLiveChoiceWidgets,
   sectionChildNames,
@@ -93,7 +94,7 @@ export function connectionLinkListItemLabel(sectionId: string, value: string) {
 }
 
 function connectionLinkSettingsKeys() {
-  return ['name', 'uri', 'detour_section'];
+  return ['name', 'uri', 'detour_section', 'wireguard_mode'];
 }
 
 function writeTrimmed(this: CBIOption, itemId: string, value: unknown) {
@@ -136,6 +137,8 @@ export function showConnectionLinkSettingsModal(
       uri.validate = required((_itemId, value) =>
         validateConnectionLink(value),
       );
+
+      addWireGuardModeOption(itemSection).depends('uri', /^\s*phobos:\/\//iu);
 
       const masking = itemSection.option(
         form.ListValue,

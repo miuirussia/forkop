@@ -1,6 +1,6 @@
 # Туннели
 
-Туннели работают внутри ядра, без дополнительных пакетов. Здесь описаны WireGuard, OpenVPN, OpenConnect, SSH и JSON endpoint, а у [AmneziaWG](/tunnels/amneziawg), [Cloudflare WARP](/tunnels/warp) и [Tailscale](/tunnels/tailscale) свои страницы.
+Здесь описаны WireGuard, OpenVPN, OpenConnect, SSH и JSON endpoint, а у [AmneziaWG](/tunnels/amneziawg), [Cloudflare WARP](/tunnels/warp) и [Tailscale](/tunnels/tailscale) свои страницы.
 
 В [сборке ядра](/guide/install#сборки-ядра) tiny туннелей нет, а OpenConnect и Tailscale есть только в full.
 
@@ -9,6 +9,18 @@
 **Импортировать** принимает файл `.conf` или ссылку `wireguard://`.
 
 Если провайдер режет WireGuard, включите **Обфускацию трафика** и нажмите **Сгенерировать параметры**. Сервер настраивать не нужно, см. [одностороннюю обфускацию](/tunnels/amneziawg#односторонняя-обфускация).
+
+### Режим WireGuard
+
+Поле **Режим WireGuard** доступно в настройках туннелей WireGuard, AmneziaWG, Phobos и [Cloudflare WARP](/tunnels/warp#режим-wireguard), а также ссылок `phobos://`.
+
+- **Userspace** использует сетевой стек gVisor внутри sing-box. Это режим по умолчанию.
+- **System** создаёт системный TUN, а шифрование выполняет sing-box.
+- **Kernel** передаёт шифрование модулю Linux. Для WireGuard и Phobos нужен модуль WireGuard, для AmneziaWG — модуль AmneziaWG. Для создания интерфейса sing-box использует `CAP_NET_ADMIN`.
+
+В режиме **Kernel** Phobos изолирует свой внутренний UDP-порт в отдельном сетевом пространстве имён. Для этого нужны поддержка `CONFIG_NET_NS` в ядре Linux и право `CAP_SYS_ADMIN`. При штатном запуске на OpenWrt sing-box работает от `root` через procd.
+
+Если прав или поддержки ядра не хватает, модуль недоступен или настройки с ним несовместимы, sing-box переключается в Userspace и пишет причину в журнал.
 
 ## OpenVPN
 

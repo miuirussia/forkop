@@ -277,6 +277,15 @@ function tunnel_peer_items(tunnel_id) {
     return result;
 }
 
+function wireguard_mode_options(item, fallback_mode) {
+    let mode = option(item, "wireguard_mode", "") || fallback_mode;
+    if (mode == "kernel")
+        return { kernel: true };
+    if (mode == "system")
+        return { system: true };
+    return mode == "userspace" ? { system: false } : {};
+}
+
 function tunnel_endpoint(tunnel) {
     tunnel = object_or_empty(tunnel);
     let kind = lc(trim(as_string(option(tunnel, "kind", "wireguard"))));
@@ -308,6 +317,8 @@ function tunnel_endpoint(tunnel) {
     }
 
     if (kind == "warp") {
+        let fallback_mode = bool_option(tunnel, "warp_kernel", false) ? "kernel" : "";
+        endpoint = { ...endpoint, ...wireguard_mode_options(tunnel, fallback_mode) };
         let address = trim(as_string(option(tunnel, "warp_address", "")));
         let port = trim(as_string(option(tunnel, "warp_port", "")));
         if (address != "") endpoint.address = address;
@@ -329,6 +340,8 @@ function tunnel_endpoint(tunnel) {
         return endpoint;
     }
 
+    if (kind == "wireguard" || kind == "amneziawg" || kind == "phobos")
+        endpoint = { ...endpoint, ...wireguard_mode_options(tunnel) };
     endpoint.address = list_value(tunnel, "address");
     endpoint.private_key = trim(as_string(option(tunnel, "private_key", "")));
     let listen_port = int(option(tunnel, "listen_port", "0"), 10);
@@ -746,6 +759,7 @@ return {
     tunnel_items,
     tunnel_child,
     tunnel_endpoint,
+    wireguard_mode_options,
     urltests,
     community_lists,
     rule_sets,

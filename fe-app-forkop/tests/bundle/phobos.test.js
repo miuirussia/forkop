@@ -188,6 +188,22 @@ describe('Phobos pasted in Connection URI', () => {
 });
 
 describe('Phobos tunnels', () => {
+  it('offers the WireGuard modes and saves Kernel in the tunnel', async () => {
+    const { tunnel, dialog, fields } = await openPhobos();
+    const mode = fields.wireguard_mode;
+    expect(mode.keylist).toEqual(['userspace', 'system', 'kernel']);
+    expect(mode.deps).toEqual([
+      { tunnel_type: 'wireguard' },
+      { tunnel_type: 'amneziawg' },
+      { tunnel_type: 'phobos' },
+      { tunnel_type: 'warp' },
+    ]);
+    expect(mode.formvalue('settings')).toBe('userspace');
+    mode.formvalue = () => 'kernel';
+    expect(await dialog.save()).toEqual({ saved: true });
+    expect(tunnel.wireguard_mode).toBe('kernel');
+  });
+
   it.each(['STUN', 'MEDIA', 'AUTO', 'NONE'])(
     'saves and reopens the selected %s masking without losing other parameters',
     async (mode) => {
@@ -278,6 +294,26 @@ async function openSavedLink(link = uri) {
 }
 
 describe('Phobos saved as a connection link', () => {
+  it('saves and reopens the WireGuard mode without editing the URI', async () => {
+    const { h, links, stored, dialog, fields } = await openSavedLink();
+    const mode = fields.wireguard_mode;
+    expect(mode.isActive('settings')).toBe(true);
+    expect(mode.formvalue('settings')).toBe('userspace');
+    mode.formvalue = () => 'system';
+    expect(await dialog.save()).toEqual({ saved: true });
+    expect(stored.wireguard_mode).toBe('system');
+    expect(stored.uri).toBe(uri);
+
+    const reopened = await h.openDialog(links, 'sec', 'saved');
+    const reopenedMode = reopened.map.children[0].children.find(
+      (field) => field.option === 'wireguard_mode',
+    );
+    expect(reopenedMode.formvalue('settings')).toBe('system');
+    reopenedMode.formvalue = () => 'userspace';
+    expect(await reopened.save()).toEqual({ saved: true });
+    expect(stored).not.toHaveProperty('wireguard_mode');
+  });
+
   it.each(['STUN', 'MEDIA', 'AUTO', 'NONE'])(
     'shows, saves and reopens %s masking in the server dialog',
     async (mode) => {
@@ -355,6 +391,7 @@ describe('Phobos saved as a connection link', () => {
     const link = 'socks5://127.0.0.1:1080#proxy';
     const { stored, dialog, fields } = await openSavedLink(link);
     expect(fields.phobos_masking.isActive('settings')).toBe(false);
+    expect(fields.wireguard_mode.isActive('settings')).toBe(false);
     expect(await dialog.save()).toEqual({ saved: true });
     expect(stored.uri).toBe(link);
   });

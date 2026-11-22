@@ -23504,6 +23504,37 @@ function validateOpenConnectSettings(settings) {
   return true;
 }
 
+// src/forkop/tabs/sections/wireguardMode.ts
+var WIREGUARD_TUNNEL_KINDS = ["wireguard", "amneziawg", "phobos"];
+var WIREGUARD_MODE_TUNNEL_KINDS = [...WIREGUARD_TUNNEL_KINDS, "warp"];
+function wireGuardModeOptions(mode) {
+  if (mode === "kernel") return { kernel: true };
+  if (mode === "system") return { system: true };
+  return mode === "userspace" ? { system: false } : {};
+}
+function addWireGuardModeOption(section2) {
+  const mode = section2.option(
+    form.ListValue,
+    "wireguard_mode",
+    _("WireGuard mode"),
+    _(
+      "Kernel uses a Linux module and falls back to Userspace if the module or configuration does not support it."
+    )
+  );
+  mode.value("userspace", "Userspace");
+  mode.value("system", "System");
+  mode.value("kernel", "Kernel");
+  mode.default = "userspace";
+  mode.rmempty = false;
+  mode.write = function(itemId, value) {
+    if (value === this.default) {
+      return this.remove(itemId);
+    }
+    return form.ListValue.prototype.write.call(this, itemId, value);
+  };
+  return mode;
+}
+
 // src/forkop/tabs/sections/tunnels/model.ts
 function defaultWireGuardPeerSettings() {
   return {
@@ -23596,12 +23627,14 @@ function tunnelInitialSettings(value, sectionId) {
     (key) => setsAmneziaParameter(key, tunnel[`amnezia_${key}`])
   );
   const tailscaleDetour = `${tunnel.tailscale_detour_section || ""}`.trim();
+  const legacyWarpKernel = kind === "warp" && ["1", "true", "yes", "on"].includes(`${tunnel.warp_kernel}`);
   const settings = {
     ...kind === "openvpn-client" ? openVPNInitialSettings(endpoint) : {},
     ...kind === "openconnect" ? openConnectInitialSettings(endpoint) : {},
     ...kind === "ssh" ? sshInitialSettings(endpoint) : {},
     name: kind === "json" ? `${endpoint.tag || ""}` : `${tunnel.name || ""}`,
     tunnel_type: kind,
+    wireguard_mode: `${tunnel.wireguard_mode || (legacyWarpKernel ? "kernel" : "userspace")}`,
     amnezia_enabled: amneziaEnabled ? "1" : "0",
     address: normalizeOptionValues(tunnel.address),
     phobos_obfuscation: `${tunnel.phobos_obfuscation || ""}`,
@@ -23639,11 +23672,14 @@ function tunnelSettingsKeys() {
   return [
     "name",
     "kind",
+    "wireguard_mode",
     "address",
     "private_key",
     "phobos_obfuscation",
     "listen_port",
     "mtu",
+    "warp_kernel",
+    // Cleared when saving the old WARP flag as wireguard_mode.
     "warp_keepalive",
     "warp_address",
     "warp_port",
@@ -23688,9 +23724,11 @@ function fillGeneratedOneSidedAmnezia(map, amneziaOptions) {
 }
 function tunnelStorageSettings(settings) {
   const kind = `${settings.tunnel_type || "wireguard"}`;
+  const mode = settings.wireguard_mode;
   const storedAmneziaFields = kind === "amneziawg" ? AMNEZIA_KEYS : oneSidedAmneziaEnabled(kind, settings) ? ONE_SIDED_AMNEZIA_KEYS : [];
   const result = {
     kind,
+    wireguard_mode: WIREGUARD_MODE_TUNNEL_KINDS.includes(kind) && (mode === "system" || mode === "kernel") ? mode : "",
     name: kind === "json" ? "" : `${settings.name || ""}`.trim(),
     address: normalizeOptionValues(settings.address),
     phobos_obfuscation: kind === "phobos" ? `${settings.phobos_obfuscation || ""}`.trim() : "",
@@ -23816,7 +23854,10 @@ function tunnelEndpointFromSettings(settings, tunnelId, peerOption) {
     return endpoint2;
   }
   if (kind === "warp") {
-    const endpoint2 = { type: "warp" };
+    const endpoint2 = {
+      type: "warp",
+      ...wireGuardModeOptions(settings.wireguard_mode)
+    };
     if (`${settings.warp_address || ""}`.trim())
       endpoint2.address = `${settings.warp_address}`.trim();
     if (`${settings.warp_port || ""}`.trim())
@@ -23858,7 +23899,8 @@ function tunnelEndpointFromSettings(settings, tunnelId, peerOption) {
     type: kind,
     address: normalizeOptionValues(settings.address),
     private_key: `${settings.private_key || ""}`.trim(),
-    peers
+    peers,
+    ...WIREGUARD_MODE_TUNNEL_KINDS.includes(kind) ? wireGuardModeOptions(settings.wireguard_mode) : {}
   };
   if (`${settings.listen_port || ""}`.trim()) {
     endpoint.listen_port = Number(settings.listen_port);
@@ -26179,7 +26221,7 @@ function connectionLinkListItemLabel(sectionId, value) {
   );
 }
 function connectionLinkSettingsKeys() {
-  return ["name", "uri", "detour_section"];
+  return ["name", "uri", "detour_section", "wireguard_mode"];
 }
 function writeTrimmed(itemId, value) {
   return form.Value.prototype.write.call(this, itemId, `${value ?? ""}`.trim());
@@ -26211,6 +26253,7 @@ function showConnectionLinkSettingsModal(sectionId, itemValue, option2, widget, 
       uri.validate = required(
         (_itemId, value) => validateConnectionLink(value)
       );
+      addWireGuardModeOption(itemSection).depends("uri", /^\s*phobos:\/\//iu);
       const masking = itemSection.option(
         form.ListValue,
         "phobos_masking",
@@ -28831,6 +28874,10 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
     "openconnect",
     "ssh"
   ].forEach((kind) => o.depends("tunnel_type", kind));
+  const mode = addWireGuardModeOption(itemSection);
+  WIREGUARD_MODE_TUNNEL_KINDS.forEach(
+    (kind) => mode.depends("tunnel_type", kind)
+  );
   const importButton = itemSection.option(
     form.Button,
     "_import_config",
@@ -28960,7 +29007,7 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
   masking.depends("tunnel_type", "phobos");
   masking.value("", _("Default"));
   PHOBOS_MASKING_MODES.forEach(
-    (mode) => masking.value(mode, mode === "NONE" ? _("None") : mode)
+    (mode2) => masking.value(mode2, mode2 === "NONE" ? _("None") : mode2)
   );
   const obfuscation = itemSection.option(
     form.TextValue,
@@ -28973,10 +29020,10 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
     (_itemId, value) => validPhobosObfuscation(parseOutboundJsonObject(value)) ? true : _("Invalid Phobos obfuscation")
   );
   configureTextareaOption(obfuscation);
-  const withMasking = (value, mode) => {
+  const withMasking = (value, mode2) => {
     const parsed = parseOutboundJsonObject(value);
-    if (!parsed || (parsed.masking || "") === (mode || "")) return value;
-    if (mode) parsed.masking = mode;
+    if (!parsed || (parsed.masking || "") === (mode2 || "")) return value;
+    if (mode2) parsed.masking = mode2;
     else delete parsed.masking;
     return JSON.stringify(parsed, null, 2);
   };
@@ -29247,7 +29294,7 @@ function showTunnelSettingsModal(section_id, itemValue, option2, widget, itemNod
       const storage = tunnelStorageSettings(settings);
       const itemIds = L.toArray(settings.peer_ids).filter(Boolean);
       const itemId = createTunnelItem(section_id, tunnelId, storage);
-      if (settings.tunnel_type === "wireguard" || settings.tunnel_type === "phobos" || settings.tunnel_type === "amneziawg") {
+      if (WIREGUARD_TUNNEL_KINDS.includes(`${settings.tunnel_type}`)) {
         materializeTunnelPeers(tunnelId, itemIds, peersOption);
       } else {
         materializeTunnelPeers(tunnelId, [], peersOption);

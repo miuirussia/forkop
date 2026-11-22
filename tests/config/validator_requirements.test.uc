@@ -102,6 +102,11 @@ t.test("a core of the sing-box-extended line or a build before the first release
         t.ok(core_accepted(requirements(version, null, PRESENT)), version);
 });
 
+t.test("the minimum core version includes support for kernel WARP", () => {
+    t.contains(requirements("1.14.4-r10", null, PRESENT).error, "older than the required minimum (1.14.4-r11)");
+    t.ok(core_accepted(requirements("1.14.4-r11", null, PRESENT)));
+});
+
 function built_with(tags_line) {
     return requirements(REQUIRED, tags_line, PRESENT);
 }

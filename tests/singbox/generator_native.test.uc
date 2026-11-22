@@ -177,6 +177,7 @@ t.test("an AmneziaWG server runs with every parameter but the signature packets"
         amnezia_random_trailers: "1", amnezia_rekey_after_time: "100-120" }));
     let endpoint = q.endpoint(generator.build({ service_address: "127.0.0.1" }), "Home");
     t.eq(endpoint.type, "amneziawg");
+    t.eq(endpoint.system, null, "traffic to the tunnel address stays in sing-box for DNS hijacking");
     t.eq(endpoint.amnezia, { jc: 5, jmin: 10, jmax: 50, s1: 12, h1: 1, header_protection_key: SERVER_KEY,
         random_trailers: true, rekey_after_time: "100-120" });
 });

@@ -197,14 +197,22 @@ function subscription_address(uri) {
     return (path != "" && path != "/") || !proxy;
 }
 
+function validate_wireguard_mode(item, owner) {
+    let mode = option(item, "wireguard_mode", "") || "userspace";
+    if (index([ "userspace", "system", "kernel" ], mode) < 0)
+        fail_validation(owner + " has an invalid WireGuard mode. Use userspace, system or kernel");
+}
+
 function validate_connection_links(section) {
     for (let link in connections.connection_link_items(section)) {
         let link_name = option(link, "name", "");
         let uri = trim(option(link, "uri", ""));
         if (uri == "")
             fail_validation("A link in section '" + section_label(section) + "' is empty. Paste the link in its settings");
-        if (core_url.scheme(uri) == "phobos")
+        if (core_url.scheme(uri) == "phobos") {
+            validate_wireguard_mode(link, "Phobos link '" + link_name + "'");
             require("singbox.phobos").endpoint(uri);
+        }
         if (subscription_address(uri))
             fail_validation("Link '" + link_name + "' in section '" + section_label(section) + "' is probably a subscription URL. Paste it into Subscription");
         if (trim(link_name) == "")
@@ -786,6 +794,9 @@ function validate_tunnel_values(section) {
             fail_validation(owner + " has an invalid tunnel endpoint");
         if (trim(as_string(connections.option(tunnel, "name", ""))) == "")
             fail_validation("A tunnel in section '" + section_label(section) + "' has no name");
+
+        if (endpoint_type == "wireguard" || endpoint_type == "amneziawg" || endpoint_type == "phobos" || endpoint_type == "warp")
+            validate_wireguard_mode(tunnel, owner);
 
         if (wrapper_kind == "ssh") {
             if (endpoint_type != "ssh" || type(endpoint.server) != "string" || (!core_ip.valid_ip(endpoint.server) && !valid_hostname(endpoint.server)))

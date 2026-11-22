@@ -26,6 +26,10 @@ import { openVPNEndpoint, openVPNInitialSettings } from './openvpn';
 import { openConnectEndpoint, openConnectInitialSettings } from './openconnect';
 import { tunnelCoreFeature } from '../coreSupport';
 import {
+  WIREGUARD_MODE_TUNNEL_KINDS,
+  wireGuardModeOptions,
+} from '../wireguardMode';
+import {
   coreHas,
   missingCoreFeatureNote,
 } from '../../../services/coreFeatures.service';
@@ -184,12 +188,18 @@ export function tunnelInitialSettings(
       setsAmneziaParameter(key, tunnel[`amnezia_${key}`]),
     );
   const tailscaleDetour = `${tunnel.tailscale_detour_section || ''}`.trim();
+  const legacyWarpKernel =
+    kind === 'warp' &&
+    ['1', 'true', 'yes', 'on'].includes(`${tunnel.warp_kernel}`);
   const settings: ChildSettings = {
     ...(kind === 'openvpn-client' ? openVPNInitialSettings(endpoint) : {}),
     ...(kind === 'openconnect' ? openConnectInitialSettings(endpoint) : {}),
     ...(kind === 'ssh' ? sshInitialSettings(endpoint) : {}),
     name: kind === 'json' ? `${endpoint.tag || ''}` : `${tunnel.name || ''}`,
     tunnel_type: kind,
+    wireguard_mode: `${
+      tunnel.wireguard_mode || (legacyWarpKernel ? 'kernel' : 'userspace')
+    }`,
     amnezia_enabled: amneziaEnabled ? '1' : '0',
     address: normalizeOptionValues(tunnel.address),
     phobos_obfuscation: `${tunnel.phobos_obfuscation || ''}`,
@@ -230,11 +240,13 @@ function tunnelSettingsKeys() {
   return [
     'name',
     'kind',
+    'wireguard_mode',
     'address',
     'private_key',
     'phobos_obfuscation',
     'listen_port',
     'mtu',
+    'warp_kernel', // Cleared when saving the old WARP flag as wireguard_mode.
     'warp_keepalive',
     'warp_address',
     'warp_port',
@@ -305,6 +317,7 @@ export function fillGeneratedOneSidedAmnezia(
 
 export function tunnelStorageSettings(settings: ChildSettings) {
   const kind = `${settings.tunnel_type || 'wireguard'}`;
+  const mode = settings.wireguard_mode;
   const storedAmneziaFields =
     kind === 'amneziawg'
       ? AMNEZIA_KEYS
@@ -313,6 +326,11 @@ export function tunnelStorageSettings(settings: ChildSettings) {
         : [];
   const result: Record<string, unknown> = {
     kind,
+    wireguard_mode:
+      WIREGUARD_MODE_TUNNEL_KINDS.includes(kind) &&
+      (mode === 'system' || mode === 'kernel')
+        ? mode
+        : '',
     name: kind === 'json' ? '' : `${settings.name || ''}`.trim(),
     address: normalizeOptionValues(settings.address),
     phobos_obfuscation:
@@ -486,7 +504,10 @@ export function tunnelEndpointFromSettings(
     return endpoint;
   }
   if (kind === 'warp') {
-    const endpoint: Record<string, unknown> = { type: 'warp' };
+    const endpoint: Record<string, unknown> = {
+      type: 'warp',
+      ...wireGuardModeOptions(settings.wireguard_mode),
+    };
     if (`${settings.warp_address || ''}`.trim())
       endpoint.address = `${settings.warp_address}`.trim();
     if (`${settings.warp_port || ''}`.trim())
@@ -535,6 +556,9 @@ export function tunnelEndpointFromSettings(
     address: normalizeOptionValues(settings.address),
     private_key: `${settings.private_key || ''}`.trim(),
     peers,
+    ...(WIREGUARD_MODE_TUNNEL_KINDS.includes(kind)
+      ? wireGuardModeOptions(settings.wireguard_mode)
+      : {}),
   };
   if (`${settings.listen_port || ''}`.trim()) {
     endpoint.listen_port = Number(settings.listen_port);

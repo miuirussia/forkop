@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 20:56+0300\n"
-"PO-Revision-Date: 2026-11-22 20:56+0300\n"
+"POT-Creation-Date: 2026-11-22 23:50+0300\n"
+"PO-Revision-Date: 2026-11-22 23:50+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -2117,6 +2117,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/components/removeDialog.ts
 msgid "Keep settings"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/wireguardMode.ts
+msgid "Kernel uses a Linux module and falls back to Userspace if the module or configuration does not support it."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -4423,6 +4427,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "Whole subject (subject)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/wireguardMode.ts
+msgid "WireGuard mode"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/model.ts
