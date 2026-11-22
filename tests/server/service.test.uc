@@ -39,7 +39,7 @@ const TOOLS = [
 ];
 
 function prepared(data, extra_tools) {
-    fixture.seed(data);
+    fixture.seed({ ...data, settings: { enable_vpn_server: "1", ...(data.settings ?? {}) } });
     issued = [];
     stub.commands([ ...(extra_tools ?? []), ...TOOLS ]);
     server.prepare();
@@ -190,14 +190,14 @@ t.test("only a TLS server without a certificate of the user's is issued one, and
 
 t.test("a broken server refuses the whole prepare and commits nothing, unless it is disabled", () => {
     fresh_paths();
-    fixture.seed({ server: [ { ".name": "a", protocol: "vless" }, { ".name": "b", protocol: "gopher" } ] });
+    fixture.seed({ settings: { enable_vpn_server: "1" }, server: [ { ".name": "a", protocol: "vless" }, { ".name": "b", protocol: "gopher" } ] });
     stub.commands(TOOLS);
     let e = t.throws(() => server.prepare());
     stub.restore();
     t.eq(e.message, "Server 'b' uses unsupported protocol 'gopher'");
     t.eq(uci.__commits(), []);
 
-    fixture.seed({ server: [ { ".name": "a", protocol: "vless" }, { ".name": "b", protocol: "gopher", enabled: "0" } ] });
+    fixture.seed({ settings: { enable_vpn_server: "1" }, server: [ { ".name": "a", protocol: "vless" }, { ".name": "b", protocol: "gopher", enabled: "0" } ] });
     stub.commands(TOOLS);
     server.prepare();
     stub.restore();
@@ -206,7 +206,7 @@ t.test("a broken server refuses the whole prepare and commits nothing, unless it
 
 t.test("prepare removes nothing: what removed servers left goes afterwards", () => {
     fresh_paths();
-    fixture.seed({ server: [ { ".name": "a", protocol: "mixed" } ],
+    fixture.seed({ settings: { enable_vpn_server: "1" }, server: [ { ".name": "a", protocol: "mixed" } ],
         server_client: [ { ".name": "stray", server: "vanished", name: "phone", password: "secret" } ] });
     stub.commands(TOOLS);
     server.prepare();
@@ -241,7 +241,7 @@ function firewall_servers() {
 
 t.test("the firewall include opens the ports of enabled servers for the protocols they carry", () => {
     fresh_paths();
-    fixture.seed({ server: firewall_servers() });
+    fixture.seed({ settings: { enable_vpn_server: "1" }, server: firewall_servers() });
     stub.commands(TOOLS);
     server.sync_firewall(false);
     let include = fs.readfile(server.paths.firewall_include);
@@ -260,12 +260,28 @@ t.test("the firewall include opens the ports of enabled servers for the protocol
     stub.restore();
 });
 
+t.test("the global switch closes automatic server ports and preserves the servers", () => {
+    fresh_paths();
+    fixture.seed({ settings: { enable_vpn_server: "1" }, server: firewall_servers() });
+    stub.commands(TOOLS);
+    server.sync_firewall(false);
+    t.ok(fs.readfile(server.paths.firewall_include) != null);
+    core_uci.set("forkop.settings.enable_vpn_server", "0");
+    server.sync_firewall(false);
+    t.eq(fs.readfile(server.paths.firewall_include), null);
+    t.eq(length(core_uci.sections("forkop", "server")), length(firewall_servers()));
+    core_uci.set("forkop.settings.enable_vpn_server", "1");
+    server.sync_firewall(false);
+    t.ok(fs.readfile(server.paths.firewall_include) != null);
+    stub.restore();
+});
+
 t.test("a loaded firewall is reloaded when its chain disagrees with the include", () => {
     fresh_paths();
     fs.writefile(dir + "/firewall", "#!/bin/sh\n");
     fs.chmod(dir + "/firewall", 0755);
     server.paths.firewall_init = dir + "/firewall";
-    fixture.seed({ server: firewall_servers() });
+    fixture.seed({ settings: { enable_vpn_server: "1" }, server: firewall_servers() });
 
     let reloads = 0;
     let loaded = "chain input {\n}\n";

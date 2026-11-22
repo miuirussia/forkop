@@ -266,7 +266,7 @@ t.test("a refresh after the configuration changed reads the committed configurat
     health.sing_box_service_running = () => false;
     features.report = () => ({ known: true });
 
-    fixture.seed({ server: [ { ".name": "one", enabled: "1" } ] });
+    fixture.seed({ settings: { enable_vpn_server: "1" }, server: [ { ".name": "one", enabled: "1" } ] });
     let service = fresh_service();
     service.paths.config = dir + "/forkop";
     fs.writefile(service.paths.config, "one server");
@@ -275,6 +275,7 @@ t.test("a refresh after the configuration changed reads the committed configurat
     let counts = [ enabled() ];
 
     uci.__seed("forkop", [
+        { ".type": "settings", ".name": "settings", enable_vpn_server: "1" },
         { ".type": "server", ".name": "one", enabled: "1" },
         { ".type": "server", ".name": "two", enabled: "1" }
     ]);

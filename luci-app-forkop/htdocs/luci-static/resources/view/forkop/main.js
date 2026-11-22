@@ -31550,7 +31550,15 @@ function validateSingBoxPath(value, fileName2) {
 
 // src/forkop/tabs/settings/form/service.ts
 function addServiceOptions(section2) {
-  let o = section2.option(form.Value, "config_path", _("Config File Path"));
+  let o = section2.option(
+    form.Flag,
+    "enable_vpn_server",
+    _("Enable VPN server"),
+    _("Show the VPN server tab and run the configured servers")
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o = section2.option(form.Value, "config_path", _("Config File Path"));
   o.value("/etc/sing-box/config.json", "Flash (/etc/sing-box/config.json)");
   o.value("/tmp/sing-box/config.json", "RAM (/tmp/sing-box/config.json)");
   o.default = "/etc/sing-box/config.json";
@@ -31897,6 +31905,42 @@ function pageTitle(compiledVersion, status) {
   return ["Forkop ", small, " ", status];
 }
 
+// src/forkop/entry/serverVisibility.ts
+function configureServerVisibility(section2, option2) {
+  let pane = null;
+  let contents = [];
+  let enabled = false;
+  const setVisible = (value) => {
+    enabled = value;
+    pane?.replaceChildren(...enabled ? contents : []);
+  };
+  const parse = section2.parse;
+  section2.parse = function() {
+    return enabled ? parse.call(this) : Promise.resolve();
+  };
+  const renderContents = section2.renderContents;
+  section2.renderContents = async function(...args) {
+    pane = await renderContents.apply(this, args);
+    contents = Array.from(pane.childNodes);
+    setVisible(
+      uci.get(FORKOP_UCI_PACKAGE, "settings", "enable_vpn_server") === "1"
+    );
+    return pane;
+  };
+  option2.onchange = (_event, sectionId, value) => {
+    uci.set(
+      FORKOP_UCI_PACKAGE,
+      sectionId,
+      "enable_vpn_server",
+      value === "1" ? "1" : "0"
+    );
+    setVisible(value === "1");
+    pane?.dispatchEvent(
+      new CustomEvent("dependency-update", { bubbles: true })
+    );
+  };
+}
+
 // src/forkop/entry/view.ts
 function addMountedTab(map, type, title, tab) {
   const section2 = map.section(form.TypedSection, type, title);
@@ -31970,6 +32014,10 @@ var ForkopView = {
       return ["settings"];
     };
     createSettingsContent(settingsSection);
+    configureServerVisibility(
+      serverSection,
+      settingsSection.children.find((o) => o.option === "enable_vpn_server")
+    );
     createGeodataContent(forkopMap);
     addMountedTab(forkopMap, "diagnostic", _("Status"), DiagnosticTab);
     addMountedTab(forkopMap, "dashboard", _("Dashboard"), DashboardTab);

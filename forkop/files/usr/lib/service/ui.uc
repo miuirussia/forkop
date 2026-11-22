@@ -10,6 +10,7 @@ let subscription_headers = require("singbox.subscription_headers");
 let health = require("service.health");
 let lock = require("service.lock");
 let installer = require("service.installer");
+let servers = require("singbox.servers");
 
 const CONFIG_NAME = "forkop";
 const FINISHED_TTL_SECONDS = 3600;
@@ -120,7 +121,7 @@ function capabilities() {
     let enabled = (type_name, fallback) =>
         length(filter(uci.section_objects(CONFIG_NAME, type_name), (s) => common.bool_option(s, "enabled", fallback)));
     return {
-        server_inbounds_enabled_count: enabled("server", false),
+        server_inbounds_enabled_count: servers.enabled() ? enabled("server", false) : 0,
         sections_enabled_count: enabled("section", true)
     };
 }

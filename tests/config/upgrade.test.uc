@@ -49,6 +49,7 @@ function migrate(data) {
 }
 
 function build(config) {
+    config.settings.enable_vpn_server = "1";
     validation.accepts(config);
     fixture.seed(config);
     return generator.build({ service_address: "192.168.1.1" });

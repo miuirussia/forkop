@@ -1733,6 +1733,8 @@ function runtime_sections(sections) {
 
 function enabled_servers() {
     let result = [];
+    if (!runtime_servers.enabled())
+        return result;
     for (let section in uci_core.section_objects(CONFIG_NAME, "server"))
         if (server_enabled(section))
             push(result, section);

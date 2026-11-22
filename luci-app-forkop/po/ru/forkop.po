@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 11:23+0300\n"
-"PO-Revision-Date: 2026-11-22 11:23+0300\n"
+"POT-Creation-Date: 2026-11-22 16:31+0300\n"
+"PO-Revision-Date: 2026-11-22 16:31+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -904,6 +904,9 @@ msgstr "Включить встроенный DNS-резолвер для дом
 
 msgid "Enable Output Network Interface"
 msgstr "Включить выходной сетевой интерфейс"
+
+msgid "Enable VPN server"
+msgstr "Включить VPN-сервер"
 
 msgid "Enable YACD"
 msgstr "Включить YACD"
@@ -2422,6 +2425,9 @@ msgstr "Отображать метаданные"
 
 msgid "Show the metadata block on the dashboard"
 msgstr "Отображать блок метаданных в дашборде"
+
+msgid "Show the VPN server tab and run the configured servers"
+msgstr "Показывать вкладку VPN-сервера и запускать настроенные серверы"
 
 msgid "Sign in"
 msgstr "Войти"

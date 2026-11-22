@@ -147,7 +147,7 @@ function section_enabled(section) {
 }
 
 function server_enabled(section) {
-    return bool_option(section, "enabled", false);
+    return runtime_servers.enabled() && bool_option(section, "enabled", false);
 }
 
 function validate_runtime_display_names(sections, kind, seen) {
@@ -1749,7 +1749,7 @@ function validate_core_features(settings, sections, servers, core_tags) {
 function validate_runtime_config(context) {
     let settings = settings_section();
     let sections = sections_by_type("section");
-    let servers = sections_by_type("server");
+    let servers = runtime_servers.enabled() ? sections_by_type("server") : [];
 
     let geodata = require("geodata.sources");
     geodata.root();

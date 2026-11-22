@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 11:23+0300\n"
-"PO-Revision-Date: 2026-11-22 11:23+0300\n"
+"POT-Creation-Date: 2026-11-22 16:31+0300\n"
+"PO-Revision-Date: 2026-11-22 16:31+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -1275,6 +1275,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/network.ts
 msgid "Enable Output Network Interface"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/settings/form/service.ts
+msgid "Enable VPN server"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/traffic.ts
@@ -3394,6 +3398,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/options.ts
 msgid "Show the metadata block on the dashboard"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/settings/form/service.ts
+msgid "Show the VPN server tab and run the configured servers"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts

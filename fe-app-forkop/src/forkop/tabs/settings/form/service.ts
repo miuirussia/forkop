@@ -1,7 +1,16 @@
 import { validateSingBoxPath } from '../validators';
 
 export function addServiceOptions(section: Pick<CBISection, 'option'>) {
-  let o = section.option(form.Value, 'config_path', _('Config File Path'));
+  let o = section.option(
+    form.Flag,
+    'enable_vpn_server',
+    _('Enable VPN server'),
+    _('Show the VPN server tab and run the configured servers'),
+  );
+  o.default = '0';
+  o.rmempty = false;
+
+  o = section.option(form.Value, 'config_path', _('Config File Path'));
   o.value('/etc/sing-box/config.json', 'Flash (/etc/sing-box/config.json)');
   o.value('/tmp/sing-box/config.json', 'RAM (/tmp/sing-box/config.json)');
   o.default = '/etc/sing-box/config.json';

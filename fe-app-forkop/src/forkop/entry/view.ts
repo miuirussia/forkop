@@ -23,6 +23,7 @@ import { configureGridSection } from './gridSection';
 import { createPageStatus } from './pageStatus';
 import { pageTitle } from './pageTitle';
 import { bindInlineValidation } from '../cbi/validation';
+import { configureServerVisibility } from './serverVisibility';
 
 // A tab that renders itself: one anonymous section holding the node its controller binds to.
 function addMountedTab(
@@ -108,6 +109,10 @@ export const ForkopView = {
       return ['settings'];
     };
     createSettingsContent(settingsSection);
+    configureServerVisibility(
+      serverSection,
+      settingsSection.children.find((o) => o.option === 'enable_vpn_server')!,
+    );
     createGeodataContent(forkopMap);
 
     addMountedTab(forkopMap, 'diagnostic', _('Status'), DiagnosticTab);

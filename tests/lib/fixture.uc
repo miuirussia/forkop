@@ -63,11 +63,12 @@ function seed(data) {
         uci.__seed("system", [ { ".type": "timeserver", ".name": "ntp", ...data.system_ntp } ]);
 }
 
-// The settings every generated configuration needs, merged with the test's own.
+// A configured test router, including its opt-in to VPN servers, merged with the test's own.
 function settings(extra) {
     return {
         config_path: "/etc/sing-box/config.json",
         dns_server: "1.1.1.1",
+        enable_vpn_server: "1",
         ...(extra ?? {})
     };
 }

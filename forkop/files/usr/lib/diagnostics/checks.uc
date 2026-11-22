@@ -329,6 +329,8 @@ function tailscale_item(label, endpoint) {
 // A router whose only WAN address is the provider's shared one is behind its NAT, where no port
 // can be opened.
 function servers() {
+    if (!runtime_servers.enabled())
+        return { wan: "", behind_cgnat: false, items: [] };
     let config = runtime_config();
     let wan = wan_addresses();
     let wan_public = length(filter(common.words(wan), (address) => core_ip.valid_public_ip(address))) > 0;

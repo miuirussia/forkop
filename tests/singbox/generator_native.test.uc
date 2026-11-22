@@ -66,7 +66,7 @@ t.test("an OpenConnect tunnel reaches its server through the section it cascades
 
 function openvpn_server(server, clients) {
     return {
-        settings: { dns_server: [ "1.1.1.1" ], bootstrap_dns_server: [ "1.1.1.1" ], service_listen_address: "127.0.0.1" },
+        settings: { enable_vpn_server: "1", dns_server: [ "1.1.1.1" ], bootstrap_dns_server: [ "1.1.1.1" ], service_listen_address: "127.0.0.1" },
         section: [ { ".name": "vpn", enabled: "1", action: "connection", user_domains: "example.test",
             connection_url: "socks5://127.0.0.1:1080" } ],
         server: [ {

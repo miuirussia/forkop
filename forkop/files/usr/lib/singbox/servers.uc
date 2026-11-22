@@ -1,6 +1,7 @@
 #!/usr/bin/env ucode
 
 let common = require("core.common");
+let uci = require("core.uci");
 let runtime_constants = require("singbox.constants");
 let connections = require("config.connections");
 let amnezia = require("singbox.amnezia");
@@ -12,6 +13,10 @@ let list_option = common.list_option;
 let bool_option = common.bool_option;
 let int_option = common.int_option;
 let array_or_empty = common.array_or_empty;
+
+function enabled() {
+    return bool_option(uci.get_all("forkop", "settings"), "enable_vpn_server", false);
+}
 
 // Shared by the generator, the runtime validator and the service preparation. An OpenVPN
 // client is its certificate and a WireGuard client its keys and addresses, all router-issued.
@@ -595,6 +600,7 @@ function clone_rules_for_inbound(config, source_inbound, target_inbound, skip_do
 }
 
 return {
+    enabled,
     CLIENT_FIELDS,
     LOGIN_NAME_PROTOCOLS,
     SHADOWSOCKS_2022_KEY_BYTES,

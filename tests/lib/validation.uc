@@ -11,7 +11,8 @@ let absent_binary = stub.tmpdir() + "/sing-box";
 
 function with_dns(data) {
     data = { ...(data ?? {}) };
-    data.settings = { ...(data.settings ?? {}) };
+    // Server validation cases opt in unless they explicitly exercise the global switch.
+    data.settings = { enable_vpn_server: "1", ...(data.settings ?? {}) };
     if (data.settings.dns_server == null)
         data.settings.dns_server = [ "77.88.8.8" ];
     if (data.settings.bootstrap_dns_server == null)

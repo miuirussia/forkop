@@ -618,10 +618,11 @@ function reload_runtime(reason) {
     // writing is not taken for somebody else's change.
     let fingerprint = config_fingerprint();
 
+    let idle = nothing_to_run();
+    if (idle != null)
+        return idle;
+
     if (!forkop_running()) {
-        let idle = nothing_to_run();
-        if (idle != null)
-            return idle;
         if (!restart_runtime())
             return reload_failed(true);
         log("info", "Configuration applied");

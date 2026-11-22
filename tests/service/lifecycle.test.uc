@@ -386,6 +386,18 @@ t.test("a stopped Forkop with nothing to run is not started by a reload", () => 
     t.eq(filter(world.events, (e) => e == "sing-box started"), []);
 });
 
+t.test("a reload stops the running runtime after its last VPN server is disabled", () => {
+    running({ nothing_to_run: true });
+    let result = run(() => lifecycle.reload("on_config_change"));
+    t.eq(result.result, 0);
+    t.contains(world.logs, NOTHING_TO_RUN);
+    t.contains(world.events, "firewall closed");
+    t.contains(world.events, "sing-box stopped");
+    t.contains(world.events, "nft table deleted");
+    t.eq(filter(world.events, (e) => e == "sing-box started" || e == "config checked"), []);
+    t.ok(!world.guarded, "an idle configuration releases the guard");
+});
+
 t.test("a start that fails before sing-box ran stops no sing-box service, which procd does not hold", () => {
     reset({ config_fails: true });
     t.eq(run(() => lifecycle.start()).result, 1);

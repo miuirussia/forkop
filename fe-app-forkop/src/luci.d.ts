@@ -191,6 +191,7 @@ declare global {
     // a JSONMap dialog names its own here.
     uciconfig?: string;
     load?(): Promise<unknown>;
+    parse(): Promise<void>;
     modaltitle?: string | ((sectionId: string) => string);
     sectiontitle?: string | ((sectionId: string) => UciValue);
     // The title of one of the section's own controls, by key.

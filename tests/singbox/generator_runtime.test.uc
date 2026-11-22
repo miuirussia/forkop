@@ -13,6 +13,7 @@ function build(data) {
 function settings(extra) {
     return {
         config_path: "/tmp/sing-box/config.json",
+        enable_vpn_server: "1",
         dns_server: "1.1.1.1",
         service_listen_address: "127.0.0.1",
         ...(extra ?? {})

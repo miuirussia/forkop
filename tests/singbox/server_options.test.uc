@@ -27,7 +27,7 @@ const AMNEZIA_SERVER = {
 };
 
 const SERVERS = {
-    settings: { dns_server: "77.88.8.8", bootstrap_dns_server: "77.88.8.8", service_listen_address: "127.0.0.1" },
+    settings: { enable_vpn_server: "1", dns_server: "77.88.8.8", bootstrap_dns_server: "77.88.8.8", service_listen_address: "127.0.0.1" },
     section: [
         {
             ".name": "proxy", ".type": "section", label: "proxy", enabled: "1", action: "connection",

@@ -128,7 +128,7 @@ t.test("a queued reload waits while another reload holds the reload lock", () =>
 
 t.test("the state tells what the service is apart from what is being done to it", () => {
     fresh();
-    fixture.seed({ server: [ { ".name": "a", enabled: "1" } ] });
+    fixture.seed({ settings: { enable_vpn_server: "1" }, server: [ { ".name": "a", enabled: "1" } ] });
     health.forkop_stably_running = () => true;
     health.sing_box_service_stable = () => true;
     common.ensure_dir(ui.paths.rc_dir);
@@ -144,12 +144,17 @@ t.test("the state tells what the service is apart from what is being done to it"
 t.test("the state counts the servers and sections that run, as the generator decides it", () => {
     fresh();
     fixture.seed({
+        settings: { enable_vpn_server: "1" },
         server: [ { ".name": "a", enabled: "1" }, { ".name": "b", enabled: "0" }, { ".name": "never_saved" } ],
         section: [ { ".name": "s", action: "connection" }, { ".name": "t", action: "block", enabled: "1" }, { ".name": "off", enabled: "0" } ]
     });
     t.eq(ui.current_state().capabilities, { server_inbounds_enabled_count: 1, sections_enabled_count: 2 });
-    fixture.seed({ server: [ { ".name": "a", enabled: "1" } ] });
+    fixture.seed({ settings: { enable_vpn_server: "1" }, server: [ { ".name": "a", enabled: "1" } ] });
     t.eq(ui.current_state().capabilities, { server_inbounds_enabled_count: 1, sections_enabled_count: 0 }, "a VPN server alone");
+    fixture.seed({ settings: { enable_vpn_server: "0" }, server: [ { ".name": "a", enabled: "1" } ] });
+    t.eq(ui.current_state().capabilities.server_inbounds_enabled_count, 0, "globally disabled servers");
+    fixture.seed({ server: [ { ".name": "a", enabled: "1" } ] });
+    t.eq(ui.current_state().capabilities.server_inbounds_enabled_count, 0, "off by default for existing servers too");
 });
 
 t.test("while the installer runs the service is busy with it and takes no action of the page", () => {

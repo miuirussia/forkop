@@ -292,7 +292,7 @@ t.test("a router excluded from routing is not checked, nor is the exit it would 
 });
 
 t.test("a server is checked for its listener, its firewall port and its public address", () => {
-    fixture.seed({ settings: { config_path: dir + "/config.json" }, server: [
+    fixture.seed({ settings: { enable_vpn_server: "1", config_path: dir + "/config.json" }, server: [
         { ".name": "a", label: "Main", enabled: "1", protocol: "vless", listen: "::", listen_port: "443", public_host: "vpn.example" },
         { ".name": "b", label: "Busy", enabled: "1", protocol: "hysteria2", listen: "0.0.0.0", listen_port: "8443", public_host: "192.168.1.1", open_firewall: "0" },
         { ".name": "c", label: "Own", enabled: "1", protocol: "json_inbound" },
@@ -332,7 +332,7 @@ t.test("a server is checked for its listener, its firewall port and its public a
 });
 
 t.test("a Tailscale server the core does not report is not running", () => {
-    fixture.seed({ settings: { config_path: dir + "/config.json" }, server: [ { ".name": "d", label: "Tail", enabled: "1", protocol: "tailscale" } ] });
+    fixture.seed({ settings: { enable_vpn_server: "1", config_path: dir + "/config.json" }, server: [ { ".name": "d", label: "Tail", enabled: "1", protocol: "tailscale" } ] });
     write_config({});
     stub.commands([
         [ "ubus -S call network.interface.wan status", { stdout: "{}" } ],
@@ -348,7 +348,7 @@ t.test("a Tailscale server the core does not report is not running", () => {
 });
 
 t.test("a router whose only WAN address is the provider's shared one is behind its NAT, one behind another router is not", () => {
-    fixture.seed({ settings: { config_path: dir + "/config.json" }, server: [] });
+    fixture.seed({ settings: { enable_vpn_server: "1", config_path: dir + "/config.json" }, server: [] });
     write_config({});
     let behind = (address) => {
         stub.commands([

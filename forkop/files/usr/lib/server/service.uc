@@ -396,6 +396,8 @@ function remove_orphaned_clients(names) {
 // refused configuration loses nothing.
 function prepare() {
     changed = false;
+    if (!servers.enabled())
+        return;
     for (let name in section_names("server"))
         prepare_server(name);
     if (changed)
@@ -414,6 +416,8 @@ function remove_orphans() {
 
 function firewall_ports() {
     let ports = { tcp: [], udp: [] };
+    if (!servers.enabled())
+        return ports;
     for (let name in section_names("server")) {
         let protocol = get(name, "protocol", "vless");
         if (servers.CLIENT_FIELDS[protocol] == null || protocol == "tailscale" || protocol == "json_inbound")
