@@ -2,6 +2,7 @@ let t = require("t");
 let fixture = require("fixture");
 let q = require("sbconfig");
 let generator = require("singbox.generator");
+let features = require("singbox.features");
 
 const WG_KEY = "zz5/p+jwYqPFlg9mWcOP5ad8xXa4XfOOlrzouVD6E1w=";
 const WG_PUB = "AKR8dq2b9o7/cO8d5mAzxvuxRhhw4DXi1pfUC3IPGWo=";
@@ -77,6 +78,43 @@ t.test("a server beside it connects on its own", () => {
     t.eq(q.outbound(config, "source/JSON plain").detour, null, "a plain JSON outbound");
     t.eq(q.outbound(config, "source/JSON explicit").detour, "direct-out", "an explicit JSON detour is kept");
     t.eq(q.outbound(config, "source").detour, null, "the section selector gets no detour of its own");
+});
+
+t.test("URLTest verifies UDP for cascaded WireGuard tunnels on a compatible core", () => {
+    let core_version = features.version;
+    features.version = () => "1.14.4-r13";
+    fixture.seed({
+        settings: fixture.settings(),
+        section: [
+            { ".name": "source", action: "connection" },
+            { ".name": "hop", label: "Hop", action: "connection", outbound_jsons: [ sprintf("%J", {
+                type: "urltest", tag: "Custom", outbounds: [ "Hop node" ],
+                udp_probe: { server: "9.9.9.9", domain: "example.net" }
+            }) ] },
+            { ".name": "other", action: "connection" }
+        ],
+        connection_link: [
+            ...fixture.links("hop", [ "socks5://127.0.0.1:1080#Hop node" ]),
+            ...fixture.links("other", [ "socks5://127.0.0.1:1081#Other node" ])
+        ],
+        urltest: [
+            { ".name": "hop_test", section: "hop", name: "Fastest" },
+            { ".name": "other_test", section: "other", name: "Fastest" }
+        ],
+        tunnel: [ tunnel("WARP", "0", "warp", THROUGH_HOP) ]
+    });
+
+    for (let bootstrap in [ true, false ]) {
+        let config = generator.build({ bootstrap, service_address: "127.0.0.1" });
+        t.eq(q.outbound(config, "Hop/Fastest").udp_probe, { server: "1.1.1.1", domain: "example.com" });
+        t.eq(q.outbound(config, "Hop/Custom").udp_probe, { server: "9.9.9.9", domain: "example.net" });
+        t.eq(q.outbound(config, "other/Fastest").udp_probe, null);
+    }
+
+    features.version = () => "1.14.4-r11";
+    let config = generator.build({ bootstrap: true, service_address: "127.0.0.1" });
+    t.eq(q.outbound(config, "Hop/Fastest").udp_probe, null);
+    features.version = core_version;
 });
 
 t.done();

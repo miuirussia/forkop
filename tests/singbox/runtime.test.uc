@@ -6,6 +6,7 @@ let uci = require("uci");
 let core_uci = require("core.uci");
 let packages = require("core.packages");
 let runtime = require("singbox.runtime");
+let generator = require("singbox.generator");
 let cli = require("service.cli");
 
 function configuration(dir, extra) {
@@ -108,6 +109,32 @@ t.test("a bootstrap core keeps its proxy but opens no user listeners or DAT rule
     t.ok(length(filter(config.outbounds, (outbound) => outbound.tag == "main")) > 0);
     t.eq(config.route.default_mark, require("singbox.constants").OUTBOUND_MARK);
     stub.restore();
+});
+
+t.test("the DAT bootstrap falls back to bootstrap DNS when detoured DNS is unavailable", () => {
+    let data = configuration(stub.tmpdir(), {
+        geodata_download_section: "main",
+        dns_detour_enabled: "1",
+        dns_detour_section: "main",
+        dns_server: [ "https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query" ],
+        bootstrap_dns_server: "77.88.8.8",
+        dns_timeout: "12s"
+    });
+    fixture.seed(data);
+    let bootstrap = generator.build({ bootstrap: true }).dns;
+    t.eq(bootstrap.final, "startup-dns-server");
+    t.eq(filter(bootstrap.servers, (server) => server.tag == bootstrap.final)[0], {
+        type: "fallback", tag: "startup-dns-server", servers: [ "dns-server", "bootstrap-dns-server" ],
+        strategy: "sequential", timeout: "12s"
+    });
+    t.eq(filter(bootstrap.servers, (server) => server.tag == "dns-server-1")[0].detour, "main");
+    let regular = generator.build({}).dns;
+    t.eq(regular.final, "dns-server");
+    t.eq(filter(regular.servers, (server) => server.tag == bootstrap.final), []);
+
+    data.settings.dns_detour_enabled = "0";
+    fixture.seed(data);
+    t.eq(generator.build({ bootstrap: true }).dns.final, "dns-server");
 });
 
 t.test("a configuration the core refuses is reported by its first line and never written", () => {

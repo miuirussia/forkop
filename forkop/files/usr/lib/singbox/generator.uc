@@ -488,6 +488,34 @@ function is_wireguard_type(type_name) {
     return type_name == "phobos" || type_name == "wireguard" || type_name == "amneziawg";
 }
 
+function add_tunnel_udp_probes(config) {
+    let pending = [];
+    for (let endpoint in config.endpoints)
+        if ((is_wireguard_type(endpoint.type) || endpoint.type == "warp") && endpoint.detour)
+            push(pending, endpoint.detour);
+    if (length(pending) == 0 || !require("core.version").version_at_least(require("singbox.features").version(), "1.14.4-r13"))
+        return;
+
+    let groups = {};
+    for (let outbound in config.outbounds)
+        if (index([ "selector", "urltest", "fallback" ], outbound.type) >= 0)
+            groups[outbound.tag] = outbound;
+
+    // A tunnel can reach URLTest through a selector or through a Fallback level.
+    while (length(pending) > 0) {
+        let tag = pop(pending);
+        let group = groups[tag];
+        if (group == null)
+            continue;
+        delete groups[tag];
+        if (group.type == "urltest")
+            group.udp_probe ??= { server: "1.1.1.1", domain: "example.com" };
+        push(pending, ...array_or_empty(group.outbounds));
+        for (let level in array_or_empty(group.groups))
+            push(pending, ...array_or_empty(level.outbounds));
+    }
+}
+
 function wireguard_identities(endpoint) {
     let type_name = lc(as_string(endpoint.type || ""));
     if (type_name == "warp") {
@@ -1941,6 +1969,7 @@ function build(context) {
     for (let section in sections)
         add_outbound_for_section(config, section);
 
+    add_tunnel_udp_probes(config);
     assert_compatible_wireguard_endpoints(config);
     share_warp_endpoints(config);
     assign_wireguard_interface_names(config);
@@ -1950,6 +1979,18 @@ function build(context) {
         config.inbounds = [];
         config.route.rules = [];
         config.dns.rules = filter(config.dns.rules, (rule) => rule.server != runtime_constants.FAKEIP_DNS_SERVER_TAG);
+        // The detoured resolver may need a different tunnel that is still starting.
+        if (bool_option(settings, "dns_detour_enabled", false)) {
+            let tag = "startup-dns-server";
+            push(config.dns.servers, {
+                type: "fallback",
+                tag,
+                servers: [ config.dns.final, runtime_constants.BOOTSTRAP_DNS_SERVER_TAG ],
+                strategy: "sequential",
+                timeout: config.dns.timeout
+            });
+            config.dns.final = tag;
+        }
         add_tunnel_dns_rules(config);
         delete config.experimental.clash_api.external_ui;
         delete config.experimental.clash_api.autodetect;
