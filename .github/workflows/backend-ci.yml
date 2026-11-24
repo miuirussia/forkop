@@ -65,3 +65,7 @@ jobs:
       - name: Check Autodetect capture with kernel packets
         shell: bash
         run: sudo env "PATH=$PATH" python3 tests/nft/autodetect-netns.py
+
+      - name: Check router FakeIP routing with kernel packets
+        shell: bash
+        run: sudo env "PATH=$PATH" python3 tests/nft/fakeip-netns.py

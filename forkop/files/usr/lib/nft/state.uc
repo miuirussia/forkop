@@ -1,12 +1,17 @@
 let fs = require("fs");
 let common = require("core.common");
 let constants = require("core.constants");
+let singbox_constants = require("singbox.constants");
+let uci = require("core.uci");
+let connections = require("config.connections");
 
 // iproute2, which the dependency puts at /sbin/ip: BusyBox ip mishandles Forkop's table entries
 const IP_BIN = "/sbin/ip";
 const PAUSE_CHAIN = constants.NFT_PAUSE_CHAIN_NAME;
 // Before the TProxy rules at 105.
 const SOURCE_CHECK_PRIORITY = "104";
+// Before the core's tunnel interface and source rules at 100 and 101.
+const FAKEIP_RULE_PRIORITY = "99";
 
 let paths = {
     ipv6_conf: "/proc/sys/net/ipv6/conf"
@@ -87,6 +92,64 @@ function has_tproxy_marking_rule_text(rule_list, mark) {
             return true;
     }
     return false;
+}
+
+function router_excluded() {
+    return connections.excluded_devices(uci.get_all(constants.FORKOP_CONFIG_NAME, "settings") ?? {}).router;
+}
+
+// scoped=false identifies the earlier destination-only rules for upgrade/stop cleanup.
+function fakeip_rule_args(family, table, action, scoped) {
+    return [ IP_BIN, family == 6 ? "-6" : "-4", "rule", action, "to",
+        family == 6 ? singbox_constants.FAKEIP_INET6_RANGE : singbox_constants.FAKEIP_INET4_RANGE,
+        ...(scoped === false ? [] : [ "iif", "lo", "fwmark", "0/" + constants.NFT_OUTBOUND_MARK ]),
+        "lookup", table, "priority", FAKEIP_RULE_PRIORITY ];
+}
+
+function has_fakeip_rule_text(rule_list, family, scoped) {
+    let prefix = family == 6 ? singbox_constants.FAKEIP_INET6_RANGE : singbox_constants.FAKEIP_INET4_RANGE;
+    for (let line in split(as_string(rule_list), "\n")) {
+        let fields = normalized_fields(line);
+        if (fields[0] != FAKEIP_RULE_PRIORITY + ":" || fields[1] != "from" || fields[2] != "all" ||
+            fields[3] != "to" || fields[4] != prefix)
+            continue;
+        if (scoped === false) {
+            if (length(fields) == 7 && fields[5] == "lookup")
+                return true;
+        }
+        else if (length(fields) == 11 && fields[5] == "fwmark" && fields[7] == "iif" && fields[8] == "lo" && fields[9] == "lookup") {
+            let mark = split(fields[6], "/");
+            if (length(mark) == 2 && parse_mark_number(mark[0]) == 0 &&
+                parse_mark_number(mark[1]) == parse_mark_number(constants.NFT_OUTBOUND_MARK))
+                return true;
+        }
+    }
+    return false;
+}
+
+function fakeip_rule_present(family, table, scoped) {
+    return has_fakeip_rule_text(command_output_from_args([ IP_BIN, family == 6 ? "-6" : "-4", "rule", "list", "table", table ]), family, scoped);
+}
+
+function fakeip_rules_configured(rule_list, family, excluded) {
+    return !has_fakeip_rule_text(rule_list, family, false) && has_fakeip_rule_text(rule_list, family) == !excluded;
+}
+
+function has_fakeip_route_text(route_list, family) {
+    let prefix = family == 6 ? singbox_constants.FAKEIP_INET6_RANGE : singbox_constants.FAKEIP_INET4_RANGE;
+    let source = family == 6 ? "::1" : "127.0.0.1";
+    for (let line in split(as_string(route_list), "\n")) {
+        let fields = normalized_fields(line);
+        let dev = index(fields, "dev"), src = index(fields, "src");
+        if (fields[0] == "local" && fields[1] == prefix && dev >= 0 && fields[dev + 1] == "lo" &&
+            src >= 0 && fields[src + 1] == source)
+            return true;
+    }
+    return false;
+}
+
+function fakeip_route_present(family, table) {
+    return has_fakeip_route_text(command_output_from_args([ IP_BIN, ...(family == 6 ? [ "-6" ] : []), "route", "list", "table", table ]), family);
 }
 
 // The devices of the rules nft/apply.uc keeps at the priority, as iproute2 lists them:
@@ -206,7 +269,9 @@ function runtime_snapshot_command(rt_table, nft_table) {
         "; echo " + shell_quote(SNAPSHOT_SEPARATOR) +
         "; " + batch_pipeline("-4", rt_table) +
         "; echo " + shell_quote(SNAPSHOT_SEPARATOR) +
-        "; " + batch_pipeline("-6", rt_table);
+        "; " + batch_pipeline("-6", rt_table) +
+        "; echo " + shell_quote(SNAPSHOT_SEPARATOR) +
+        "; " + command_from_args([ "nft", "-s", "list", "chain", "inet", as_string(nft_table), "mangle_output" ]) + " 2>/dev/null";
 }
 
 function split_snapshot(output) {
@@ -214,7 +279,10 @@ function split_snapshot(output) {
     return {
         tables: length(parts) > 0 ? parts[0] : "",
         inet4: length(parts) > 1 ? parts[1] : "",
-        inet6: length(parts) > 2 ? parts[2] : ""
+        inet6: length(parts) > 2 ? parts[2] : "",
+        // The applied chain's unconditional return excludes System. Committed UCI may
+        // already describe the next configuration when a reload checks liveness.
+        router_excluded: index(map(split(parts[3] ?? "", "\n"), (line) => trim(line)), "counter return") >= 0
     };
 }
 
@@ -249,9 +317,13 @@ function runtime_network_configured_snapshot(snapshot, nft_table, mark) {
 
     return capture_active_output(snapshot.tables, nft_table) &&
         has_local_default_route_text(snapshot.inet4, 4) &&
+        has_fakeip_route_text(snapshot.inet4, 4) &&
+        fakeip_rules_configured(snapshot.inet4, 4, snapshot.router_excluded) &&
         has_tproxy_marking_rule_text(snapshot.inet4, mark) &&
         (snapshot.ipv6_enabled === false ||
-            has_local_default_route_text(snapshot.inet6, 6) && has_tproxy_marking_rule_text(snapshot.inet6, mark));
+            has_local_default_route_text(snapshot.inet6, 6) && has_fakeip_route_text(snapshot.inet6, 6) &&
+            fakeip_rules_configured(snapshot.inet6, 6, snapshot.router_excluded) &&
+            has_tproxy_marking_rule_text(snapshot.inet6, mark));
 }
 
 function runtime_network_configured(nft_table, rt_table, mark) {
@@ -273,6 +345,11 @@ return {
     rt_table_has_entry,
     bound_rule_devices,
     SOURCE_CHECK_PRIORITY,
+    FAKEIP_RULE_PRIORITY,
+    router_excluded,
+    fakeip_rule_args,
+    fakeip_rule_present,
+    fakeip_route_present,
     source_check_rule4_present,
     tproxy_route4_present,
     tproxy_route6_present,

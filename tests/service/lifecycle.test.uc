@@ -147,8 +147,9 @@ function reset(options) {
         world.routing_lost = false;
     };
     nft_state.table_present = () => world.network;
-    for (let name in [ "tproxy_marking_rule4_present", "tproxy_marking_rule6_present", "tproxy_route4_present", "tproxy_route6_present", "source_check_rule4_present" ])
+    for (let name in [ "tproxy_marking_rule4_present", "tproxy_marking_rule6_present", "tproxy_route4_present", "tproxy_route6_present", "source_check_rule4_present", "fakeip_route_present" ])
         nft_state[name] = () => false;
+    nft_state.fakeip_rule_present = (family, table, scoped) => index((scoped === false ? world.legacy_fakeip_rules : world.fakeip_rules) ?? [], family) >= 0;
     nft_state.ipv6_enabled = () => !world.ipv6_off;
     health.sing_box_service_pid_runtime = () => world.pid;
     health.sing_box_service_registered = () => world.registered;
@@ -172,6 +173,13 @@ function reset(options) {
 
     stub.commands([
         stub.logger(world.logs),
+        [ (argv) => argv[0] == "/sbin/ip" && argv[2] == "rule" && argv[3] == "del" && argv[4] == "to", (argv) => {
+            if (world.fakeip_remove_fails)
+                return { status: 1 };
+            let key = index(argv, "iif") >= 0 ? "fakeip_rules" : "legacy_fakeip_rules";
+            world[key] = filter(world[key] ?? [], (family) => argv[1] != "-" + family);
+            return {};
+        } ],
         [ "pgrep", () => ({ status: world.stray_sing_box ? 0 : 1 }) ],
         [ "dmesg", () => ({ stdout: world.kernel_log ?? "" }) ],
         [ "netstat -lnt", () => ({ stdout: world.netstat ?? "" }) ],
@@ -647,6 +655,37 @@ t.test("a stop marks itself planned, closes the ports and takes everything down"
     t.eq(world.events, [ "firewall closed", "watcher stopped", "rule-set worker stopped", "nft table deleted", "sing-box stopped" ]);
     t.ok(fs.stat(lifecycle.paths.planned_stop) != null);
     t.ok(fs.stat(lifecycle.paths.applied_nft) == null, "no table is recorded once it is gone");
+});
+
+t.test("stopping removes both FakeIP destination rules and reports a failed removal", () => {
+    running({ fakeip_rules: [ 4, 6 ], legacy_fakeip_rules: [ 4, 6 ] });
+    let result = run(() => {
+        let status = lifecycle.stop();
+        return { status, calls: stub.command_lines() };
+    });
+    t.eq(result.result.status, 0);
+    t.eq(world.fakeip_rules, []);
+    t.eq(world.legacy_fakeip_rules, []);
+    t.contains(result.result.calls, "/sbin/ip -4 rule del to 198.18.0.0/16 iif lo fwmark 0/0x08000000 lookup forkop priority 99");
+    t.contains(result.result.calls, "/sbin/ip -6 rule del to 2001:2::/112 iif lo fwmark 0/0x08000000 lookup forkop priority 99");
+    t.contains(result.result.calls, "/sbin/ip -4 rule del to 198.18.0.0/16 lookup forkop priority 99");
+    t.contains(result.result.calls, "/sbin/ip -6 rule del to 2001:2::/112 lookup forkop priority 99");
+
+    running({ fakeip_rules: [ 6 ], fakeip_remove_fails: true });
+    t.eq(run(() => lifecycle.stop()).result, 1);
+    t.contains(world.logs, "[error] Failed to remove the Forkop IPv6 FakeIP routing rule");
+
+    running({ legacy_fakeip_rules: [ 4 ], fakeip_remove_fails: true });
+    t.eq(run(() => lifecycle.stop()).result, 1);
+    t.contains(world.logs, "[error] Failed to remove the Forkop IPv4 legacy FakeIP routing rule");
+});
+
+t.test("crash cleanup removes scoped and legacy FakeIP rules too", () => {
+    running({ fakeip_rules: [ 4, 6 ], legacy_fakeip_rules: [ 4, 6 ] });
+    world.pid = 0;
+    t.eq(run(() => lifecycle.crash_cleanup("1")).result, 0);
+    t.eq(world.fakeip_rules, []);
+    t.eq(world.legacy_fakeip_rules, []);
 });
 
 t.test("a core without its init script already counts as stopped, and a core that refuses to stop fails the stop", () => {

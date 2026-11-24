@@ -404,14 +404,35 @@ function ensure_route(present, argv, failed) {
         die(failed);
 }
 
+function ensure_fakeip_rule(family, excluded_router) {
+    // Remove destination-only rules left by the earlier implementation. Excluding
+    // System also removes the local bootstrap; LAN capture still uses its mark.
+    for (let scoped in [ false, true ]) {
+        let present = () => nft_state.fakeip_rule_present(family, RT_TABLE, scoped);
+        if (scoped && !excluded_router)
+            ensure_route(present, nft_state.fakeip_rule_args(family, RT_TABLE, "add"), "Failed to add the IPv" + family + " FakeIP routing rule");
+        else
+            while (present())
+                if (!exec.ok(nft_state.fakeip_rule_args(family, RT_TABLE, "del", scoped)))
+                    die("Failed to remove the IPv" + family + " FakeIP routing rule");
+    }
+}
+
 function ensure_tproxy_routing() {
     let ip = nft_state.IP_BIN;
     let mark = FAKEIP_MARK + "/" + FAKEIP_MARK;
     let router_mark = ROUTER_MARK + "/" + ROUTER_MARK;
+    let excluded_router = nft_state.router_excluded();
     if (!ensure_rt_table_entry())
         die("Failed to add the " + RT_TABLE + " routing table to " + paths.rt_tables);
     ensure_route(() => nft_state.tproxy_route4_present(RT_TABLE), [ ip, "route", "add", "local", "0.0.0.0/0", "dev", "lo", "table", RT_TABLE ],
         "Failed to add the IPv4 TProxy route");
+    // Eligible local sockets need a route before OUTPUT can mark them, even
+    // without a WAN default or with a tunnel's source policy.
+    // An unbound IPv4 socket would otherwise select its FakeIP destination as source.
+    ensure_route(() => nft_state.fakeip_route_present(4, RT_TABLE), [ ip, "-4", "route", "replace", "local", FAKEIP4,
+        "dev", "lo", "src", "127.0.0.1", "table", RT_TABLE ], "Failed to add the IPv4 FakeIP route");
+    ensure_fakeip_rule(4, excluded_router);
     ensure_route(() => nft_state.tproxy_marking_rule4_present(RT_TABLE, FAKEIP_MARK), [ ip, "-4", "rule", "add", "fwmark", mark, "table", RT_TABLE, "priority", "105" ],
         "Failed to add the IPv4 TProxy routing rule");
     ensure_route(() => nft_state.tproxy_marking_rule4_present(RT_TABLE, ROUTER_MARK), [ ip, "-4", "rule", "add", "fwmark", router_mark, "table", RT_TABLE, "priority", "105" ],
@@ -430,6 +451,9 @@ function ensure_tproxy_routing() {
             ", so Forkop cannot route that IPv6 traffic. Disable IPv6 on every interface or enable it on lo");
     ensure_route(() => nft_state.tproxy_route6_present(RT_TABLE), [ ip, "-6", "route", "add", "local", "::/0", "dev", "lo", "table", RT_TABLE ],
         "Failed to add the IPv6 TProxy route");
+    ensure_route(() => nft_state.fakeip_route_present(6, RT_TABLE), [ ip, "-6", "route", "replace", "local", FAKEIP6,
+        "dev", "lo", "src", "::1", "table", RT_TABLE ], "Failed to add the IPv6 FakeIP route");
+    ensure_fakeip_rule(6, excluded_router);
     ensure_route(() => nft_state.tproxy_marking_rule6_present(RT_TABLE, FAKEIP_MARK), [ ip, "-6", "rule", "add", "fwmark", mark, "table", RT_TABLE, "priority", "105" ],
         "Failed to add the IPv6 TProxy routing rule");
     ensure_route(() => nft_state.tproxy_marking_rule6_present(RT_TABLE, ROUTER_MARK), [ ip, "-6", "rule", "add", "fwmark", router_mark, "table", RT_TABLE, "priority", "105" ],

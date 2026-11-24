@@ -67,10 +67,12 @@ t.test("a process costs its processor time and the memory only it holds", () => 
     t.eq(health.process_usage(4343), null, "a process that is gone");
 });
 
-const RULE4 ="105:\tfrom all fwmark 0x4000000/0x4000000 lookup forkop\n";
+const MARK_RULE = "105:\tfrom all fwmark 0x4000000/0x4000000 lookup forkop\n";
+const RULE4 = MARK_RULE + "99: from all to 198.18.0.0/16 fwmark 0/0x8000000 iif lo lookup forkop\n";
+const RULE6 = MARK_RULE + "99: from all to 2001:2::/112 fwmark 0/0x8000000 iif lo lookup forkop\n";
 
-function snapshot(tables, route4, route6, rule4, rule6, ipv6_enabled) {
-    return nft_state.runtime_network_configured_snapshot({ tables, inet4: route4 + rule4, inet6: route6 + rule6, ipv6_enabled }, "ForkopTable", "0x04000000");
+function snapshot(tables, route4, route6, rule4, rule6, ipv6_enabled, router_excluded) {
+    return nft_state.runtime_network_configured_snapshot({ tables, inet4: route4 + rule4, inet6: route6 + rule6, ipv6_enabled, router_excluded }, "ForkopTable", "0x04000000");
 }
 
 const META = "{\"metainfo\":{\"version\":\"1.1.6\",\"json_schema_version\":1}}";
@@ -79,36 +81,50 @@ const PAUSE_RULE = "{\"rule\":{\"family\":\"inet\",\"table\":\"ForkopTable\",\"c
 
 t.test("the runtime network is up when the table captures and both routes and rules exist", () => {
     let json_tables = "{\"nftables\":[" + META + "," + PAUSE_CHAIN + "]}";
-    let route4 = "local default dev lo scope host\n";
-    let route6 = "local default dev lo metric 1024 pref medium\n";
-    t.ok(snapshot(json_tables, route4, route6, RULE4, RULE4));
-    t.ok(snapshot("table inet ForkopTable {\n\tchain capture_pause {\n\t}\n}\n", route4, route6, RULE4, RULE4), "an nft built without JSON output");
-    t.ok(!snapshot("{\"nftables\":[" + META + "," + PAUSE_CHAIN + "," + PAUSE_RULE + "]}", route4, route6, RULE4, RULE4),
+    let route4 = "local default dev lo scope host\nlocal 198.18.0.0/16 dev lo scope host src 127.0.0.1\n";
+    let route6 = "local default dev lo metric 1024 pref medium\nlocal 2001:2::/112 dev lo src ::1 metric 1024 pref medium\n";
+    t.ok(snapshot(json_tables, route4, route6, RULE4, RULE6));
+    t.ok(!snapshot(json_tables, replace(route4, /local 198[.]18[^\n]+\n/, ""), route6, RULE4, RULE6), "without the IPv4 FakeIP source route");
+    t.ok(!snapshot(json_tables, route4, replace(route6, "src ::1", "src 2001:db8::1"), RULE4, RULE6), "with the wrong IPv6 FakeIP source address");
+    t.ok(!snapshot(json_tables, route4, route6, MARK_RULE, RULE6), "without the IPv4 FakeIP rule");
+    t.ok(!snapshot(json_tables, route4, route6, RULE4, MARK_RULE), "without the IPv6 FakeIP rule");
+    t.ok(!snapshot(json_tables, route4, route6, RULE4, replace(RULE6, "99:", "102:")), "FakeIP must precede tunnel rules");
+    for (let unsafe in [ replace(RULE4, " fwmark 0/0x8000000 iif lo", ""),
+        replace(RULE4, " iif lo", ""), replace(RULE4, "0/0x8000000", "0/0x4000000") ])
+        t.ok(!snapshot(json_tables, route4, route6, unsafe, RULE6), "unscoped or incorrectly masked bootstrap is unhealthy");
+    t.ok(!snapshot(json_tables, route4, route6, RULE4 + "99: from all to 198.18.0.0/16 lookup forkop\n", RULE6),
+        "a surviving legacy rule still overrides the scoped rule");
+    t.ok(snapshot(json_tables, route4, route6, MARK_RULE, MARK_RULE, true, true), "excluded System needs no local bootstrap");
+    t.ok(!snapshot(json_tables, route4, route6, RULE4, RULE6, true, true), "excluded System must not retain bootstrap rules");
+    t.ok(!snapshot(json_tables, route4, route6, MARK_RULE, MARK_RULE + "99: from all to 2001:2::/112 lookup forkop\n", true, true),
+        "excluded System must not retain legacy rules either");
+    t.ok(snapshot("table inet ForkopTable {\n\tchain capture_pause {\n\t}\n}\n", route4, route6, RULE4, RULE6), "an nft built without JSON output");
+    t.ok(!snapshot("{\"nftables\":[" + META + "," + PAUSE_CHAIN + "," + PAUSE_RULE + "]}", route4, route6, RULE4, RULE6),
         "a capture paused for a reload captures nothing");
-    t.ok(!snapshot("table inet ForkopTable {\n\tchain capture_pause {\n\t\tcounter packets 0 bytes 0 accept\n\t}\n}\n", route4, route6, RULE4, RULE4));
-    t.ok(!snapshot("{\"nftables\":[" + META + "]}", route4, route6, RULE4, RULE4), "no table");
-    t.ok(!snapshot("table inet ForkopTable {\n}\n", route4, route6, RULE4, RULE4), "a table without the pause chain");
-    t.ok(!snapshot("{\"nftables\":[" + META + "," + replace(PAUSE_CHAIN, "ForkopTable", "OtherTable") + "]}", route4, route6, RULE4, RULE4),
+    t.ok(!snapshot("table inet ForkopTable {\n\tchain capture_pause {\n\t\tcounter packets 0 bytes 0 accept\n\t}\n}\n", route4, route6, RULE4, RULE6));
+    t.ok(!snapshot("{\"nftables\":[" + META + "]}", route4, route6, RULE4, RULE6), "no table");
+    t.ok(!snapshot("table inet ForkopTable {\n}\n", route4, route6, RULE4, RULE6), "a table without the pause chain");
+    t.ok(!snapshot("{\"nftables\":[" + META + "," + replace(PAUSE_CHAIN, "ForkopTable", "OtherTable") + "]}", route4, route6, RULE4, RULE6),
         "the chain of another table");
-    t.ok(!snapshot(json_tables, "", route6, RULE4, RULE4), "without the IPv4 route");
-    t.ok(!snapshot(json_tables, route4, route6, "105:\tfrom all fwmark 0x2000000/0x2000000 lookup forkop\n", RULE4), "a rule for another mark");
-    t.ok(snapshot(json_tables, route4, route6, RULE4, "105:\tfrom all fwmark 0x4000000/0x4000000 lookup podkop\n"),
+    t.ok(!snapshot(json_tables, "", route6, RULE4, RULE6), "without the IPv4 route");
+    t.ok(!snapshot(json_tables, route4, route6, replace(RULE4, /0x4000000/g, "0x2000000"), RULE6), "a rule for another mark");
+    t.ok(snapshot(json_tables, route4, route6, RULE4, replace(RULE6, /forkop/g, "podkop")),
         "another package may own the printed name of table 105");
 });
 
 t.test("with IPv6 off the runtime network is up on the IPv4 route and rule alone", () => {
     let tables = "table inet ForkopTable {\n\tchain capture_pause {\n\t}\n}\n";
-    let route4 = "local default dev lo scope host\n";
+    let route4 = "local default dev lo scope host\nlocal 198.18.0.0/16 dev lo scope host src 127.0.0.1\n";
     t.ok(snapshot(tables, route4, "", RULE4, "", false));
-    t.ok(snapshot(tables, route4, "", RULE4, RULE4, false), "a rule left from when IPv6 was on");
-    t.ok(!snapshot(tables, route4, "", RULE4, RULE4), "IPv6 on without its route");
+    t.ok(snapshot(tables, route4, "", RULE4, RULE6, false), "a rule left from when IPv6 was on");
+    t.ok(!snapshot(tables, route4, "", RULE4, RULE6), "IPv6 on without its route");
     t.ok(!snapshot(tables, route4, "", RULE4, "", true));
     t.ok(!snapshot(tables, "", "", RULE4, "", false), "without the IPv4 route");
 });
 
 t.test("the network check asks the kernel whether IPv6 is on", () => {
     let output = "table inet ForkopTable {\n\tchain capture_pause {\n\t}\n}\n@@forkop-runtime-snapshot@@\n" +
-        "local default dev lo scope host\n" + RULE4 + "@@forkop-runtime-snapshot@@\n";
+        "local default dev lo scope host\nlocal 198.18.0.0/16 dev lo scope host src 127.0.0.1\n" + RULE4 + "@@forkop-runtime-snapshot@@\n";
     let configured = (ipv6) => {
         fixture.kernel_ipv6(ipv6);
         stub.commands([ [ () => true, { stdout: output } ] ]);
@@ -120,6 +136,9 @@ t.test("the network check asks the kernel whether IPv6 is on", () => {
     t.ok(configured(null), "a kernel without IPv6");
     t.ok(!configured({ lo: "0", "br-lan": "1" }));
     t.ok(!configured({ lo: "1", "br-lan": "0" }), "IPv6 on an interface but not on lo");
+    fixture.seed({ settings: { routing_excluded_ips: "@system" } });
+    t.ok(configured(null), "unapplied exclusions do not change runtime liveness");
+    fixture.seed({ settings: {} });
 });
 
 t.test("the routing table registry entry is matched by id and name", () => {

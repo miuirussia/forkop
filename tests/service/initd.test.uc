@@ -112,6 +112,30 @@ t.test("a reload runs the lifecycle under the reload lock and asks for the trigg
     stub.restore();
 });
 
+for (let excluded in [ false, true ])
+    t.test("an automatic System exclusion toggle reloads an applied " + (excluded ? "excluded" : "captured") + " runtime", () => {
+        fresh({ routing_excluded_ips: excluded ? "" : "@system" });
+        fixture.kernel_ipv6(null);
+        let bootstrap = "99: from all to 198.18.0.0/16 fwmark 0/0x8000000 iif lo lookup forkop\n";
+        let output = "table inet ForkopTable {\n chain capture_pause {\n }\n}\n@@forkop-runtime-snapshot@@\n" +
+            "local default dev lo scope host\nlocal 198.18.0.0/16 dev lo scope host src 127.0.0.1\n" +
+            "105: from all fwmark 0x4000000/0x4000000 lookup forkop\n" + (excluded ? "" : bootstrap) +
+            "@@forkop-runtime-snapshot@@\n@@forkop-runtime-snapshot@@\n" +
+            "table inet ForkopTable {\n chain mangle_output {\n" +
+            (excluded ? " counter return\n" : " meta mark & 0x08000000 == 0x08000000 counter return\n") + " }\n}\n";
+        // Assume a stable process with ready ports, retaining the real routing health check.
+        health.forkop_stably_running = (rt, nft, mark) => nft_state.runtime_network_configured(nft, rt, mark);
+        hooks(true, [ [ () => true, () => ({ stdout: output }) ] ]);
+        t.eq(initd.reload("on_config_change"), { status: 0, sync: true });
+        t.eq(calls, [ "lifecycle reload on_config_change", "reload lock held" ]);
+        if (!excluded) {
+            output = replace(output, bootstrap, "");
+            t.ok(!nft_state.runtime_network_configured("ForkopTable", "forkop", "0x04000000"),
+                "a missing bootstrap is unhealthy even while the committed config excludes System");
+        }
+        stub.restore();
+    });
+
 t.test("a reload of a service procd does not hold does nothing, and one procd gave no answer about runs", () => {
     fresh();
     running = true;

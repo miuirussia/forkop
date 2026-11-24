@@ -271,7 +271,7 @@ function routing(ip_state) {
         [ "/sbin/ip -4 rule list table forkop", { stdout: ip_state?.rule4 ?? "" } ],
         [ "/sbin/ip -6 rule list table forkop", { stdout: ip_state?.rule6 ?? "" } ],
         [ "/sbin/ip -4 rule list priority 104", { stdout: ip_state?.rule104 ?? "" } ],
-        [ /'\/sbin\/ip'.* 'add' /, {} ],
+        [ /'\/sbin\/ip'.* '(add|replace)' /, {} ],
         [ "nft -t list table inet ForkopTable", { status: 1 } ],
         [ /^'nft' '-f' '-'/, { status: ip_state?.nft_status ?? 0 } ]
     ];
@@ -290,6 +290,9 @@ t.test("applying the table sets up its routing once and hands nft the whole scri
     for (let line in [ "/sbin/ip route add local 0.0.0.0/0 dev lo table forkop", "/sbin/ip -6 route add local ::/0 dev lo table forkop",
         "/sbin/ip -4 rule add fwmark 0x04000000/0x04000000 table forkop priority 105", "/sbin/ip -6 rule add fwmark 0x04000000/0x04000000 table forkop priority 105",
         "/sbin/ip -4 rule add fwmark 0x10000000/0x10000000 table forkop priority 105", "/sbin/ip -6 rule add fwmark 0x10000000/0x10000000 table forkop priority 105",
+        "/sbin/ip -4 rule add to 198.18.0.0/16 iif lo fwmark 0/0x08000000 lookup forkop priority 99", "/sbin/ip -6 rule add to 2001:2::/112 iif lo fwmark 0/0x08000000 lookup forkop priority 99",
+        "/sbin/ip -4 route replace local 198.18.0.0/16 dev lo src 127.0.0.1 table forkop",
+        "/sbin/ip -6 route replace local 2001:2::/112 dev lo src ::1 table forkop",
         "/sbin/ip -4 rule add iif lo fwmark 0x04000000/0x04000000 lookup main priority 104" ])
         t.contains(commands, line);
     t.eq(filter(commands, (line) => index(line, "-6 rule add iif lo") >= 0), [], "IPv6 checks no source by a lookup");
@@ -298,16 +301,17 @@ t.test("applying the table sets up its routing once and hands nft the whole scri
     t.eq(split(transactions[0].stdin, "\n")[0], "add table inet ForkopTable");
     t.eq(r.logs, [], "setting the routing up is a routine step and is not reported");
 
-    let present = routing({ route4: "local default dev lo scope host", route6: "local default dev lo metric 1024 pref medium",
-        rule4: "105: from all fwmark 0x4000000/0x4000000 lookup forkop\n105: from all fwmark 0x10000000/0x10000000 lookup forkop",
-        rule6: "105: from all fwmark 0x4000000/0x4000000 lookup podkop\n105: from all fwmark 0x10000000/0x10000000 lookup podkop",
+    let present = routing({ route4: "local default dev lo scope host\nlocal 198.18.0.0/16 dev lo scope host src 127.0.0.1",
+        route6: "local default dev lo metric 1024 pref medium\nlocal 2001:2::/112 dev lo src ::1 metric 1024 pref medium",
+        rule4: "99: from all to 198.18.0.0/16 fwmark 0/0x8000000 iif lo lookup forkop\n105: from all fwmark 0x4000000/0x4000000 lookup forkop\n105: from all fwmark 0x10000000/0x10000000 lookup forkop",
+        rule6: "99: from all to 2001:2::/112 fwmark 0/0x8000000 iif lo lookup podkop\n105: from all fwmark 0x4000000/0x4000000 lookup podkop\n105: from all fwmark 0x10000000/0x10000000 lookup podkop",
         rule104: "104:\tfrom all fwmark 0x4000000/0x4000000 iif lo lookup main" });
     fs.writefile(nft.paths.rt_tables, "105 forkop\n");
     stub.commands(present.handlers);
     nft.apply(nft.build());
     commands = stub.command_lines();
     stub.restore();
-    t.eq(filter(commands, (line) => index(line, " add ") >= 0), [], "routing that is in place is left alone");
+    t.eq(filter(commands, (line) => index(line, " add ") >= 0 || index(line, " replace ") >= 0), [], "routing that is in place is left alone");
     t.eq(present.logs, [], "and nothing is reported about it");
 });
 
@@ -327,6 +331,26 @@ t.test("a router with IPv6 off everywhere, or a kernel without IPv6, gets IPv4 r
         t.eq(filter(commands, (line) => index(line, " -6 ") >= 0), [], "nothing is asked of IPv6");
         t.eq(length(filter(calls, (c) => c.argv[0] == "nft" && c.argv[1] == "-f")), 1, "the table is applied");
     }
+});
+
+t.test("excluding System omits bootstrap rules and a failed legacy removal aborts setup", () => {
+    fixture.seed({ settings: { routing_excluded_ips: "@system" } });
+    let r = routing();
+    stub.commands(r.handlers);
+    nft.apply(nft.build());
+    let commands = stub.command_lines();
+    stub.restore();
+    t.eq(filter(commands, (line) => index(line, "rule add to ") >= 0), [], "no bootstrap for excluded System");
+    t.contains(commands, "/sbin/ip -4 rule add fwmark 0x04000000/0x04000000 table forkop priority 105", "LAN routing remains");
+
+    fixture.seed({ settings: {} });
+    r = routing({ rule4: "99: from all to 198.18.0.0/16 lookup forkop\n" });
+    stub.commands([ [ "/sbin/ip -4 rule del to 198.18.0.0/16 lookup forkop priority 99", { status: 1 } ], ...r.handlers ]);
+    let e = t.throws(() => nft.apply(nft.build()));
+    commands = stub.command_lines();
+    stub.restore();
+    t.eq(e.message, "Failed to remove the IPv4 FakeIP routing rule");
+    t.eq(filter(commands, (line) => index(line, "nft -f") == 0), [], "unsafe rules must not be left behind a successful apply");
 });
 
 t.test("IPv6 left on some interfaces but off on lo is refused, since that traffic would bypass Forkop", () => {
