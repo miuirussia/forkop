@@ -19,8 +19,12 @@ function interval(value) {
     return seconds;
 }
 
+function invoke(args) {
+    return exec.combined([ paths.binary, "--disable-color", "geodata", ...args ]);
+}
+
 function command(args) {
-    let result = exec.combined([ paths.binary, "--disable-color", "geodata", ...args ]);
+    let result = invoke(args);
     if (result.status != 0)
         die(trim(result.output) || "sing-box geodata command failed");
 }
@@ -84,16 +88,30 @@ function download(source, path) {
         die("Geodata download through the section was incomplete");
 }
 
+function missing_tags(directory, tags) {
+    return filter(tags, (tag) => (fs.stat(directory + "/" + tag + ".srs")?.size ?? 0) <= 0);
+}
+
 function compile(source, dat, index_path, directory, tags) {
+    let missing = missing_tags(directory, tags);
+    if (length(missing) == 0)
+        return;
     if (!common.ensure_dir(directory))
         die("Cannot create geodata SRS directory");
-    for (let tag in tags) {
-        let path = directory + "/" + tag + ".srs";
-        if (fs.stat(path) != null)
-            continue;
-        progress(source[".name"], "compile");
-        command([ "export", "--kind", source.kind, "--file", dat, "--index", index_path, "--tag", tag, "--output", path ]);
-    }
+    progress(source[".name"], "compile");
+    let tags_path = directory + "/.export-tags.json";
+    if (!common.write_file_atomic(tags_path, sprintf("%J\n", missing)))
+        die("Cannot write geodata export tags");
+    let args = [ "export", "--kind", source.kind, "--file", dat, "--index", index_path ];
+    let result = invoke([ ...args, "--tags-file", tags_path, "--output", directory ]);
+    fs.unlink(tags_path);
+    if (result.status == 0)
+        return;
+    // Older cores recognize the single-tag export and reject the batch flag.
+    if (!match(result.output, /^Error: unknown flag: --tags-file(\r?\n|$)/))
+        die(trim(result.output) || "sing-box geodata command failed");
+    for (let tag in missing)
+        command([ ...args, "--tag", tag, "--output", directory + "/" + tag + ".srs" ]);
 }
 
 // The live core only reads SRS, so the previous generation needs no second
@@ -214,7 +232,7 @@ function collect_removed_sources() {
 
 function reusable(source, active, tags) {
     return active != null && active.source == source.input && active.kind == source.kind &&
-        length(filter(tags, (tag) => (fs.stat(active.directory + "/" + tag + ".srs")?.size ?? 0) <= 0)) == 0;
+        length(missing_tags(active.directory, tags)) == 0;
 }
 
 // A proxy download cannot prepare a cold configuration until its outbounds run.

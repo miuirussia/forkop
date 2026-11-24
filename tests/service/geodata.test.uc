@@ -25,7 +25,7 @@ function setup(extra) {
     fixture.seed(config);
     service.paths.binary = "fake-sing-box";
     service.paths.job = root + "/job.json";
-    let state = { sha: "a", fail: false, invalid: false, exports: 0, fetches: 0 };
+    let state = { sha: "a", fail: false, invalid: false, exports: 0, batches: [], fetches: 0 };
     stub.commands([ [ (argv) => argv[0] == "fake-sing-box", (argv) => {
         if (index(argv, "list") >= 0) {
             if (state.invalid)
@@ -36,10 +36,20 @@ function setup(extra) {
             return { status: 0 };
         }
         if (index(argv, "export") >= 0) {
-            state.exports++;
-            if (state.fail)
-                return { status: 1, stdout: "tag not found" };
-            fs.writefile(argument(argv, "--output"), "SRS-" + state.sha);
+            let batch = index(argv, "--tags-file") >= 0;
+            let tags = batch ? json(fs.readfile(argument(argv, "--tags-file"))) : [ argument(argv, "--tag") ];
+            if (batch) {
+                push(state.batches, tags);
+                if (state.legacy)
+                    return { status: 1, stdout: "Error: unknown flag: --tags-file\nUsage:\n" };
+            }
+            let output = argument(argv, "--output");
+            for (let tag in tags) {
+                state.exports++;
+                if (state.fail || state.fail_tag == tag)
+                    return { status: 1, stdout: "tag not found" };
+                fs.writefile(batch ? output + "/" + tag + ".srs" : output, "SRS-" + state.sha);
+            }
             return { status: 0 };
         }
         if (index(argv, "fetch") >= 0) {
@@ -70,13 +80,20 @@ t.test("DAT references have stable source IDs and validated tags", () => {
 
 t.test("only required tags compile, and shared references reuse the same SRS", () => {
     let run = setup();
+    push(run.config.section[0].rule_set, "dat:sites:google@!cn", "dat:sites:youtube");
+    fixture.seed(run.config);
     service.prepare();
     let active = sources.active("sites");
-    t.eq(run.state.exports, 1);
+    t.eq(run.state.batches, [ [ "youtube", "google@!cn" ] ]);
+    t.eq(run.state.exports, 2);
     t.eq(active.tag_count, 2);
     t.eq(fs.readfile(sources.resolve("dat:sites:youtube")), "SRS-a");
     service.prepare();
-    t.eq(run.state.exports, 1, "an unchanged Apply performs no extra conversion");
+    t.eq(length(run.state.batches), 1, "an unchanged Apply performs no extra conversion");
+    push(run.config.section[0].rule_set, "dat:sites:google@cn");
+    fixture.seed(run.config);
+    service.prepare();
+    t.eq(run.state.batches[1], [ "google@cn" ]);
     let built = generator.build({ service_address: "192.168.1.1" });
     let local = filter(built.route.rule_set, (entry) => entry.path == active.directory + "/youtube.srs");
     t.eq(length(local), 1);
@@ -86,18 +103,34 @@ t.test("only required tags compile, and shared references reuse the same SRS", (
     stub.restore();
 });
 
+t.test("older cores fall back to exporting missing tags individually", () => {
+    let run = setup();
+    run.state.legacy = true;
+    push(run.config.section[0].rule_set, "dat:sites:google");
+    fixture.seed(run.config);
+    service.prepare();
+    t.eq(run.state.batches, [ [ "youtube", "google" ] ]);
+    t.eq(run.state.exports, 2);
+    t.eq(fs.readfile(sources.resolve("dat:sites:youtube")), "SRS-a");
+    t.eq(fs.readfile(sources.resolve("dat:sites:google")), "SRS-a");
+    stub.restore();
+});
+
 t.test("a failed refresh preserves the active SRS and reports the source error", () => {
     let run = setup();
+    push(run.config.section[0].rule_set, "dat:sites:google");
+    fixture.seed(run.config);
     service.prepare();
     let previous = sources.active("sites");
     run.state.sha = "b";
-    run.state.fail = true;
+    run.state.fail_tag = "google";
     t.eq(service.run("sites", false), false);
+    t.eq(run.state.exports, 4, "a real batch failure does not retry with single exports");
     t.eq(sources.active("sites").revision, previous.revision);
     t.eq(fs.readfile(sources.resolve("dat:sites:youtube")), "SRS-a");
     t.eq(service.status().job.phase, "error");
     t.contains(service.status().sources[0].error, "tag not found");
-    run.state.fail = false;
+    delete run.state.fail_tag;
     t.eq(service.run("sites", false), true);
     t.eq(fs.readfile(sources.resolve("dat:sites:youtube")), "SRS-b");
     t.eq(service.status().sources[0].error, "");
