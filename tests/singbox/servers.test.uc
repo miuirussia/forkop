@@ -35,4 +35,35 @@ t.test("a server runs with a security mode its protocol accepts, whatever is sto
         t.eq(servers.effective_security({ security: entry[1] }, entry[0]), entry[2], entry[0] + " stored as '" + entry[1] + "'");
 });
 
+t.test("inbound clones carry internal DNS and client identities without widening device or captured DNS rules", () => {
+    for (let client in [ { auth_user: "laptop" }, { source_ip_cidr: [ "10.8.0.2/32" ] } ]) {
+        let route = { inbound: [ "tproxy-in", "tproxy6-in" ], action: "route", outbound: "vpn", port: [ 443 ] };
+        let internal = { inbound: [ "tproxy-in", "tproxy6-in" ], action: "route", server: "vpn-domain-resolver" };
+        let dns_rules = [
+            internal,
+            { ...internal, source_ip_cidr: [ "192.168.1.2/32" ] },
+            { type: "logical", mode: "and", rules: [ { inbound: "tproxy-in" }, { source_ip_cidr: [ "192.168.1.3/32" ] } ],
+                action: "route", server: "device-resolver" },
+            { ...internal, server: "fakeip-server" },
+            { ...internal, inbound: [ "tproxy-in", "source-dns-in" ] },
+            { ...internal, inbound: [ "tproxy-in", "system-dns-in" ] },
+            { ...internal, inbound: [ "tproxy-in", "dns-in" ] }
+        ];
+        let config = { route: { rules: [ route ] }, dns: { rules: [ ...dns_rules ] } };
+        servers.clone_rules_for_inbound(config, "tproxy-in", "Office", "", client);
+        t.eq(config.route.rules, [ route, { ...route, inbound: "Office", ...client } ]);
+        t.eq(config.dns.rules, [ internal, { ...internal, inbound: "Office", ...client }, ...slice(dns_rules, 1) ]);
+    }
+});
+
+t.test("cloned DNS policies keep section order and client identity before an unscoped fallback", () => {
+    for (let client in [ {}, { auth_user: "laptop" }, { source_ip_cidr: [ "10.8.0.2/32" ] } ]) {
+        let internal = { inbound: [ "tproxy-in", "tproxy6-in" ], action: "route", server: "section-resolver" };
+        let lower = { domain: "app.example", action: "route", server: "lower-resolver" };
+        let config = { route: { rules: [] }, dns: { rules: [ internal, lower ] } };
+        servers.clone_rules_for_inbound(config, "tproxy-in", "Office", "", client);
+        t.eq(config.dns.rules, [ internal, { ...internal, inbound: "Office", ...client }, lower ]);
+    }
+});
+
 t.done();

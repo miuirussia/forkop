@@ -87,7 +87,7 @@ t.test("several DNS servers become native fallback groups with their own query m
             outbound_jsons: [ "{\"type\":\"direct\",\"tag\":\"fixture\"}" ], destinations: "example.org"
         } ]
     });
-    t.eq(length(multi.dns.servers), 8, "four candidates, two groups, the local resolver and FakeIP");
+    t.eq(length(multi.dns.servers), 11, "global and section resolver groups, the local resolver and FakeIP");
     t.eq(length(multi.inbounds), 7);
     let bootstrap = q.dns_server_tag(multi, "bootstrap-dns-server");
     let main = q.dns_server_tag(multi, "dns-server");
@@ -133,7 +133,8 @@ t.test("static records answer from a hosts server after the sections and before 
     t.ok(resolve_at >= 0 && resolve_at < section_at, "records pin the address before a section routes the connection");
     for (let rule in records.route.rules)
         if (rule.action == "resolve" && rule.server != "hosts-server" && rule.domain != "ip.podkop.fyi")
-            t.eq(rule.server, null, "section resolve rules follow dns.rules");
+            t.eq(rule.rules[length(rule.rules) - 1], { domain: records.dns.rules[hosts_at].domain, invert: true },
+                "section resolution leaves the pinned records in place");
 });
 
 t.test("no records, no hosts server", () => {
@@ -265,6 +266,145 @@ t.test("DNS timeout reaches the core as configured", () => {
     t.eq(config.dns.optimistic, null);
     t.eq(config.dns.independent_cache, null);
     t.eq(config.experimental.cache_file.store_subscriptions, true);
+});
+
+t.test("each connection section resolves through its own outbound using the common DNS list", () => {
+    let config = build({
+        settings: { ...DNS, dns_server: [ "https://dns.example/dns-query", "tcp://9.9.9.9:5353" ], dns_main_fallback_strategy: "sequential" },
+        section: [
+            { ".name": "first", label: "First exit", action: "connection", destinations: "same.example", source_ip_cidr: [ "192.0.2.10/32" ],
+                outbound_jsons: [ '{"type":"socks","server":"127.0.0.1","server_port":1080}' ] },
+            { ".name": "second", label: "Second exit", action: "connection", destinations: "same.example", source_ip_cidr: [ "192.0.2.20/32" ],
+                rule_set: [ "/tmp/section-domains.json" ], ports: [ "443" ],
+                outbound_jsons: [ '{"type":"socks","server":"127.0.0.1","server_port":1081}' ] }
+        ]
+    });
+    for (let entry in [ [ "first", "First exit" ], [ "second", "Second exit" ] ]) {
+        let group = q.dns_server_tag(config, entry[0] + "-domain-resolver");
+        t.eq([ group.type, group.strategy ], [ "fallback", "sequential" ]);
+        let servers = map(group.servers, (tag) => q.dns_server_tag(config, tag));
+        t.eq(map(servers, (server) => server.detour), [ entry[1], entry[1] ]);
+        t.eq([ servers[0].server, servers[0].domain_resolver, servers[1].server_port ], [ "dns.example", "bootstrap-dns-server", 5353 ]);
+        for (let i, rule in config.route.rules) {
+            if (rule.action != "route" || rule.outbound != entry[1])
+                continue;
+            let resolve = config.route.rules[i - 1];
+            t.eq([ resolve.action, resolve.server ], [ "resolve", null ], "DNS rules choose the section's resolver");
+            let matchers = { ...resolve };
+            delete matchers.action;
+            delete matchers.server;
+            let route_matchers = { ...rule };
+            delete route_matchers.action;
+            delete route_matchers.outbound;
+            t.eq(matchers, route_matchers, "domain, rule-set, source and port constraints also apply to resolution");
+        }
+    }
+    t.eq(q.dns_server_tag(config, "dns-server-1").detour, null, "unmatched DNS uses its configured route");
+    let records = q.dns_rule(config, (rule) => rule.server == "first-domain-resolver");
+    t.eq([ records.inbound, records.source_ip_cidr, records.domain_suffix, records.query_type ], [
+        [ "source-dns-in", "tproxy-in", "tproxy6-in" ], "192.0.2.10/32", [ "same.example" ], null
+    ], "client queries and internal lookups follow the same domain and device policy");
+    t.ok(q.dns_rule(config, (rule) => rule.server == "second-domain-resolver") != null,
+        "DNS chooses by domain and device; the application port only constrains routing");
+});
+
+t.test("a bypass resolves directly even when unmatched DNS uses another section", () => {
+    let config = build({ settings: { ...DNS, dns_detour_enabled: "1", dns_detour_section: "vpn" }, section: [
+        { ".name": "direct", action: "bypass", destinations: "direct.example" },
+        { ".name": "vpn", action: "connection", destinations: "vpn.example", outbound_jsons: [ '{"type":"direct"}' ] },
+        { ".name": "off", enabled: "0", action: "connection", outbound_jsons: [ '{"type":"direct"}' ] }
+    ] });
+    t.eq(q.dns_server_tag(config, "direct-domain-resolver").detour, "direct-out");
+    t.eq(q.dns_server_tag(config, "vpn-domain-resolver-udp").detour, "vpn");
+    t.eq(q.dns_server_tag(config, "off-domain-resolver"), null);
+    t.eq(q.dns_rule(config, (rule) => q.has(rule.domain_suffix, "direct.example")).server, "direct-domain-resolver");
+    t.eq(config.route.default_domain_resolver, "bootstrap-dns-server", "proxy endpoints can start before the detoured DNS");
+});
+
+t.test("HTTP exits can retry ordinary DNS over TCP without changing unmatched DNS", () => {
+    for (let address in [ "77.88.8.8", "udp://dns.example:5353" ]) {
+        let config = build({ settings: { ...DNS, dns_server: [ address ] }, section: [
+            { ".name": "http", action: "connection", destinations: "example.org",
+                outbound_jsons: [ '{"type":"http","server":"127.0.0.1","server_port":8080}' ] }
+        ] });
+        let resolver = q.dns_server_tag(config, "http-domain-resolver");
+        t.eq([ resolver.type, resolver.strategy ], [ "fallback", "sequential" ]);
+        let servers = map(resolver.servers, (tag) => q.dns_server_tag(config, tag));
+        t.eq(map(servers, (server) => server.type), [ "udp", "tcp" ]);
+        let original = q.dns_server_tag(config, "dns-server");
+        t.eq([ original.type, original.detour ], [ "udp", null ]);
+        for (let server in servers)
+            t.eq([ server.server, server.server_port, server.domain_resolver, server.detour ],
+                [ original.server, original.server_port, original.domain_resolver, "http" ]);
+        t.ok(q.dns_rule(config, (rule) => rule.server == resolver.tag && q.has(rule.domain_suffix, "example.org")) != null);
+    }
+});
+
+t.test("SOCKS4 destination lookups keep DNS section priority before the section resolver", () => {
+    for (let source in [ "json", "link" ]) {
+        let data = { settings: DNS, section: [
+            { ".name": "higher", action: "dns", destinations: "private.example", dns_server: [ "10.0.0.53" ] },
+            { ".name": "vpn", action: "connection", destinations: "private.example\npublic.example", ports: [ "443" ] },
+            { ".name": "lower", action: "dns", destinations: "public.example", dns_server: [ "10.0.0.54" ] }
+        ] };
+        if (source == "json")
+            data.section[1].outbound_jsons = [ '{"type":"socks","version":"4","tag":"exit","server":"127.0.0.1","server_port":1080}' ];
+        else
+            data.connection_link = [ { ".name": "exit", section: "vpn", name: "exit", uri: "socks4://127.0.0.1:1080" } ];
+        let config = build(data);
+        let higher = q.dns_rule_index(config, (rule) => rule.server == "higher-dns-server");
+        let fallback = q.dns_rule_index(config, (rule) => rule.server == "vpn-domain-resolver");
+        let lower = q.dns_rule_index(config, (rule) => rule.server == "lower-dns-server");
+        t.ok(higher >= 0 && higher < fallback && fallback < lower, source + ": native lookups keep section order");
+        t.eq(config.dns.rules[fallback].server, "vpn-domain-resolver");
+        for (let rule in config.dns.rules)
+            t.eq(rule.outbound, null, "DNS policy uses domain matchers, without the deprecated outbound matcher");
+        for (let rule in config.route.rules)
+            if (rule.action == "resolve")
+                t.eq(rule.server, null, "lookups evaluate DNS rules before choosing a transport");
+        t.ok(q.route_rule(config, (rule) => rule.outbound == "vpn" && q.has(rule.port, 443)) != null,
+            "the connection still routes at the configured port");
+    }
+});
+
+t.test("an interface's own resolver keeps responsibility for its section's destinations", () => {
+    for (let enabled in [ "1", "0" ]) {
+        let config = build({ settings: DNS,
+            section: [ { ".name": "vpn", action: "connection", destinations: "corp.example",
+                fully_routed_ips: [ "192.0.2.10/32" ] } ],
+            section_interface: [ { ".name": "work", section: "vpn", name: "tun0",
+                domain_resolver_enabled: enabled, domain_resolver_dns_server: [ "10.0.0.53" ] } ]
+        });
+        t.eq(q.outbound(config, "vpn/tun0").domain_resolver,
+            enabled == "1" ? "vpn-interface-1-domain-resolver" : null);
+        let resolves = filter(config.route.rules, (rule) => rule.action == "resolve");
+        if (enabled == "1")
+            t.eq(resolves, [], "neither section rules nor service and whole-device rules preempt the interface's DNS");
+        else
+            t.ok(length(resolves) > 0, "an interface without its own resolver uses the section's DNS");
+        t.ok(q.route_rule(config, (rule) => rule.action == "route" && rule.outbound == "vpn") != null);
+    }
+});
+
+t.test("whole-device DNS returns real addresses while explicit domain rules keep FakeIP", () => {
+    let config = build({ settings: DNS, section: [
+        { ".name": "vpn", action: "connection", destinations: "explicit.example",
+            fully_routed_ips: [ "192.0.2.10/32", "@system" ], outbound_jsons: [ '{"type":"direct"}' ] }
+    ] });
+    for (let inbound in [ "source-dns-in", "system-dns-in" ]) {
+        let fakeip = q.dns_rule(config, (rule) => rule.server == "fakeip-server" && q.has(rule.inbound, inbound) && rule.domain == null);
+        t.eq(fakeip, null, "the whole-device fallback does not synthesize addresses");
+        t.ok(q.dns_rule(config, (rule) => rule.server == "vpn-domain-resolver" && q.has(rule.inbound, inbound) && rule.query_type == null) != null);
+        t.ok(q.dns_rule(config, (rule) => rule.server == "dnsmasq-server" && q.has(rule.inbound, inbound) && rule.domain_regex == "^[^.]+$") != null);
+    }
+    t.ok(q.dns_rule(config, (rule) => rule.server == "fakeip-server" && q.has(rule.domain_suffix, "explicit.example")) != null);
+    for (let rule in config.dns.rules)
+        t.ok(rule.action != "evaluate" && rule.action != "respond", "ordinary DNS routing needs no response evaluation");
+    t.ok(q.route_rule(config, (rule) => rule.action == "resolve" && rule.server == null && q.has(rule.source_ip_cidr, "192.0.2.10/32")) != null);
+    let internal = q.dns_rule(config, (rule) => rule.server == "vpn-domain-resolver" && rule.type == "logical" &&
+        q.has(rule.rules[0].inbound, "tproxy-in") && q.has(rule.rules[0].source_ip_cidr, "192.0.2.10/32"));
+    t.ok(internal != null, "the whole-device policy also covers internal lookups");
+    t.contains(internal.rules, { protocol: "dns", invert: true }, "captured DNS keeps its separate policy");
 });
 
 t.done();

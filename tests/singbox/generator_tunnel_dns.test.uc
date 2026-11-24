@@ -44,6 +44,11 @@ for (let kind in keys(TUNNELS)) {
         let rule_index = q.dns_rule_index(config, (rule) => rule.preferred_by == "vpn/Work");
         t.eq(config.dns.rules[rule_index], { preferred_by: "vpn/Work", action: "route", server: "vpn/Work" });
         t.ok(rule_index > q.dns_rule_index(config, is_client_catch_all), "after the rule every captured query stops at");
+        t.eq(q.route_rule(config, (rule) => rule.action == "resolve"), null,
+            "the endpoint can select its server's DNS before the common DNS is queried");
+        let ignored = build(current, { accept_server_dns: "0" });
+        t.ok(q.route_rule(ignored, (rule) => rule.action == "resolve" && rule.server == null) != null,
+            "without server DNS, the section resolves through its own outbound");
     });
     t.test(current + " bootstrap resolves internal DAT hosts through the tunnel's DNS", () => {
         let data = tunnel_fixture(current);
@@ -66,12 +71,23 @@ for (let kind in keys(TUNNELS)) {
     });
 }
 
-t.test("the switch adds only the tunnel's rule and leaves every client answer as it was", () => {
+t.test("accepting server DNS leaves FakeIP answers intact and delegates internal address lookups", () => {
     let accepted = build("openconnect");
     let ignored = build("openconnect", { accept_server_dns: "0" });
     t.eq(q.dns_server_tag(ignored, "vpn/Work"), null);
     t.eq(q.dns_rule(ignored, (rule) => rule.preferred_by != null), null);
-    t.eq(slice(accepted.dns.rules, 0, -1), ignored.dns.rules);
+    let shared = (config) => filter(config.dns.rules, (rule) => rule.preferred_by == null &&
+        rule.server != "vpn-domain-resolver" && rule.server != "vpn/Work");
+    t.eq(shared(accepted), shared(ignored));
+    let preferred_at = q.dns_rule_index(accepted, (rule) => rule.type == "logical" && rule.server == "vpn/Work");
+    t.eq(accepted.dns.rules[preferred_at].rules, [
+        { domain_suffix: [ "corp.example" ], query_type: [ "A", "AAAA" ] }, { preferred_by: "vpn/Work" }
+    ], "preferred address lookups use tunnel DNS before the section fallback");
+    t.ok(preferred_at < q.dns_rule_index(accepted, (rule) => rule.server == "vpn-domain-resolver"));
+    t.eq(q.dns_rule(accepted, (rule) => rule.server == "vpn-domain-resolver").query_type, null,
+        "non-preferred addresses also have a section resolver");
+    t.eq(q.dns_rule(ignored, (rule) => rule.server == "vpn-domain-resolver").query_type, null,
+        "without server DNS, address lookups use the section policy");
     t.eq(accepted.dns.final, ignored.dns.final);
 });
 

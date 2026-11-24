@@ -94,7 +94,7 @@ t.test("1.0.5: each section routes what it routed, and the DPI sections route no
     let own = rule(built105, "Main proxy", (item) => sb.has(item.domain_suffix, "example.com"));
     t.eq([ own.domain, own.domain_keyword, own.ip_cidr, own.port, own.port_range ],
         [ [ "exact.example.org" ], [ "tracker" ], [ "203.0.113.0/24" ], [ 443 ], [ "8000:8100" ] ]);
-    let lists = sb.route_rule(built105, (item) => item.type == "logical" && sb.has(item.rules[0].inbound, "tproxy-in") &&
+    let lists = sb.route_rule(built105, (item) => item.action == "route" && item.type == "logical" && sb.has(item.rules[0].inbound, "tproxy-in") &&
         sb.has(item.rules[0].rule_set, "main-youtube-community-ruleset"));
     t.eq([ lists.outbound, lists.rules[0].rule_set, lists.rules[1].port ], [ "Main proxy", [
         "main-youtube-community-ruleset", "inline-custom-3d6e62992dfe-ruleset", "inline-custom-0bd84540f447-ruleset",

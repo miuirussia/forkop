@@ -240,9 +240,18 @@ function add_server_group(result, values, canonical_tag, strategy, create_server
     return "";
 }
 
-function add_uri_server_group(result, values, canonical_tag, strategy, detour, ip_only) {
+function add_uri_server_group(result, values, canonical_tag, strategy, detour, ip_only, udp_tcp_fallback) {
     return add_server_group(result, values, canonical_tag, strategy, function(tag_name, value) {
-        return server_from_uri(tag_name, value, detour, ip_only);
+        let server = server_from_uri(tag_name, value, detour, ip_only);
+        if (!udp_tcp_fallback || server.type != "udp")
+            return server;
+
+        // A selector can choose a TCP-only proxy, including one supplied at runtime.
+        // Keep the configured UDP server first and retry the same server through TCP.
+        let udp_tag = tag_name + "-udp";
+        let tcp_tag = tag_name + "-tcp";
+        push(result, { ...server, tag: udp_tag }, { ...server, type: "tcp", tag: tcp_tag });
+        return { type: "fallback", tag: tag_name, servers: [ udp_tag, tcp_tag ], strategy: "sequential" };
     });
 }
 

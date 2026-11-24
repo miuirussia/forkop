@@ -168,11 +168,13 @@ t.test("list update settings reach remote rule sets, and ports constrain the who
         } ]
     });
     t.eq(q.first_remote_ruleset(disabled).update_interval, null, "disabled list updates omit the interval");
-    t.eq(q.route_rule(disabled, (r) => r.action == "resolve"), null);
+    let resolve = q.route_rule(disabled, (r) => r.action == "resolve" && r.type == "logical");
+    t.eq(resolve.server, null, "the lookup follows DNS rules instead of forcing a transport");
     let route = q.route_rule(disabled, (r) => r.type == "logical" && r.outbound == "proxy");
     t.ok(route != null && length(route.rules) == 2 &&
         has(route.rules[0].rule_set, q.first_remote_ruleset(disabled).tag) && has(route.rules[1].port, 8443),
         "section ports constrain the complete rule-set matcher");
+    t.eq(resolve.rules, route.rules, "resolution uses the same section constraints as routing");
 
     let defaults = build({
         settings: settings(),
@@ -412,7 +414,10 @@ t.test("device-scoped sections keep FakeIP and their priority in DNS rules", () 
     let proxy_below = q.dns_rule_index(m, (r) => r.server == "fakeip-server" && has(r.domain_suffix, "example.org") && r.source_ip_cidr == null);
     t.ok(bypass_at >= 0 && proxy_below > bypass_at, "a source-scoped port bypass keeps its priority over a lower proxy");
     let scoped_at = q.dns_rule_index(m, (r) => r.server == "fakeip-server" && has(r.domain, "source-priority.test") && has(r.source_ip_cidr, "10.0.0.2/32"));
-    let bypass_below = q.dns_rule_index(m, (r) => r.server == "dns-server" && has(r.domain, "source-priority.test") && r.source_ip_cidr == null);
+    let bypass_below = q.dns_rule_index(m, (r) => {
+        let identity = r.type == "logical" ? r.rules[0] : r;
+        return r.server == "dns-server" && has(identity.domain, "source-priority.test") && identity.source_ip_cidr == null;
+    });
     t.ok(scoped_at >= 0 && bypass_below > scoped_at, "a source-scoped proxy keeps its priority over a lower bypass");
     let scoped_route = q.route_rule_index(m, (r) => r.outbound == "proxy" && has(r.domain, "source-priority.test") && has(r.source_ip_cidr, "10.0.0.2/32"));
     let bypass_route = q.route_rule_index(m, (r) => r.outbound == "direct-out" && has(r.domain, "source-priority.test") && r.source_ip_cidr == null);
@@ -545,7 +550,7 @@ t.test("a section's DNS rule reads only the domains of its rule sets, its route 
     for (let rule in d.dns.rules)
         if (rule.rule_set != null)
             t.eq(rule.rule_set_domain_only, true, sprintf("%J", rule));
-    let route = q.route_rule(d, (r) => has(r.rule_set, geoip));
+    let route = q.route_rule(d, (r) => r.action == "route" && has(r.rule_set, geoip));
     t.eq([ route.outbound, route.rule_set_domain_only ], [ "direct-out", null ], "the subnets still select traffic");
 });
 
@@ -557,7 +562,7 @@ t.test("the FakeIP check goes direct ahead of every section, so its address is t
         let check = d.route.rules[check_at];
         t.eq([ check.action, check.outbound, check.override_port, check.inbound ], [ "route", "direct-out", 8443, null ]);
         t.ok(check_at < q.route_rule_index(d, (r) => r.outbound == "proxy" && r.domain == null), sprintf("%J", section));
-        t.eq(q.route_rule(d, (r) => r.domain == "ip.podkop.fyi").outbound, "proxy", "the exit check still takes the section");
+        t.eq(q.route_rule(d, (r) => r.action == "route" && r.domain == "ip.podkop.fyi").outbound, "proxy", "the exit check still takes the section");
     }
 });
 
@@ -875,7 +880,8 @@ t.test("fully routed devices follow their section at its priority", () => {
         "a fully routed bypass takes real addresses for every domain");
     t.ok(q.dns_rule(f, (r) => r.server == "dns-server" && has(r.inbound, "system-dns-in") && r.source_ip_cidr == null && every_query(r)) != null,
         "the System bypass takes real addresses from the server unmatched queries use");
-    t.eq(q.dns_rule(f, (r) => has(r.source_ip_cidr, "192.168.1.40/32")), null, "a fully routed proxy keeps the normal FakeIP policy");
+    t.ok(q.dns_rule(f, (r) => r.server == "proxy-domain-resolver" && has(r.source_ip_cidr, "192.168.1.40/32") &&
+        every_query(r)) != null, "a fully routed proxy receives real addresses from its section's DNS");
 
     let higher = q.dns_rule_index(f, (r) => r.server == "fakeip-server" && has(r.domain_suffix, "forced-higher.test"));
     let forced = q.dns_rule_index(f, (r) => r.server == "dns-server" && has(r.source_ip_cidr, "192.168.1.20/32") && every_query(r));

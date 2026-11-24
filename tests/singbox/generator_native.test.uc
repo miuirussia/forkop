@@ -116,27 +116,59 @@ t.test("an OpenVPN server with an IPv6 subnet routes IPv6 too, and one told othe
 });
 
 t.test("a client of an OpenVPN server takes its own route by the name on its certificate", () => {
-    let data = openvpn_server({ routing_mode: "direct" }, [
+    let data = openvpn_server({ routing_mode: "direct", routing_section: "exit" }, [
         { ".name": "laptop", server: "office", name: "Laptop", openvpn_certificate: "C", openvpn_key: "K",
             openvpn_certificate_sha256: "aa", routing_override: "1", routing_mode: "section", routing_section: "exit" },
         { ".name": "phone", server: "office", name: "Phone", openvpn_certificate: "C", openvpn_key: "K",
-            openvpn_certificate_sha256: "bb", routing_override: "1", routing_mode: "rules" }
+            openvpn_certificate_sha256: "bb", routing_override: "1", routing_mode: "rules" },
+        { ".name": "direct", server: "office", name: "Direct", openvpn_certificate: "C", openvpn_key: "K",
+            openvpn_certificate_sha256: "cc", routing_override: "1", routing_mode: "direct", routing_section: "exit" }
     ]);
     push(data.section, { ".name": "exit", enabled: "1", action: "connection", outbound_jsons: [ "{\"type\":\"direct\"}" ],
         destinations: "exit.example" });
     fixture.seed(data);
     let config = generator.build({ service_address: "127.0.0.1" });
     let identity = (rule) => rule.type == "logical" ? rule.rules[0] : rule;
-    let laptop_at = q.route_rule_index(config, (rule) => rule.inbound == "Office" && rule.auth_user == "laptop");
+    let laptop_at = q.route_rule_index(config, (rule) => rule.action == "route" && rule.inbound == "Office" && rule.auth_user == "laptop");
     let server_at = q.route_rule_index(config, (rule) => rule.inbound == "Office" && rule.auth_user == null && rule.outbound == "direct-out");
     t.ok(laptop_at >= 0 && server_at > laptop_at, "the client's rule comes before the rule of its server");
     t.eq(config.route.rules[laptop_at].outbound, "exit");
+    t.eq(config.route.rules[laptop_at - 1], { action: "resolve", inbound: "Office", auth_user: "laptop" });
     t.ok(q.route_rule(config, (rule) => identity(rule).inbound == "Office" && identity(rule).auth_user == "phone" &&
         rule.outbound == "exit") != null, "a client that follows the rules gets the rules under its section");
+    t.ok(q.route_rule(config, (rule) => identity(rule).inbound == "Office" && identity(rule).auth_user == "phone" &&
+        rule.action == "resolve" && rule.server == null) != null, "the client's lookup follows DNS rules too");
+    t.eq(q.route_rule(config, (rule) => rule.inbound == "Office" && rule.action == "resolve" && rule.auth_user == "direct"), null);
+    t.eq(q.route_rule(config, (rule) => rule.inbound == "Office" && rule.action == "resolve" && rule.auth_user == null), null);
     t.eq(filter(config.route.rules, (rule) => identity(rule).auth_user == "Laptop" || identity(rule).auth_user == "Phone"), []);
 });
 
 const SERVER_KEY = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=";
+
+t.test("forced server DNS follows section priority and excludes clients with their own routes", () => {
+    let data = openvpn_server({ routing_mode: "section", routing_section: "vpn" }, [
+        { ".name": "other", server: "office", routing_override: "1", routing_mode: "section", routing_section: "exit" },
+        { ".name": "direct", server: "office", routing_override: "1", routing_mode: "direct" },
+        { ".name": "rules", server: "office", routing_override: "1", routing_mode: "rules" }
+    ]);
+    data.section[0].outbound_jsons = [ '{"type":"direct"}' ];
+    unshift(data.section, { ".name": "higher", action: "dns", destinations: "policy.example", dns_server: [ "10.0.0.53" ] });
+    push(data.section,
+        { ".name": "lower", action: "dns", destinations: "other.example", dns_server: [ "10.0.0.54" ] },
+        { ".name": "exit", action: "connection", outbound_jsons: [ '{"type":"direct"}' ] }
+    );
+    fixture.seed(data);
+    let config = generator.build({ service_address: "127.0.0.1" });
+    let server_at = q.dns_rule_index(config, (rule) => rule.server == "vpn-domain-resolver" && rule.type == "logical" &&
+        rule.rules[0].inbound == "Office");
+    t.ok(server_at > q.dns_rule_index(config, (rule) => rule.server == "higher-dns-server"));
+    t.ok(server_at < q.dns_rule_index(config, (rule) => rule.server == "lower-dns-server"));
+    t.eq(config.dns.rules[server_at].rules, [ { inbound: "Office" },
+        { auth_user: "other", invert: true }, { auth_user: "direct", invert: true }, { auth_user: "rules", invert: true }
+    ], "a server fallback cannot capture overridden accounts, including a later section");
+    t.ok(q.dns_rule(config, (rule) => rule.server == "exit-domain-resolver" && rule.inbound == "Office" &&
+        rule.auth_user == "other") != null);
+});
 
 function wireguard_server(server, clients) {
     let data = openvpn_server();

@@ -572,31 +572,49 @@ function identity_rule(rule) {
     return rule.type == "logical" ? rule.rules?.[0] : rule;
 }
 
-function clone_rules_for_inbound(config, source_inbound, target_inbound, skip_domain, client) {
-    let cloned_rules = [];
-    for (let rule in array_or_empty(config.route.rules)) {
-        if (type(rule) != "object")
-            continue;
-        if (rule.action != "route" && rule.action != "reject")
-            continue;
-        let identity = identity_rule(rule);
-        if (type(identity) != "object" || !value_contains(identity.inbound, source_inbound))
-            continue;
-        if (skip_domain != "" && value_contains(identity.domain, skip_domain))
-            continue;
-        // Device filters name the router's clients, which a server's are not.
-        if (length(filter(rule.type == "logical" ? rule.rules : [ rule ], (part) => part?.source_ip_cidr != null)) > 0)
-            continue;
+function clone_rules_for_inbound(config, source_inbound, target_inbound, skip_domain, client, dns_exclusions) {
+    for (let kind in [ "route", "dns" ]) {
+        let rules = array_or_empty(config[kind].rules);
+        let cloned_rules = [];
+        for (let rule in rules) {
+            if (kind == "dns")
+                push(cloned_rules, rule);
+            if (type(rule) != "object")
+                continue;
+            if (rule.action != "route" && rule.action != "reject" && rule.action != "resolve")
+                continue;
+            let identity = identity_rule(rule);
+            if (type(identity) != "object" || !value_contains(identity.inbound, source_inbound))
+                continue;
+            if (skip_domain != "" && value_contains(identity.domain, skip_domain))
+                continue;
+            // Only internal DNS policies follow the cloned traffic rules.
+            if (kind == "dns" && (rule.server == runtime_constants.FAKEIP_DNS_SERVER_TAG ||
+                value_contains(identity.inbound, runtime_constants.DNS_INBOUND_TAG) ||
+                value_contains(identity.inbound, runtime_constants.SOURCE_DNS_INBOUND_TAG) ||
+                value_contains(identity.inbound, runtime_constants.SYSTEM_DNS_INBOUND_TAG)))
+                continue;
+            // Device filters name the router's clients, which a server's are not.
+            if (length(filter(rule.type == "logical" ? rule.rules : [ rule ], (part) => part?.source_ip_cidr != null)) > 0)
+                continue;
 
-        let cloned = clone(rule);
-        let cloned_identity = identity_rule(cloned);
-        cloned_identity.inbound = target_inbound;
-        for (let key, value in client ?? {})
-            cloned_identity[key] = value;
-        push(cloned_rules, cloned);
+            let cloned = clone(rule);
+            let cloned_identity = identity_rule(cloned);
+            cloned_identity.inbound = target_inbound;
+            for (let key, value in client ?? {})
+                cloned_identity[key] = value;
+            // Internal-only lookup policies are logical ANDs. Account overrides
+            // must not inherit the server's shared lookup policy.
+            if (kind == "dns" && length(dns_exclusions) > 0)
+                push(cloned.rules, ...dns_exclusions);
+            push(cloned_rules, cloned);
+        }
+        if (kind == "dns")
+            config.dns.rules = cloned_rules;
+        else
+            for (let cloned_rule in cloned_rules)
+                push(rules, cloned_rule);
     }
-    for (let cloned_rule in cloned_rules)
-        push(config.route.rules, cloned_rule);
 }
 
 return {
