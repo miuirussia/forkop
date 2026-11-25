@@ -602,6 +602,14 @@ function urltest_check_interval(section, value) {
     return option(urltest_child(section, value), "check_interval", "3m");
 }
 
+function urltest_probe_timeout(section, value) {
+    return trim(option(urltest_child(section, value), "probe_timeout", ""));
+}
+
+function urltest_probe_concurrency(section, value) {
+    return trim(option(urltest_child(section, value), "probe_concurrency", ""));
+}
+
 function urltest_tolerance(section, value) {
     return option(urltest_child(section, value), "tolerance", "50");
 }
@@ -787,6 +795,8 @@ return {
     interface_domain_resolver_dns_detour_enabled,
     interface_domain_resolver_dns_detour_section,
     urltest_check_interval,
+    urltest_probe_timeout,
+    urltest_probe_concurrency,
     urltest_tolerance,
     urltest_testing_url,
     urltest_expected_status,

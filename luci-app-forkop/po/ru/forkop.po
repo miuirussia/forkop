@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 23:50+0300\n"
-"PO-Revision-Date: 2026-11-22 23:50+0300\n"
+"POT-Creation-Date: 2026-11-25 14:28+0300\n"
+"PO-Revision-Date: 2026-11-25 14:28+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1655,6 +1655,12 @@ msgstr "Макс. скорость от клиента, Мбит/с"
 msgid "Max speed to a client, Mbps"
 msgstr "Макс. скорость к клиенту, Мбит/с"
 
+msgid "Maximum simultaneous checks per TCP or UDP sweep"
+msgstr "Максимум одновременных проверок за один прогон TCP или UDP"
+
+msgid "Maximum time to check one server"
+msgstr "Максимальное время проверки одного сервера"
+
 msgid "Maximum time to wait for a DNS response"
 msgstr "Максимальное время ожидания ответа DNS"
 
@@ -2017,6 +2023,9 @@ msgstr "Параллельно"
 
 msgid "Parallel asks every server at once and is faster. Sequential asks them in turn until the first answer"
 msgstr "Параллельно — запрос всем сразу, быстрее. Последовательно — по очереди до первого ответа"
+
+msgid "Parallel checks"
+msgstr "Параллельные проверки"
 
 msgid "Parameters after ? are not supported"
 msgstr "Параметры после ? не поддерживаются"
@@ -3073,6 +3082,9 @@ msgstr "Настройки URLTest"
 
 msgid "URLTest: %s"
 msgstr "URLTest: %s"
+
+msgid "Use a positive duration up to 1 minute"
+msgstr "Укажите положительное время до 1 минуты"
 
 msgid "Use an interval from 5m to 365d, for example 12h or 1d"
 msgstr "Укажите интервал от 5m до 365d, например 12h или 1d"

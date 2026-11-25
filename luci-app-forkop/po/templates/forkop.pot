@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-22 23:50+0300\n"
-"PO-Revision-Date: 2026-11-22 23:50+0300\n"
+"POT-Creation-Date: 2026-11-25 14:28+0300\n"
+"PO-Revision-Date: 2026-11-25 14:28+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -652,6 +652,7 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
 #: fe-app-forkop/src/forkop/tabs/sections/fallback.ts
+#: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
 msgid "Check timeout"
 msgstr ""
 
@@ -2310,6 +2311,14 @@ msgstr ""
 msgid "Max speed to a client, Mbps"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
+msgid "Maximum simultaneous checks per TCP or UDP sweep"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
+msgid "Maximum time to check one server"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/settings/form/dns.ts
 msgid "Maximum time to wait for a DNS response"
 msgstr ""
@@ -2821,6 +2830,10 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/sections/interfaces.ts
 #: fe-app-forkop/src/forkop/tabs/settings/form/dns.ts
 msgid "Parallel asks every server at once and is faster. Sequential asks them in turn until the first answer"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
+msgid "Parallel checks"
 msgstr ""
 
 #: fe-app-forkop/src/helpers/parseOpenConnectConfig.ts
@@ -4287,6 +4300,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
 msgid "URLTest: %s"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
+msgid "Use a positive duration up to 1 minute"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/services/geodata.service.ts

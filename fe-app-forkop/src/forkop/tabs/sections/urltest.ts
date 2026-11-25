@@ -29,7 +29,10 @@ import {
   validateSectionChildListName,
 } from './outboundNames';
 import { optionMapValue } from './subscriptions/model';
-import { validateRequiredSingBoxDuration } from '../../../validators/validateSingBoxDuration';
+import {
+  singBoxDurationNanoseconds,
+  validateRequiredSingBoxDuration,
+} from '../../../validators/validateSingBoxDuration';
 
 function validateUrlTestTolerance(value: unknown) {
   const normalized = `${value ?? ''}`.trim();
@@ -45,6 +48,8 @@ function urlTestSettingsKeys() {
   return [
     'name',
     'check_interval',
+    'probe_timeout',
+    'probe_concurrency',
     'tolerance',
     'testing_url',
     'expected_status',
@@ -113,6 +118,39 @@ function addUrlTestItemOptions(
   o.default = '3m';
   o.validate = function (_itemId: string, value: unknown) {
     return validateRequiredSingBoxDuration(value);
+  };
+
+  o = itemSection.option(
+    form.Value,
+    'probe_timeout',
+    _('Check timeout'),
+    _('Maximum time to check one server'),
+  );
+  o.placeholder = '5s';
+  o.rmempty = true;
+  o.validate = function (_itemId: string, value: unknown) {
+    if (!`${value ?? ''}`.trim()) return true;
+    const nanoseconds = singBoxDurationNanoseconds(value);
+    return nanoseconds != null && nanoseconds >= 1 && nanoseconds <= 60e9
+      ? true
+      : _('Use a positive duration up to 1 minute');
+  };
+
+  o = itemSection.option(
+    form.Value,
+    'probe_concurrency',
+    _('Parallel checks'),
+    _('Maximum simultaneous checks per TCP or UDP sweep'),
+  );
+  o.placeholder = '10';
+  o.rmempty = true;
+  o.validate = function (_itemId: string, value: unknown) {
+    const normalized = `${value ?? ''}`.trim();
+    if (!normalized) return true;
+    const count = Number(normalized);
+    return /^[0-9]+$/.test(normalized) && count >= 1 && count <= 64
+      ? true
+      : message.wholeNumber(1, 64);
   };
 
   o = itemSection.option(

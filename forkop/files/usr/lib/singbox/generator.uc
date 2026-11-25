@@ -1072,6 +1072,19 @@ function build_urltest_outbound(section, item, urltest_candidate_tags, candidate
     if (length(providers) > 0)
         urltest_outbound.providers = providers;
     merge_object(urltest_outbound, urltest_provider_filter(section, urltest_id));
+    let probe_timeout = connections.urltest_probe_timeout(section, urltest_id);
+    if (probe_timeout != "") {
+        let nanoseconds = common.duration_to_nanoseconds(probe_timeout);
+        if (nanoseconds == null || nanoseconds > 60000000000)
+            runtime_generate_unsupported("Invalid URLTest timeout for '" + item.tag + "'. Use a positive duration up to 1 minute");
+        // Integer units keep the core from rounding fractions differently from validation.
+        urltest_outbound.timeout = nanoseconds % 1000000000 == 0
+            ? sprintf("%ds", nanoseconds / 1000000000)
+            : sprintf("%dns", nanoseconds);
+    }
+    let probe_concurrency = connections.urltest_probe_concurrency(section, urltest_id);
+    if (probe_concurrency != "")
+        urltest_outbound.concurrency = int(probe_concurrency, 10);
     let idle_timeout = connections.urltest_idle_timeout(section, urltest_id);
     if (idle_timeout != "")
         urltest_outbound.idle_timeout = idle_timeout;

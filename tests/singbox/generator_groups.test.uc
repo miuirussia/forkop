@@ -77,20 +77,38 @@ t.test("each URLTest group carries its own settings, in list order in the select
         urltest: [
             {
                 ".name": "cfg010001", section: "proxy", name: "Fast URLTest", check_interval: "30s", tolerance: "50",
-                testing_url: "https://fast.example/204", idle_timeout: "45s", interrupt_exist_connections: "0"
+                testing_url: "https://fast.example/204", probe_timeout: " 8s ", probe_concurrency: " 16 ",
+                idle_timeout: "45s", interrupt_exist_connections: "0"
             },
             {
                 ".name": "cfg010002", section: "proxy", name: "Stable URLTest", check_interval: "5m", tolerance: "120",
+                probe_timeout: " ", probe_concurrency: " ",
                 testing_url: "https://stable.example/204", interrupt_exist_connections: "1"
             }
         ]
     });
     let fast = q.outbound(config, "proxy/Fast URLTest");
     t.eq([ fast.url, fast.interval, fast.idle_timeout, fast.interrupt_exist_connections ], [ "https://fast.example/204", "30s", "45s", false ]);
+    t.eq([ fast.timeout, fast.concurrency ], [ "8s", 16 ]);
     let stable = q.outbound(config, "proxy/Stable URLTest");
     t.eq([ stable.url, stable.interval, stable.tolerance, stable.interrupt_exist_connections ], [ "https://stable.example/204", "5m", 120, true ]);
+    t.eq([ stable.timeout, stable.concurrency ], [ null, null ]);
     let selector = q.outbound(config, "proxy");
     t.eq(slice(selector.outbounds, 0, 2), [ "proxy/Fast URLTest", "proxy/Stable URLTest" ]);
+});
+
+t.test("URLTest probe timeouts serialize without fractional rounding in the core", () => {
+    let config = build({
+        settings: { log_level: "warn" },
+        section: [ { ".name": "proxy", enabled: "1", action: "connection" } ],
+        connection_link: fixture.links("proxy", LINKS),
+        urltest: [
+            { ".name": "limit", section: "proxy", name: "Limit", probe_timeout: "1m0.999999999999999999999999999999ns" },
+            { ".name": "fraction", section: "proxy", name: "Fraction", probe_timeout: "1.25s1ns" }
+        ]
+    });
+    t.eq(q.outbound(config, "proxy/Limit").timeout, "60s");
+    t.eq(q.outbound(config, "proxy/Fraction").timeout, "1250000001ns");
 });
 
 t.test("a latency difference of 0 reaches the core as the smallest it honours", () => {

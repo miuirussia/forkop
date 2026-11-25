@@ -836,6 +836,46 @@ t.test("bad URLTest tolerance", () => {
     }, "Use a number from 0 to 10000");
 });
 
+t.test("URLTest probe settings enforce the core's bounds", () => {
+    let urltest = { ".name": "fast", section: "proxy", name: "Fast", probe_timeout: "1m1ns" };
+    let config = {
+        settings: {},
+        section: [ { ".name": "proxy", enabled: "1", action: "connection" } ],
+        urltest: [ urltest ]
+    };
+    v.refuses(config, "Use a positive duration up to 1 minute");
+    urltest.probe_timeout = "0.9ns0.9ns";
+    v.refuses(config, "Use a positive duration up to 1 minute");
+    urltest.probe_timeout = "0.54m27.6s0.9ns";
+    v.accepts(config, { sing_box_version: "1.14.4-r17" });
+    urltest.probe_timeout = "1m0.999999999999999999999999999999ns";
+    v.accepts(config, { sing_box_version: "1.14.4-r17" });
+    urltest.probe_concurrency = "65";
+    v.refuses(config, "Use a number from 1 to 64");
+    urltest.probe_concurrency = "0";
+    v.refuses(config, "Use a number from 1 to 64");
+    urltest.probe_concurrency = "18446744073709551617";
+    v.refuses(config, "Use a number from 1 to 64");
+});
+
+t.test("explicit URLTest probe settings require sing-box-forkop r17", () => {
+    let urltest = { ".name": "fast", section: "proxy", name: "Fast", probe_timeout: " ", probe_concurrency: " " };
+    let config = {
+        settings: {},
+        section: [ { ".name": "proxy", enabled: "1", action: "connection" } ],
+        urltest: [ urltest ]
+    };
+    let old_core = { sing_box_version: "1.14.4-r16" };
+    v.accepts(config, old_core);
+    urltest.probe_timeout = " 5s ";
+    v.refuses(config, "require sing-box-forkop 1.14.4-r17 or newer", old_core);
+    urltest.probe_timeout = "";
+    urltest.probe_concurrency = " 10 ";
+    v.refuses(config, "require sing-box-forkop 1.14.4-r17 or newer", old_core);
+    urltest.probe_timeout = "5s";
+    v.accepts(config, { sing_box_version: "1.14.4-r17" });
+});
+
 t.test("bad URLTest expected status", () => {
     v.refuses({
         "settings": {},

@@ -144,8 +144,7 @@ function strip_internal_fields(value) {
     return value;
 }
 
-// Go duration syntax ("3m", "1h30m", "1.5s") as whole seconds, or null.
-function duration_to_seconds(value) {
+function duration_value(value, nanoseconds) {
     let rest = as_string(value);
     if (rest == "")
         return null;
@@ -166,11 +165,34 @@ function duration_to_seconds(value) {
         if (!matched)
             return null;
 
-        total += (matched[1] * 1) * multipliers[matched[3]];
+        let multiplier = multipliers[matched[3]];
+        if (nanoseconds) {
+            multiplier = int(multiplier * 1000000000 + 0.5);
+            let amounts = split(matched[1], ".");
+            let fraction = amounts[1] ?? "";
+            let part = 0;
+            // Accumulate the decimal fraction without counting sub-nanosecond parts.
+            for (let i = length(fraction) - 1; i >= 0; i--)
+                part = int((part + int(substr(fraction, i, 1)) * multiplier) / 10);
+            total += (amounts[0] * 1.0) * multiplier + part;
+        }
+        else {
+            total += (matched[1] * 1) * multiplier;
+        }
         rest = substr(rest, length(matched[0]));
     }
 
-    return total <= 0 ? null : int(total + 0.5);
+    return total > 0 ? total : null;
+}
+
+// Go duration syntax as whole seconds, or null.
+function duration_to_seconds(value) {
+    let seconds = duration_value(value, false);
+    return seconds == null ? null : int(seconds + 0.5);
+}
+
+function duration_to_nanoseconds(value) {
+    return duration_value(value, true);
 }
 
 function parse_number(value) {
@@ -265,6 +287,7 @@ return {
     monotonic_ms,
     strip_internal_fields,
     duration_to_seconds,
+    duration_to_nanoseconds,
     parse_number,
     option,
     words,

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   isSingBoxDuration,
+  singBoxDurationNanoseconds,
   validateOptionalSingBoxDuration,
   validateRequiredSingBoxDuration,
 } from '../validateSingBoxDuration';
@@ -20,6 +21,16 @@ describe('isSingBoxDuration', () => {
       expect(isSingBoxDuration(value)).toBe(false);
     },
   );
+});
+
+describe('singBoxDurationNanoseconds', () => {
+  it.each([
+    ['1m1ns', 60e9 + 1],
+    ['0.54m27.6s0.9ns', 60e9],
+    ['0.9ns0.9ns', 0],
+  ])('converts %s to %i nanoseconds', (value, nanoseconds) => {
+    expect(singBoxDurationNanoseconds(value)).toBe(nanoseconds);
+  });
 });
 
 describe('validateOptionalSingBoxDuration', () => {

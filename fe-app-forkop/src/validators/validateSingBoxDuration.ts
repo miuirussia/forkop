@@ -17,12 +17,32 @@ const UNIT_SECONDS: Record<string, number> = {
 
 // The seconds a duration stands for, or null when it is none.
 export function singBoxDurationSeconds(value: unknown) {
+  return parseDuration(value, (amount, seconds) => Number(amount) * seconds);
+}
+
+export function singBoxDurationNanoseconds(value: unknown) {
+  return parseDuration(value, (amount, seconds) => {
+    const unit = Math.round(seconds * 1e9);
+    const [whole, fraction = ''] = amount.split('.');
+    let part = 0;
+    // Discard sub-nanosecond parts within each duration component.
+    for (let i = fraction.length - 1; i >= 0; i--) {
+      part = Math.floor((part + Number(fraction[i]) * unit) / 10);
+    }
+    return Number(whole) * unit + part;
+  });
+}
+
+function parseDuration(
+  value: unknown,
+  toUnits: (amount: string, unitSeconds: number) => number,
+) {
   const text = `${value ?? ''}`.trim();
   if (!isSingBoxDuration(text)) {
     return null;
   }
   return [...text.matchAll(/([0-9]+(?:\.[0-9]+)?)(ns|us|ms|s|m|h|d)/g)].reduce(
-    (total, [, amount, unit]) => total + Number(amount) * UNIT_SECONDS[unit],
+    (total, [, amount, unit]) => total + toUnits(amount, UNIT_SECONDS[unit]),
     0,
   );
 }

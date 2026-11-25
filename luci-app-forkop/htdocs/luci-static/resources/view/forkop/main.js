@@ -18462,12 +18462,26 @@ var UNIT_SECONDS = {
   d: 86400
 };
 function singBoxDurationSeconds(value) {
+  return parseDuration(value, (amount, seconds3) => Number(amount) * seconds3);
+}
+function singBoxDurationNanoseconds(value) {
+  return parseDuration(value, (amount, seconds3) => {
+    const unit = Math.round(seconds3 * 1e9);
+    const [whole2, fraction = ""] = amount.split(".");
+    let part2 = 0;
+    for (let i = fraction.length - 1; i >= 0; i--) {
+      part2 = Math.floor((part2 + Number(fraction[i]) * unit) / 10);
+    }
+    return Number(whole2) * unit + part2;
+  });
+}
+function parseDuration(value, toUnits) {
   const text8 = `${value ?? ""}`.trim();
   if (!isSingBoxDuration(text8)) {
     return null;
   }
   return [...text8.matchAll(/([0-9]+(?:\.[0-9]+)?)(ns|us|ms|s|m|h|d)/g)].reduce(
-    (total, [, amount, unit]) => total + Number(amount) * UNIT_SECONDS[unit],
+    (total, [, amount, unit]) => total + toUnits(amount, UNIT_SECONDS[unit]),
     0
   );
 }
@@ -29332,6 +29346,8 @@ function urlTestSettingsKeys() {
   return [
     "name",
     "check_interval",
+    "probe_timeout",
+    "probe_concurrency",
     "tolerance",
     "testing_url",
     "expected_status",
@@ -29387,6 +29403,33 @@ function addUrlTestItemOptions(itemSection, options = {}) {
   o.default = "3m";
   o.validate = function(_itemId, value) {
     return validateRequiredSingBoxDuration(value);
+  };
+  o = itemSection.option(
+    form.Value,
+    "probe_timeout",
+    _("Check timeout"),
+    _("Maximum time to check one server")
+  );
+  o.placeholder = "5s";
+  o.rmempty = true;
+  o.validate = function(_itemId, value) {
+    if (!`${value ?? ""}`.trim()) return true;
+    const nanoseconds = singBoxDurationNanoseconds(value);
+    return nanoseconds != null && nanoseconds >= 1 && nanoseconds <= 6e10 ? true : _("Use a positive duration up to 1 minute");
+  };
+  o = itemSection.option(
+    form.Value,
+    "probe_concurrency",
+    _("Parallel checks"),
+    _("Maximum simultaneous checks per TCP or UDP sweep")
+  );
+  o.placeholder = "10";
+  o.rmempty = true;
+  o.validate = function(_itemId, value) {
+    const normalized = `${value ?? ""}`.trim();
+    if (!normalized) return true;
+    const count = Number(normalized);
+    return /^[0-9]+$/.test(normalized) && count >= 1 && count <= 64 ? true : message.wholeNumber(1, 64);
   };
   o = itemSection.option(
     form.Value,

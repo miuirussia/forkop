@@ -33,6 +33,7 @@ const CONFIG_NAME = "forkop";
 const DEFAULT_LATENCY_TEST_URL = "https://www.gstatic.com/generate_204";
 const AUTODETECT_REQUIRED_VERSION = "1.14.4-r8";
 const AUTODETECT_PORTS_REQUIRED_VERSION = "1.14.4-r9";
+const URLTEST_PROBE_SETTINGS_REQUIRED_VERSION = "1.14.4-r17";
 const TAILSCALE_FWMARK_MASK = 0x00ff0000;
 
 function string_starts_with(value, prefix) {
@@ -1124,6 +1125,22 @@ function validate_rule(section, sections, context) {
             let urltest = "URLTest '" + connections.urltest_display_name(section, urltest_id) + "' in section '" + section_label(section) + "'";
             let check_interval = connections.urltest_check_interval(section, urltest_id);
             validate_required_duration_option(check_interval, "'Check interval' of " + urltest);
+            let probe_timeout = connections.urltest_probe_timeout(section, urltest_id);
+            if (probe_timeout != "") {
+                let nanoseconds = core_common.duration_to_nanoseconds(probe_timeout);
+                if (nanoseconds == null || nanoseconds > 60000000000)
+                    fail_validation("Invalid 'Check timeout' of " + urltest + ". Use a positive duration up to 1 minute");
+            }
+            let probe_concurrency = connections.urltest_probe_concurrency(section, urltest_id);
+            if (probe_concurrency != "") {
+                let count = int(probe_concurrency, 10);
+                if (match(probe_concurrency, /^[0-9]+$/) == null || !(count >= 1 && count <= 64))
+                    fail_validation("Invalid 'Parallel checks' of " + urltest + ". Use a number from 1 to 64");
+            }
+            if ((probe_timeout != "" || probe_concurrency != "") &&
+                !core_version.version_at_least(context.sing_box_version, URLTEST_PROBE_SETTINGS_REQUIRED_VERSION))
+                fail_validation("'Check timeout' and 'Parallel checks' of " + urltest + " require sing-box-forkop " +
+                    URLTEST_PROBE_SETTINGS_REQUIRED_VERSION + " or newer. Update sing-box-forkop or leave both fields empty");
             validate_urltest_tolerance_value(connections.urltest_tolerance(section, urltest_id), urltest);
             validate_http_url_option(connections.urltest_testing_url(section, urltest_id), "'Check URL' of " + urltest);
             if (!expected_status_valid(connections.urltest_expected_status(section, urltest_id)))
