@@ -130,6 +130,7 @@ export namespace Forkop {
     code: string;
     displayName: string;
     latency: number;
+    latencyFailed?: boolean;
     type: string;
     selected: boolean;
     link?: string;
@@ -143,6 +144,7 @@ export namespace Forkop {
     code: string;
     displayName: string;
     latency: number;
+    latencyFailed?: boolean;
     type: string;
     selected: boolean;
     subscriptionTag?: string;

@@ -345,7 +345,10 @@ function renderDefaultState({
     ]
       .filter(Boolean)
       .join(' ');
-    const latencyClass = latencyClassName(outbound.latency);
+    const latencyClass = latencyClassName(
+      outbound.latency,
+      outbound.latencyFailed,
+    );
     const latencyValue = outbound.latency ? `${outbound.latency}ms` : _('N/A');
     const latency = showLatency
       ? E(
@@ -598,12 +601,17 @@ function renderDefaultState({
           { class: 'fkp_dashboard-page__outbound-section__current-name' },
           renderFlagEmojis(selected.displayName),
         ),
-        ...(selected.latency
+        ...(selected.latency || selected.latencyFailed
           ? [
               E(
                 'span',
-                { class: latencyClassName(selected.latency) },
-                `${selected.latency}ms`,
+                {
+                  class: latencyClassName(
+                    selected.latency,
+                    selected.latencyFailed,
+                  ),
+                },
+                selected.latencyFailed ? _('N/A') : `${selected.latency}ms`,
               ),
             ]
           : []),

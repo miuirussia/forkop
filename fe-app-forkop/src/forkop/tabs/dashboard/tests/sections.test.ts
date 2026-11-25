@@ -98,7 +98,14 @@ function textOf(node: FakeNode | string): string {
   return typeof node === 'string' ? node : node.children.map(textOf).join('');
 }
 
-const containers: Record<string, { children: FakeNode[] }> = {};
+const containers: Record<
+  string,
+  {
+    children: FakeNode[];
+    querySelectorAll(): FakeNode[];
+    replaceChildren(...nodes: FakeNode[]): void;
+  }
+> = {};
 let overlayActive = true;
 let shownModal: FakeNode | null = null;
 const stored = new Map<string, string>();
@@ -107,10 +114,11 @@ const COLLAPSED_KEY = 'forkop:dashboard-collapsed-sections:v1';
 function container(id: string) {
   containers[id] ||= {
     children: [],
+    querySelectorAll: () => [],
     replaceChildren(...nodes: FakeNode[]) {
       this.children = nodes;
     },
-  } as { children: FakeNode[] };
+  };
   return containers[id];
 }
 
@@ -299,6 +307,671 @@ describe('the dashboard toolbar', () => {
       'Subscriptions updated',
       'success',
     );
+  });
+});
+
+describe('failed manual latency tests', () => {
+  const currentClass = 'fkp_dashboard-page__outbound-section__current';
+  const latencyClass = 'fkp_dashboard-page__outbound-grid__item__latency';
+
+  function root() {
+    return container('dashboard-sections-grid').children[0];
+  }
+
+  function click(className: string) {
+    const button = findByClass(root(), className);
+    expect(button).not.toBeNull();
+    (button!.attrs.click as (event: MouseEvent) => void)({
+      preventDefault() {},
+      stopPropagation() {},
+    } as MouseEvent);
+  }
+
+  it.each([
+    { success: false, error: 'Timeout', status: 504 },
+    { success: false, error: 'unreachable' },
+    { success: true, data: { delay: 0 } },
+  ])(
+    'shows red N/A after a proxy test returns %j, until a successful retry',
+    async (response) => {
+      const data = [section('first'), section('second')];
+      data[0].outbounds[0].latency = 80;
+      stored.set(COLLAPSED_KEY, JSON.stringify(['first']));
+      mocks.getClashApiProxyLatency.mockResolvedValue(response);
+      await openDashboard(data);
+      expect(textOf(findByClass(root(), currentClass)!)).toBe('Node80ms');
+
+      // Expand to reach the card, then fold it again after the request completes.
+      click('fkp_dashboard-page__outbound-section__collapse');
+      click(latencyClass);
+      await vi.advanceTimersByTimeAsync(0);
+      const card = findByClass(root(), latencyClass)!;
+      expect(textOf(card)).toBe('N/A');
+      expect(card.attrs.class).toContain('latency--red');
+      click('fkp_dashboard-page__outbound-section__collapse');
+      const current = findByClass(root(), currentClass)!;
+      expect(textOf(current)).toBe('NodeN/A');
+      expect(findByClass(current, `${latencyClass}--red`)).not.toBeNull();
+
+      // Another snapshot still contains the old successful delay.
+      const { store } = await import('../../../services/store.service');
+      expect(
+        store.get().sectionsWidget.data[0].outbounds[0].latencyFailed,
+      ).toBe(true);
+
+      data[0].outbounds[0].latency = 42;
+      mocks.getClashApiProxyLatency.mockResolvedValue({
+        success: true,
+        data: { delay: 42 },
+      });
+      click('fkp_dashboard-page__outbound-section__collapse');
+      click(latencyClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(textOf(findByClass(root(), latencyClass)!)).toBe('42ms');
+      expect(findByClass(root(), latencyClass)!.attrs.class).toContain(
+        'latency--green',
+      );
+    },
+  );
+
+  it('marks group members missing from a manual sweep as unavailable', async () => {
+    stored.set(COLLAPSED_KEY, JSON.stringify(['first']));
+    mocks.getClashApiGroupLatency.mockResolvedValue({
+      success: true,
+      data: {},
+    });
+    await openDashboard([section('first'), section('second')]);
+    expect(textOf(findByClass(root(), currentClass)!)).toBe('Node');
+
+    click('dashboard-sections-grid-item-test-latency');
+    await vi.advanceTimersByTimeAsync(0);
+
+    const current = findByClass(root(), currentClass)!;
+    expect(textOf(current)).toBe('NodeN/A');
+    expect(findByClass(current, `${latencyClass}--red`)).not.toBeNull();
+  });
+});
+
+describe('nested group latency failures', () => {
+  it('propagates a missing selected member to the group and clears it on retry', async () => {
+    const data = section('first');
+    data.outbounds[0] = {
+      code: 'first/Auto',
+      displayName: 'Auto',
+      type: 'URLTest',
+      selected: true,
+      latency: 80,
+      urlTestInfo: {
+        code: 'first/Auto',
+        displayName: 'Auto',
+        selectedCode: 'first/Node',
+        outbounds: [
+          {
+            code: 'first/Node',
+            displayName: 'Node',
+            type: 'VLESS',
+            selected: true,
+            latency: 80,
+          },
+        ],
+      },
+    };
+    mocks.getClashApiGroupLatency.mockResolvedValue({
+      success: true,
+      data: {},
+    });
+    await openDashboard([data, section('second')]);
+    const clickTest = () => {
+      const root = container('dashboard-sections-grid').children[0];
+      const button = findByClass(
+        root,
+        'fkp_dashboard-page__outbound-grid__item__latency',
+      )!;
+      (button.attrs.click as (event: MouseEvent) => void)({
+        preventDefault() {},
+        stopPropagation() {},
+      } as MouseEvent);
+    };
+    clickTest();
+    await vi.advanceTimersByTimeAsync(0);
+    const { store } = await import('../../../services/store.service');
+    const group = () => store.get().sectionsWidget.data[0].outbounds[0];
+    expect(group().latencyFailed).toBe(true);
+    expect(group().latency).toBe(0);
+    expect(group().urlTestInfo!.outbounds[0].latencyFailed).toBe(true);
+
+    mocks.getClashApiGroupLatency.mockResolvedValue({
+      success: true,
+      data: { 'first/Node': 80 },
+    });
+    clickTest();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(group().latencyFailed).toBe(false);
+    expect(group().latency).toBe(80);
+    expect(group().urlTestInfo!.outbounds[0].latencyFailed).toBe(false);
+  });
+});
+
+describe('manual latency target ordering', () => {
+  const latencyClass = 'fkp_dashboard-page__outbound-grid__item__latency';
+  const sweepClass = 'dashboard-sections-grid-item-test-latency';
+
+  function nested(selected = true): Forkop.OutboundGroup {
+    return section('Office', {
+      outbounds: [
+        {
+          code: 'Office/Auto',
+          displayName: 'Auto',
+          type: 'URLTest',
+          selected: true,
+          latency: 80,
+          urlTestInfo: {
+            code: 'Office/Auto',
+            displayName: 'Auto',
+            selectedCode: selected ? 'Office/Node' : '',
+            outbounds: [
+              {
+                code: 'Office/Node',
+                displayName: 'Node',
+                type: 'VLESS',
+                selected,
+                latency: 80,
+              },
+            ],
+          },
+        },
+      ],
+    });
+  }
+
+  function click(className: string) {
+    const root = container('dashboard-sections-grid').children[0];
+    const button = findByClass(root, className)!;
+    (button.attrs.click as (event: MouseEvent) => void)({
+      preventDefault() {},
+      stopPropagation() {},
+    } as MouseEvent);
+  }
+
+  async function group() {
+    const { store } = await import('../../../services/store.service');
+    return store.get().sectionsWidget.data[0].outbounds[0];
+  }
+
+  function expectCard(value: string, color: string) {
+    const root = container('dashboard-sections-grid').children[0];
+    const card = findByClass(root, latencyClass)!;
+    expect(textOf(card)).toBe(value);
+    expect(card.attrs.class).toContain(`latency--${color}`);
+  }
+
+  it.each([175, 0])(
+    'accepts ordinary background history %ims after overlapping manual successes settle',
+    async (latency) => {
+      const older = deferred<unknown>();
+      mocks.getClashApiGroupLatency.mockReturnValueOnce(older.promise);
+      mocks.getClashApiProxyLatency.mockResolvedValueOnce({
+        success: true,
+        data: { delay: 42 },
+      });
+      const data = section('Office');
+      await openDashboard([data]);
+      click(sweepClass);
+      click(latencyClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('42ms', 'green');
+
+      const snapshot = structuredClone(data);
+      snapshot.outbounds[0].latency = 90;
+      mocks.getDashboardSections.mockResolvedValue({
+        success: true,
+        data: [snapshot],
+      });
+      await vi.advanceTimersByTimeAsync(2000);
+      expectCard('42ms', 'green');
+      older.resolve({ success: true, data: { 'Office/Node': 90 } });
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('42ms', 'green');
+
+      snapshot.outbounds[0].latency = latency;
+      await vi.advanceTimersByTimeAsync(10000);
+      expectCard(latency ? `${latency}ms` : 'N/A', latency ? 'green' : 'empty');
+    },
+  );
+
+  it('keeps a manual failure against ordinary stale snapshots for the same route', async () => {
+    const data = section('Office');
+    data.outbounds[0].latency = 80;
+    mocks.getClashApiProxyLatency.mockResolvedValue({
+      success: true,
+      data: { delay: 0 },
+    });
+    await openDashboard([data]);
+    click(latencyClass);
+    await vi.advanceTimersByTimeAsync(20000);
+    expectCard('N/A', 'red');
+  });
+
+  it('protects a retry from an ordinary poll already in flight and its queued forced snapshot', async () => {
+    const pending = deferred<unknown>();
+    const data = section('Office');
+    await openDashboard([data]);
+    mocks.getDashboardSections.mockReturnValueOnce(pending.promise);
+    await vi.advanceTimersByTimeAsync(10000);
+    mocks.getClashApiProxyLatency.mockResolvedValue({
+      success: true,
+      data: { delay: 42 },
+    });
+    click(latencyClass);
+    await vi.advanceTimersByTimeAsync(0);
+    expectCard('42ms', 'green');
+    pending.resolve({ success: true, data: [data] });
+    await vi.advanceTimersByTimeAsync(0);
+    expectCard('42ms', 'green');
+    await vi.advanceTimersByTimeAsync(10000);
+    expectCard('N/A', 'empty');
+  });
+
+  it('does not resurrect an older child failure when a successful selector retry returns to polling', async () => {
+    const data = nested();
+    await openDashboard([data]);
+    mocks.getClashApiGroupLatency.mockResolvedValueOnce({
+      success: true,
+      data: {},
+    });
+    click(latencyClass);
+    await vi.advanceTimersByTimeAsync(0);
+    expectCard('N/A', 'red');
+    mocks.getClashApiGroupLatency.mockResolvedValueOnce({
+      success: true,
+      data: { 'Office/Auto': 42 },
+    });
+    click(sweepClass);
+    await vi.advanceTimersByTimeAsync(0);
+    expectCard('42ms', 'green');
+    const snapshot = structuredClone(data);
+    snapshot.outbounds[0].latency = 55;
+    snapshot.outbounds[0].urlTestInfo!.outbounds[0].latency = 55;
+    mocks.getDashboardSections.mockResolvedValue({
+      success: true,
+      data: [snapshot],
+    });
+    await vi.advanceTimersByTimeAsync(10000);
+    expectCard('55ms', 'green');
+  });
+
+  it.each(
+    ['URLTest', 'Fallback'].flatMap((type) => [
+      { type, delay: 0 },
+      { type, delay: 42 },
+    ]),
+  )(
+    'reconciles a $type selector result ($delay ms) after failover',
+    async ({ type, delay }) => {
+      const data = nested();
+      const outbound = data.outbounds[0];
+      outbound.urlTestInfo!.outbounds.push({
+        code: 'Office/Backup',
+        displayName: 'Backup',
+        type: 'VLESS',
+        selected: false,
+        latency: 55,
+      });
+      if (type === 'Fallback') {
+        outbound.type = type;
+        outbound.fallbackInfo = {
+          ...outbound.urlTestInfo!,
+          outbounds: outbound.urlTestInfo!.outbounds.map((member) => ({
+            ...member,
+            levelIndex: 0,
+            levelName: 'Primary',
+            levelId: 'primary',
+            pinned: false,
+          })),
+        };
+        delete outbound.urlTestInfo;
+      }
+      mocks.getClashApiGroupLatency.mockResolvedValue({
+        success: true,
+        data: { 'Office/Auto': delay },
+      });
+      await openDashboard([data, section('second')]);
+      click(sweepClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard(delay ? '42ms' : 'N/A', delay ? 'green' : 'red');
+
+      const snapshot = structuredClone(data);
+      const current = snapshot.outbounds[0];
+      const info = current.urlTestInfo || current.fallbackInfo!;
+      info.selectedCode = 'Office/Backup';
+      info.outbounds[0].selected = false;
+      info.outbounds[1].selected = true;
+      current.latency = 55;
+      mocks.getDashboardSections.mockResolvedValue({
+        success: true,
+        data: [snapshot, section('second')],
+      });
+      // A second manual request forces a snapshot while positive overlays are still protected.
+      click('dashboard-sections-grid-item-test-latency');
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('55ms', 'green');
+      click('fkp_dashboard-page__outbound-section__collapse');
+      const header = findByClass(
+        container('dashboard-sections-grid').children[0],
+        'fkp_dashboard-page__outbound-section__current',
+      )!;
+      expect(textOf(header)).toBe('Auto55ms');
+    },
+  );
+
+  it.each(['URLTest', 'Fallback'])(
+    'follows the healthy member selected during a %s sweep',
+    async (type) => {
+      const data = nested();
+      const outbound = data.outbounds[0];
+      const info = outbound.urlTestInfo!;
+      info.outbounds.push({
+        code: 'Office/Backup',
+        displayName: 'Backup',
+        type: 'VLESS',
+        selected: false,
+        latency: 0,
+      });
+      if (type === 'Fallback') {
+        outbound.type = type;
+        outbound.fallbackInfo = {
+          ...info,
+          outbounds: info.outbounds.map((member) => ({
+            ...member,
+            levelIndex: 0,
+            levelName: 'Primary',
+            levelId: 'primary',
+            pinned: false,
+          })),
+        };
+        delete outbound.urlTestInfo;
+      }
+      const older = deferred<unknown>();
+      mocks.getClashApiGroupLatency.mockReturnValueOnce(older.promise);
+      await openDashboard([data, section('second')]);
+      click(latencyClass);
+
+      // The core selects the successful backup before answering the sweep.
+      const snapshot = structuredClone(data);
+      const current = snapshot.outbounds[0];
+      const currentInfo = current.urlTestInfo || current.fallbackInfo!;
+      currentInfo.selectedCode = 'Office/Backup';
+      currentInfo.outbounds[0].selected = false;
+      currentInfo.outbounds[1].selected = true;
+      currentInfo.outbounds[1].latency = 42;
+      current.latency = 42;
+      mocks.getDashboardSections.mockResolvedValue({
+        success: true,
+        data: [snapshot, section('second')],
+      });
+      older.resolve({ success: true, data: { 'Office/Backup': 42 } });
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('42ms', 'green');
+      const updated = await group();
+      expect(updated.latencyFailed).toBe(false);
+      expect(
+        (updated.urlTestInfo || updated.fallbackInfo)!.outbounds[0],
+      ).toMatchObject({ latency: 0, latencyFailed: true });
+      click('fkp_dashboard-page__outbound-section__collapse');
+      const header = findByClass(
+        container('dashboard-sections-grid').children[0],
+        'fkp_dashboard-page__outbound-section__current',
+      )!;
+      expect(textOf(header)).toBe('Auto42ms');
+      expect(findByClass(header, `${latencyClass}--green`)).not.toBeNull();
+    },
+  );
+
+  it.each([
+    { nestedGroup: false, staleLatency: 90 },
+    { nestedGroup: false, staleLatency: 0 },
+    { nestedGroup: true, staleLatency: 90 },
+    { nestedGroup: true, staleLatency: 0 },
+  ])(
+    'preserves a newer successful retry through an older response and stale snapshot: %j',
+    async ({ nestedGroup, staleLatency }) => {
+      const older = deferred<unknown>();
+      const data = nestedGroup ? nested() : section('Office');
+      mocks.getClashApiGroupLatency.mockReturnValueOnce(older.promise);
+      await openDashboard([data, section('second')]);
+      click(sweepClass);
+      if (nestedGroup) {
+        mocks.getClashApiGroupLatency.mockResolvedValueOnce({
+          success: true,
+          data: {},
+        });
+      } else {
+        mocks.getClashApiProxyLatency.mockResolvedValueOnce({
+          success: true,
+          data: { delay: 0 },
+        });
+      }
+      click(latencyClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('N/A', 'red');
+      const success = {
+        success: true,
+        data: nestedGroup ? { 'Office/Node': 42 } : { delay: 42 },
+      };
+      const successfulSnapshot = structuredClone(data);
+      successfulSnapshot.outbounds[0].latency = 42;
+      if (nestedGroup)
+        successfulSnapshot.outbounds[0].urlTestInfo!.outbounds[0].latency = 42;
+      mocks.getDashboardSections.mockResolvedValue({
+        success: true,
+        data: [successfulSnapshot, section('second')],
+      });
+      if (nestedGroup)
+        mocks.getClashApiGroupLatency.mockResolvedValueOnce(success);
+      else mocks.getClashApiProxyLatency.mockResolvedValueOnce(success);
+      click(latencyClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('42ms', 'green');
+
+      // An older core request can replace history or delete it after the retry.
+      const snapshot = structuredClone(data);
+      snapshot.outbounds[0].latency = staleLatency;
+      if (nestedGroup)
+        snapshot.outbounds[0].urlTestInfo!.outbounds[0].latency = staleLatency;
+      mocks.getDashboardSections.mockResolvedValue({
+        success: true,
+        data: [snapshot, section('second')],
+      });
+      older.resolve({
+        success: true,
+        data: staleLatency ? { [data.outbounds[0].code]: staleLatency } : {},
+      });
+      const snapshotsBefore = mocks.getDashboardSections.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mocks.getDashboardSections.mock.calls.length).toBeGreaterThan(
+        snapshotsBefore,
+      );
+      expectCard('42ms', 'green');
+      click('fkp_dashboard-page__outbound-section__collapse');
+      const header = findByClass(
+        container('dashboard-sections-grid').children[0],
+        'fkp_dashboard-page__outbound-section__current',
+      )!;
+      expect(textOf(header)).toBe(`${nestedGroup ? 'Auto' : 'Node'}42ms`);
+    },
+  );
+
+  it('uses immediate members for a selector sweep without failing nested children', async () => {
+    const data = nested();
+    mocks.getClashApiGroupLatency.mockResolvedValue({
+      success: true,
+      data: { 'Office/Auto': 45 },
+    });
+    await openDashboard([data]);
+    // Leave the post-test snapshot pending so it cannot hide the immediate result.
+    mocks.getDashboardSections.mockReturnValue(new Promise(() => {}));
+    click(sweepClass);
+    await vi.advanceTimersByTimeAsync(0);
+    expectCard('45ms', 'green');
+    expect((await group()).urlTestInfo!.outbounds[0]).toMatchObject({
+      latency: 80,
+      latencyFailed: false,
+    });
+  });
+
+  it.each([{}, { 'Office/Auto': 0 }])(
+    'clears older child failures on a successful selector retry after %j',
+    async (result) => {
+      mocks.getClashApiGroupLatency.mockResolvedValueOnce({
+        success: true,
+        data: {},
+      });
+      await openDashboard([nested()]);
+      click(latencyClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('N/A', 'red');
+      mocks.getClashApiGroupLatency.mockResolvedValueOnce({
+        success: true,
+        data: result,
+      });
+      click(sweepClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('N/A', 'red');
+      mocks.getDashboardSections.mockReturnValue(new Promise(() => {}));
+      mocks.getClashApiGroupLatency.mockResolvedValueOnce({
+        success: true,
+        data: { 'Office/Auto': 45 },
+      });
+      click(sweepClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('45ms', 'green');
+    },
+  );
+
+  it.each([
+    { success: true, data: {} },
+    { success: true, data: { 'Office/Node': 0 } },
+    { success: false, error: 'Timeout', status: 504 },
+  ])(
+    'fails a tested nonempty group without a selection for %j and recovers',
+    async (response) => {
+      mocks.getClashApiGroupLatency.mockResolvedValue(response);
+      await openDashboard([nested(false), section('second')]);
+      click(latencyClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('N/A', 'red');
+      click('fkp_dashboard-page__outbound-section__collapse');
+      const current = findByClass(
+        container('dashboard-sections-grid').children[0],
+        'fkp_dashboard-page__outbound-section__current',
+      )!;
+      expect(textOf(current)).toBe('AutoN/A');
+      expect(findByClass(current, `${latencyClass}--red`)).not.toBeNull();
+      click('fkp_dashboard-page__outbound-section__collapse');
+      mocks.getDashboardSections.mockReturnValue(new Promise(() => {}));
+      mocks.getClashApiGroupLatency.mockResolvedValue({
+        success: true,
+        data: { 'Office/Node': 42 },
+      });
+      click(latencyClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('42ms', 'green');
+    },
+  );
+
+  it.each([false, true])(
+    'keeps the newer card success when an older section failure finishes late (nested=%s)',
+    async (nestedGroup) => {
+      const older = deferred<unknown>();
+      mocks.getClashApiGroupLatency.mockReturnValueOnce(older.promise);
+      const data = nestedGroup ? nested() : section('Office');
+      await openDashboard([data]);
+      mocks.getDashboardSections.mockReturnValue(new Promise(() => {}));
+      click(sweepClass);
+      const response = {
+        success: true,
+        data: nestedGroup ? { 'Office/Node': 42 } : { delay: 42 },
+      };
+      if (nestedGroup)
+        mocks.getClashApiGroupLatency.mockResolvedValueOnce(response);
+      else mocks.getClashApiProxyLatency.mockResolvedValueOnce(response);
+      click(latencyClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('42ms', 'green');
+      older.resolve({ success: true, data: {} });
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('42ms', 'green');
+      expect((await group()).latencyFailed).toBe(false);
+    },
+  );
+
+  it.each([
+    { success: true, data: {} },
+    { success: true, data: { 'Office/Node': 77 } },
+    { success: false, error: 'Timeout', status: 504 },
+  ])(
+    'keeps a newer selector success after an older direct group result %j',
+    async (response) => {
+      const older = deferred<unknown>();
+      mocks.getClashApiGroupLatency
+        .mockReturnValueOnce(older.promise)
+        .mockResolvedValueOnce({ success: true, data: { 'Office/Auto': 45 } });
+      await openDashboard([nested()]);
+      mocks.getDashboardSections.mockReturnValue(new Promise(() => {}));
+      click(latencyClass);
+      click(sweepClass);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('45ms', 'green');
+      older.resolve(response);
+      await vi.advanceTimersByTimeAsync(0);
+      expectCard('45ms', 'green');
+    },
+  );
+
+  it('applies an older sweep to other targets while preserving the newer card result', async () => {
+    const older = deferred<unknown>();
+    const data = section('Office');
+    data.outbounds.push({
+      code: 'Office/Other',
+      displayName: 'Other',
+      type: 'VLESS',
+      selected: false,
+      latency: 80,
+    });
+    mocks.getClashApiGroupLatency.mockReturnValueOnce(older.promise);
+    mocks.getClashApiProxyLatency.mockResolvedValueOnce({
+      success: true,
+      data: { delay: 42 },
+    });
+    await openDashboard([data]);
+    mocks.getDashboardSections.mockReturnValue(new Promise(() => {}));
+    click(sweepClass);
+    click(latencyClass);
+    await vi.advanceTimersByTimeAsync(0);
+    older.resolve({ success: true, data: {} });
+    await vi.advanceTimersByTimeAsync(0);
+    expectCard('42ms', 'green');
+    const { store } = await import('../../../services/store.service');
+    expect(store.get().sectionsWidget.data[0].outbounds[1]).toMatchObject({
+      latency: 0,
+      latencyFailed: true,
+    });
+  });
+
+  it('keeps a newer initiated failure even when an older success completes last', async () => {
+    const older = deferred<unknown>();
+    const newer = deferred<unknown>();
+    mocks.getClashApiGroupLatency.mockReturnValueOnce(older.promise);
+    mocks.getClashApiProxyLatency.mockReturnValueOnce(newer.promise);
+    await openDashboard([section('Office')]);
+    click(sweepClass);
+    click(latencyClass);
+    newer.resolve({ success: true, data: { delay: 0 } });
+    await vi.advanceTimersByTimeAsync(0);
+    expectCard('N/A', 'red');
+    older.resolve({ success: true, data: { 'Office/Node': 45 } });
+    await vi.advanceTimersByTimeAsync(0);
+    expectCard('N/A', 'red');
   });
 });
 

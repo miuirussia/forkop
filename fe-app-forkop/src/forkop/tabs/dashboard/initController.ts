@@ -81,6 +81,20 @@ let connectionsSocketUrl = '';
 let lastPolledTotals: { at: number; up: number; down: number } | null = null;
 let pageUnloading = false;
 const latencyRequests = new Set<string>();
+let latencyTestOrder = 0;
+const latencyMeasurements = new Map<
+  string,
+  Map<
+    string,
+    {
+      initiated: number;
+      settled: number;
+      failed: boolean;
+      latency?: number;
+      selectedCode?: string;
+    }
+  >
+>();
 const latencySortedSections = readSectionNames(
   LATENCY_SORTED_SECTIONS_STORAGE_KEY,
 );
@@ -142,7 +156,14 @@ if (typeof window !== 'undefined') {
   });
 }
 
-async function fetchDashboardSectionsOnce(mountId: number) {
+async function fetchDashboardSectionsOnce(
+  mountId: number,
+  ordinaryRefresh: boolean,
+) {
+  // Only a poll started after manual requests settle may retire their positive overlays.
+  // Its response must still preserve any manual tests started while it was in flight.
+  const releasePositiveThrough =
+    ordinaryRefresh && latencyRequests.size === 0 ? latencyTestOrder : -1;
   const prev = store.get().sectionsWidget;
   const hasRenderedData = prev.data.length > 0;
 
@@ -167,12 +188,29 @@ async function fetchDashboardSectionsOnce(mountId: number) {
 
     const current = store.get().sectionsWidget;
 
+    for (const measurements of latencyMeasurements.values()) {
+      for (const [code, measurement] of measurements) {
+        if (
+          !measurement.failed &&
+          measurement.settled > 0 &&
+          measurement.initiated <= releasePositiveThrough
+        ) {
+          // A newer successful group test also supersedes an older failure of its route.
+          const selected = measurements.get(measurement.selectedCode || '');
+          if (selected && selected.initiated <= measurement.settled) {
+            measurements.delete(measurement.selectedCode!);
+          }
+          measurements.delete(code);
+        }
+      }
+    }
+
     store.set({
       sectionsWidget: {
         ...current,
         loading: false,
         failed: false,
-        data,
+        data: data.map(applyLatencyMeasurements),
       },
     });
 
@@ -211,10 +249,12 @@ async function fetchDashboardSections(options: { force?: boolean } = {}) {
   const mountId = dashboardMountId;
   const promise = (async () => {
     let success = false;
+    let ordinaryRefresh = !options.force;
 
     do {
       sectionsRefreshQueued = false;
-      success = await fetchDashboardSectionsOnce(mountId);
+      success = await fetchDashboardSectionsOnce(mountId, ordinaryRefresh);
+      ordinaryRefresh = false;
     } while (
       sectionsRefreshQueued &&
       dashboardMounted &&
@@ -741,12 +781,85 @@ async function handleChooseOutbound(
   }
 }
 
-// Carries the answer of the test that just returned into the page before the next refresh,
-// leaving every member it did not report alone.
+// Failures stay authoritative for the same route; positives protect only the manual request batch.
+function applyLatencyMeasurements(
+  section: Forkop.OutboundGroup,
+): Forkop.OutboundGroup {
+  const measurements = latencyMeasurements.get(section.sectionName);
+  const update = <T extends Forkop.UrlTestMember>(member: T): T => ({
+    ...member,
+    latency: measurements?.get(member.code)?.latency ?? member.latency,
+    latencyFailed: measurements?.get(member.code)?.failed || false,
+  });
+  return {
+    ...section,
+    outbounds: section.outbounds.map((outbound) => {
+      const info = outbound.urlTestInfo || outbound.fallbackInfo;
+      const measurement = measurements?.get(outbound.code);
+      if (
+        measurement?.selectedCode !== undefined &&
+        measurement.selectedCode !== (info?.selectedCode || '')
+      ) {
+        measurements?.delete(outbound.code);
+      }
+      const urlTestInfo = outbound.urlTestInfo
+        ? {
+            ...outbound.urlTestInfo,
+            outbounds: outbound.urlTestInfo.outbounds.map(update),
+          }
+        : undefined;
+      const fallbackInfo = outbound.fallbackInfo
+        ? {
+            ...outbound.fallbackInfo,
+            outbounds: outbound.fallbackInfo.outbounds.map(update),
+          }
+        : undefined;
+      const selected = (
+        urlTestInfo?.outbounds || fallbackInfo?.outbounds
+      )?.find((member) => member.selected);
+      const result = update(outbound);
+      const ownOrder = measurements?.get(outbound.code)?.settled || 0;
+      const selectedOrder = selected
+        ? measurements?.get(selected.code)?.settled || 0
+        : 0;
+      // A sweep can change the group's selection. Follow its measured member unless
+      // a newer test measured the group itself (a selector tests immediate members).
+      const useSelected =
+        selected && selectedOrder > 0 && selectedOrder >= ownOrder;
+      return {
+        ...result,
+        latency: useSelected ? selected.latency : result.latency,
+        latencyFailed: useSelected
+          ? selected.latencyFailed
+          : result.latencyFailed,
+        urlTestInfo,
+        fallbackInfo,
+      };
+    }),
+  };
+}
+
+// Accept only the latest initiated test for each target, then update the page and snapshots.
 function applyLatencyResult(
   sectionName: string,
   latencies: Record<string, number>,
+  order: number,
 ) {
+  const measurements = latencyMeasurements.get(sectionName)!;
+  latencies = Object.fromEntries(
+    Object.entries(latencies).filter(
+      ([code]) => measurements.get(code)?.initiated === order,
+    ),
+  );
+  for (const [code, latency] of Object.entries(latencies)) {
+    measurements.set(code, {
+      selectedCode: measurements.get(code)?.selectedCode,
+      initiated: order,
+      settled: order,
+      failed: !Number.isFinite(latency) || latency <= 0,
+      latency: Number.isFinite(latency) && latency > 0 ? latency : 0,
+    });
+  }
   const sectionsWidget = store.get().sectionsWidget;
   store.set({
     sectionsWidget: {
@@ -756,41 +869,7 @@ function applyLatencyResult(
           return section;
         }
 
-        return {
-          ...section,
-          outbounds: section.outbounds.map((outbound) => {
-            const updateMembers = <T extends Forkop.UrlTestMember>(
-              members: T[],
-            ) =>
-              members.map((member) => ({
-                ...member,
-                latency: latencies[member.code] ?? member.latency,
-              }));
-            const urlTestInfo = outbound.urlTestInfo
-              ? {
-                  ...outbound.urlTestInfo,
-                  outbounds: updateMembers(outbound.urlTestInfo.outbounds),
-                }
-              : undefined;
-            const fallbackInfo = outbound.fallbackInfo
-              ? {
-                  ...outbound.fallbackInfo,
-                  outbounds: updateMembers(outbound.fallbackInfo.outbounds),
-                }
-              : undefined;
-            const selectedLatency = (
-              urlTestInfo?.outbounds || fallbackInfo?.outbounds
-            )?.find((member) => member.selected)?.latency;
-
-            return {
-              ...outbound,
-              latency:
-                latencies[outbound.code] ?? selectedLatency ?? outbound.latency,
-              urlTestInfo,
-              fallbackInfo,
-            };
-          }),
-        };
+        return applyLatencyMeasurements(section);
       }),
     },
   });
@@ -809,6 +888,33 @@ async function handleTestLatency(
   }
 
   let answered = true;
+  const group = section.outbounds.find((outbound) => outbound.code === tag);
+  const members =
+    group?.urlTestInfo?.outbounds || group?.fallbackInfo?.outbounds;
+  // A selector sweep returns its immediate members, even when a member is a group.
+  const targets =
+    latencyType === 'proxy'
+      ? [tag]
+      : tag === section.code
+        ? section.outbounds.map((outbound) => outbound.code)
+        : (members || []).map((member) => member.code);
+  const missingLatencies = Object.fromEntries(targets.map((code) => [code, 0]));
+  const order = ++latencyTestOrder;
+  const measurements =
+    latencyMeasurements.get(section.sectionName) || new Map();
+  for (const code of new Set([...targets, tag])) {
+    const previous = measurements.get(code);
+    const outbound = section.outbounds.find((item) => item.code === code);
+    const info = outbound?.urlTestInfo || outbound?.fallbackInfo;
+    measurements.set(code, {
+      initiated: order,
+      settled: previous?.settled || 0,
+      failed: previous?.failed || false,
+      latency: previous?.latency,
+      selectedCode: info ? info.selectedCode || '' : undefined,
+    });
+  }
+  latencyMeasurements.set(section.sectionName, measurements);
 
   latencyRequests.add(requestKey);
   void renderSectionsWidget();
@@ -829,13 +935,25 @@ async function handleTestLatency(
       throw new Error(response.error);
     }
 
+    const latencies =
+      latencyType === 'group'
+        ? { ...missingLatencies, ...(response.data as Record<string, number>) }
+        : { [tag]: response.data.delay };
+    if (latencyType === 'group' && group) {
+      const selected = members?.find((member) => member.selected);
+      latencies[tag] = selected
+        ? latencies[selected.code] || 0
+        : Object.values(latencies).find(
+            (latency) => Number.isFinite(latency) && latency > 0,
+          ) || 0;
+    }
+    applyLatencyResult(section.sectionName, latencies, order);
+  } catch (error) {
     applyLatencyResult(
       section.sectionName,
-      latencyType === 'group'
-        ? (response.data as Record<string, number>)
-        : { [tag]: response.data.delay },
+      { ...missingLatencies, [tag]: 0 },
+      order,
     );
-  } catch (error) {
     logger.error('[DASHBOARD]', 'handleTestLatency: failed', error);
   } finally {
     latencyRequests.delete(requestKey);
@@ -1029,7 +1147,12 @@ function renderUrlTestSelectedValue(info: Forkop.UrlTestInfo) {
         ? [
             E(
               'span',
-              { class: latencyClassName(selectedMember.latency) },
+              {
+                class: latencyClassName(
+                  selectedMember.latency,
+                  selectedMember.latencyFailed,
+                ),
+              },
               formatUrlTestLatency(selectedMember.latency),
             ),
           ]
@@ -1130,7 +1253,12 @@ function renderUrlTestInfoModal(info?: Forkop.UrlTestInfo) {
                     [
                       E(
                         'span',
-                        { class: latencyClassName(member.latency) },
+                        {
+                          class: latencyClassName(
+                            member.latency,
+                            member.latencyFailed,
+                          ),
+                        },
                         formatUrlTestLatency(member.latency),
                       ),
                     ],
@@ -1215,7 +1343,12 @@ function renderFallbackSelectedValue(info: Forkop.FallbackInfo) {
         ? [
             E(
               'span',
-              { class: latencyClassName(selectedMember.latency) },
+              {
+                class: latencyClassName(
+                  selectedMember.latency,
+                  selectedMember.latencyFailed,
+                ),
+              },
               formatUrlTestLatency(selectedMember.latency),
             ),
           ]
@@ -1369,7 +1502,7 @@ function renderFallbackMemberRow(
       E('div', { class: 'fkp_dashboard-page__urltest-details__row-meta' }, [
         E(
           'span',
-          { class: latencyClassName(member.latency) },
+          { class: latencyClassName(member.latency, member.latencyFailed) },
           formatUrlTestLatency(member.latency),
         ),
       ]),

@@ -5046,7 +5046,10 @@ function renderFlagEmojis(value) {
 }
 
 // src/forkop/helpers/latencyClassName.ts
-function latencyClassName(latency) {
+function latencyClassName(latency, failed2 = false) {
+  if (failed2) {
+    return "fkp_dashboard-page__outbound-grid__item__latency--red";
+  }
   if (!latency) {
     return "fkp_dashboard-page__outbound-grid__item__latency--empty";
   }
@@ -5515,7 +5518,10 @@ function renderDefaultState({
       canChooseOutbound ? "fkp_dashboard-page__outbound-grid__item--selectable" : "",
       section2.withTagSelect && !canChooseOutbound ? "fkp_dashboard-page__outbound-grid__item--disabled" : ""
     ].filter(Boolean).join(" ");
-    const latencyClass = latencyClassName(outbound.latency);
+    const latencyClass = latencyClassName(
+      outbound.latency,
+      outbound.latencyFailed
+    );
     const latencyValue = outbound.latency ? `${outbound.latency}ms` : _("N/A");
     const latency = showLatency ? textE(
       "button",
@@ -5714,11 +5720,16 @@ function renderDefaultState({
       { class: "fkp_dashboard-page__outbound-section__current-name" },
       renderFlagEmojis(selected.displayName)
     ),
-    ...selected.latency ? [
+    ...selected.latency || selected.latencyFailed ? [
       textE(
         "span",
-        { class: latencyClassName(selected.latency) },
-        `${selected.latency}ms`
+        {
+          class: latencyClassName(
+            selected.latency,
+            selected.latencyFailed
+          )
+        },
+        selected.latencyFailed ? _("N/A") : `${selected.latency}ms`
       )
     ] : []
   ]) : void 0;
@@ -10323,6 +10334,8 @@ var connectionsSocketUrl = "";
 var lastPolledTotals = null;
 var pageUnloading = false;
 var latencyRequests = /* @__PURE__ */ new Set();
+var latencyTestOrder = 0;
+var latencyMeasurements = /* @__PURE__ */ new Map();
 var latencySortedSections = readSectionNames(
   LATENCY_SORTED_SECTIONS_STORAGE_KEY
 );
@@ -10369,7 +10382,8 @@ if (typeof window !== "undefined") {
     pageUnloading = false;
   });
 }
-async function fetchDashboardSectionsOnce(mountId) {
+async function fetchDashboardSectionsOnce(mountId, ordinaryRefresh) {
+  const releasePositiveThrough = ordinaryRefresh && latencyRequests.size === 0 ? latencyTestOrder : -1;
   const prev = store.get().sectionsWidget;
   const hasRenderedData = prev.data.length > 0;
   store.set({
@@ -10388,12 +10402,23 @@ async function fetchDashboardSectionsOnce(mountId) {
       throw new Error("failed to fetch dashboard sections");
     }
     const current = store.get().sectionsWidget;
+    for (const measurements of latencyMeasurements.values()) {
+      for (const [code, measurement] of measurements) {
+        if (!measurement.failed && measurement.settled > 0 && measurement.initiated <= releasePositiveThrough) {
+          const selected = measurements.get(measurement.selectedCode || "");
+          if (selected && selected.initiated <= measurement.settled) {
+            measurements.delete(measurement.selectedCode);
+          }
+          measurements.delete(code);
+        }
+      }
+    }
     store.set({
       sectionsWidget: {
         ...current,
         loading: false,
         failed: false,
-        data
+        data: data.map(applyLatencyMeasurements)
       }
     });
     return true;
@@ -10424,9 +10449,11 @@ async function fetchDashboardSections(options = {}) {
   const mountId = dashboardMountId;
   const promise = (async () => {
     let success = false;
+    let ordinaryRefresh = !options.force;
     do {
       sectionsRefreshQueued = false;
-      success = await fetchDashboardSectionsOnce(mountId);
+      success = await fetchDashboardSectionsOnce(mountId, ordinaryRefresh);
+      ordinaryRefresh = false;
     } while (sectionsRefreshQueued && dashboardMounted && mountId === dashboardMountId);
     return success;
   })();
@@ -10835,7 +10862,60 @@ async function handleChooseOutbound(sectionName, selector, tag) {
     selectorRequests.delete(selector);
   }
 }
-function applyLatencyResult(sectionName, latencies) {
+function applyLatencyMeasurements(section2) {
+  const measurements = latencyMeasurements.get(section2.sectionName);
+  const update = (member) => ({
+    ...member,
+    latency: measurements?.get(member.code)?.latency ?? member.latency,
+    latencyFailed: measurements?.get(member.code)?.failed || false
+  });
+  return {
+    ...section2,
+    outbounds: section2.outbounds.map((outbound) => {
+      const info = outbound.urlTestInfo || outbound.fallbackInfo;
+      const measurement = measurements?.get(outbound.code);
+      if (measurement?.selectedCode !== void 0 && measurement.selectedCode !== (info?.selectedCode || "")) {
+        measurements?.delete(outbound.code);
+      }
+      const urlTestInfo = outbound.urlTestInfo ? {
+        ...outbound.urlTestInfo,
+        outbounds: outbound.urlTestInfo.outbounds.map(update)
+      } : void 0;
+      const fallbackInfo = outbound.fallbackInfo ? {
+        ...outbound.fallbackInfo,
+        outbounds: outbound.fallbackInfo.outbounds.map(update)
+      } : void 0;
+      const selected = (urlTestInfo?.outbounds || fallbackInfo?.outbounds)?.find((member) => member.selected);
+      const result = update(outbound);
+      const ownOrder = measurements?.get(outbound.code)?.settled || 0;
+      const selectedOrder = selected ? measurements?.get(selected.code)?.settled || 0 : 0;
+      const useSelected = selected && selectedOrder > 0 && selectedOrder >= ownOrder;
+      return {
+        ...result,
+        latency: useSelected ? selected.latency : result.latency,
+        latencyFailed: useSelected ? selected.latencyFailed : result.latencyFailed,
+        urlTestInfo,
+        fallbackInfo
+      };
+    })
+  };
+}
+function applyLatencyResult(sectionName, latencies, order) {
+  const measurements = latencyMeasurements.get(sectionName);
+  latencies = Object.fromEntries(
+    Object.entries(latencies).filter(
+      ([code]) => measurements.get(code)?.initiated === order
+    )
+  );
+  for (const [code, latency] of Object.entries(latencies)) {
+    measurements.set(code, {
+      selectedCode: measurements.get(code)?.selectedCode,
+      initiated: order,
+      settled: order,
+      failed: !Number.isFinite(latency) || latency <= 0,
+      latency: Number.isFinite(latency) && latency > 0 ? latency : 0
+    });
+  }
   const sectionsWidget = store.get().sectionsWidget;
   store.set({
     sectionsWidget: {
@@ -10844,30 +10924,7 @@ function applyLatencyResult(sectionName, latencies) {
         if (section2.sectionName !== sectionName) {
           return section2;
         }
-        return {
-          ...section2,
-          outbounds: section2.outbounds.map((outbound) => {
-            const updateMembers = (members) => members.map((member) => ({
-              ...member,
-              latency: latencies[member.code] ?? member.latency
-            }));
-            const urlTestInfo = outbound.urlTestInfo ? {
-              ...outbound.urlTestInfo,
-              outbounds: updateMembers(outbound.urlTestInfo.outbounds)
-            } : void 0;
-            const fallbackInfo = outbound.fallbackInfo ? {
-              ...outbound.fallbackInfo,
-              outbounds: updateMembers(outbound.fallbackInfo.outbounds)
-            } : void 0;
-            const selectedLatency = (urlTestInfo?.outbounds || fallbackInfo?.outbounds)?.find((member) => member.selected)?.latency;
-            return {
-              ...outbound,
-              latency: latencies[outbound.code] ?? selectedLatency ?? outbound.latency,
-              urlTestInfo,
-              fallbackInfo
-            };
-          })
-        };
+        return applyLatencyMeasurements(section2);
       })
     }
   });
@@ -10877,6 +10934,25 @@ async function handleTestLatency(latencyType, section2, tag, requestKey) {
     return true;
   }
   let answered = true;
+  const group = section2.outbounds.find((outbound) => outbound.code === tag);
+  const members = group?.urlTestInfo?.outbounds || group?.fallbackInfo?.outbounds;
+  const targets = latencyType === "proxy" ? [tag] : tag === section2.code ? section2.outbounds.map((outbound) => outbound.code) : (members || []).map((member) => member.code);
+  const missingLatencies = Object.fromEntries(targets.map((code) => [code, 0]));
+  const order = ++latencyTestOrder;
+  const measurements = latencyMeasurements.get(section2.sectionName) || /* @__PURE__ */ new Map();
+  for (const code of /* @__PURE__ */ new Set([...targets, tag])) {
+    const previous = measurements.get(code);
+    const outbound = section2.outbounds.find((item) => item.code === code);
+    const info = outbound?.urlTestInfo || outbound?.fallbackInfo;
+    measurements.set(code, {
+      initiated: order,
+      settled: previous?.settled || 0,
+      failed: previous?.failed || false,
+      latency: previous?.latency,
+      selectedCode: info ? info.selectedCode || "" : void 0
+    });
+  }
+  latencyMeasurements.set(section2.sectionName, measurements);
   latencyRequests.add(requestKey);
   void renderSectionsWidget();
   restartSectionsRefresh();
@@ -10892,11 +10968,20 @@ async function handleTestLatency(latencyType, section2, tag, requestKey) {
       }
       throw new Error(response.error);
     }
+    const latencies = latencyType === "group" ? { ...missingLatencies, ...response.data } : { [tag]: response.data.delay };
+    if (latencyType === "group" && group) {
+      const selected = members?.find((member) => member.selected);
+      latencies[tag] = selected ? latencies[selected.code] || 0 : Object.values(latencies).find(
+        (latency) => Number.isFinite(latency) && latency > 0
+      ) || 0;
+    }
+    applyLatencyResult(section2.sectionName, latencies, order);
+  } catch (error) {
     applyLatencyResult(
       section2.sectionName,
-      latencyType === "group" ? response.data : { [tag]: response.data.delay }
+      { ...missingLatencies, [tag]: 0 },
+      order
     );
-  } catch (error) {
     logger.error("[DASHBOARD]", "handleTestLatency: failed", error);
   } finally {
     latencyRequests.delete(requestKey);
@@ -11047,7 +11132,12 @@ function renderUrlTestSelectedValue(info) {
       ...selectedMember ? [
         textE(
           "span",
-          { class: latencyClassName(selectedMember.latency) },
+          {
+            class: latencyClassName(
+              selectedMember.latency,
+              selectedMember.latencyFailed
+            )
+          },
           formatUrlTestLatency(selectedMember.latency)
         )
       ] : []
@@ -11132,7 +11222,12 @@ function renderUrlTestInfoModal(info) {
                 [
                   textE(
                     "span",
-                    { class: latencyClassName(member.latency) },
+                    {
+                      class: latencyClassName(
+                        member.latency,
+                        member.latencyFailed
+                      )
+                    },
                     formatUrlTestLatency(member.latency)
                   )
                 ]
@@ -11195,7 +11290,12 @@ function renderFallbackSelectedValue(info) {
       ...selectedMember ? [
         textE(
           "span",
-          { class: latencyClassName(selectedMember.latency) },
+          {
+            class: latencyClassName(
+              selectedMember.latency,
+              selectedMember.latencyFailed
+            )
+          },
           formatUrlTestLatency(selectedMember.latency)
         )
       ] : []
@@ -11314,7 +11414,7 @@ function renderFallbackMemberRow(info, member, showLevel) {
       textE("div", { class: "fkp_dashboard-page__urltest-details__row-meta" }, [
         textE(
           "span",
-          { class: latencyClassName(member.latency) },
+          { class: latencyClassName(member.latency, member.latencyFailed) },
           formatUrlTestLatency(member.latency)
         )
       ])
