@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-25 14:28+0300\n"
-"PO-Revision-Date: 2026-11-25 14:28+0300\n"
+"POT-Creation-Date: 2026-11-26 13:36+0300\n"
+"PO-Revision-Date: 2026-11-26 13:36+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -1697,6 +1697,10 @@ msgstr ""
 msgid "Get report"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/settings/form/github.ts
+msgid "GitHub token"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/traffic.ts
 msgid "goes past Forkop"
 msgstr ""
@@ -2891,6 +2895,10 @@ msgstr ""
 msgid "Persistent keepalive"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/settings/form/github.ts
+msgid "Personal access token for component updates and GeoIP/Geosite catalogs. Leave empty to use GitHub without authentication."
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "Phobos obfuscation (JSON)"
 msgstr ""
@@ -3997,6 +4005,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "The subnets that go through this peer"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/settings/form/github.ts
+msgid "The token must contain only letters, digits and underscores."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts

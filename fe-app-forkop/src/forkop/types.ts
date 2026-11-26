@@ -318,6 +318,7 @@ export namespace Forkop {
     show_dashboard_metadata?: '0' | '1';
     tag?: string;
     yacd_secret_key?: string;
+    github_token?: string;
     latency_test_url?: string;
   }
 

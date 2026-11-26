@@ -124,6 +124,17 @@ function forkop_config_line(line) {
     return line;
 }
 
+function mask_github_token(data) {
+    data = as_string(data);
+    if (index(data, "github_token") < 0)
+        return data;
+
+    // Match whole UCI commands and comments. Quoted values can contain newlines and semicolons.
+    let commands = /#[^\n]*|(\\(\r\n|.)|'[^']*'|"([^"\\]|\\.)*"|[^#;'"\\\n])+/g;
+    let token = /^([ \t]*(option|o|list|l)[ \t]+(github_token|'github_token'|"github_token")[ \t]+)(.*[^ \t\r])([ \t\r]*)$/;
+    return replace(data, commands, (command) => replace(command, token, "$1'MASKED'$5"));
+}
+
 // A trailing newline adds no empty line.
 function config_lines(data) {
     data = as_string(data);
@@ -141,7 +152,7 @@ function forkop_config(data) {
     let result = [];
     let in_masked_multiline = false;
 
-    for (let line in config_lines(data)) {
+    for (let line in config_lines(mask_github_token(data))) {
         line = as_string(line);
 
         if (in_masked_multiline) {

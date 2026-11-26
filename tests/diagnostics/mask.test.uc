@@ -5,6 +5,7 @@ t.test("the masked Forkop configuration keeps its shape and loses every secret",
     let masked = mask.forkop_config(
         "config settings 'main'\n        option hwid 'device-secret'\n        option proxy_string 'vless://secret@example.com:443'\n" +
         "        option yacd_secret_key 'clash-api-secret'\n" +
+        "        option github_token 'github-token-secret'\n" +
         "config subscription_url 'sub1'\n        option url 'https://user:password@example.com/subscription?token=secret'\n" +
         "        list header 'Authorization: Bearer header-secret'\nconfig section 'tunnels'\nconfig tunnel 'tun_tailnet'\n" +
         "        option section 'tunnels'\n        option kind 'tailscale'\n        option tailscale_auth_key 'tskey-secret'\n" +
@@ -12,12 +13,41 @@ t.test("the masked Forkop configuration keeps its shape and loses every secret",
         "        option warp_profile_license_key 'warp-license-secret'\nconfig tunnel_peer 'peer_tailnet'\n" +
         "        option tunnel 'tun_tailnet'\n        option pre_shared_key 'peer-secret'\n" +
         "config connection_link 'link_1'\n        option uri 'trojan://link-secret@example.com:443#Node'\n        option name 'Node'\n");
-    for (let secret in [ "device-secret", "vless://secret", "clash-api-secret", "token=secret", "user:password", "header-secret",
+    for (let secret in [ "device-secret", "vless://secret", "clash-api-secret", "github-token-secret", "token=secret", "user:password", "header-secret",
         "tskey-secret", "warp-token-secret", "warp-private-secret", "warp-license-secret", "peer-secret", "link-secret" ])
         t.excludes(masked, secret);
     for (let kept in [ "list header 'MASKED'", "option hwid 'MASKED'", "option url 'MASKED'", "option tailscale_auth_key 'MASKED'",
         "option warp_profile_auth_token 'MASKED'", "option pre_shared_key 'MASKED'", "option uri 'MASKED'", "option name 'Node'" ])
         t.contains(masked, kept);
+});
+
+t.test("GitHub tokens are masked with quoted option names and tab separators", () => {
+    let settings = "config settings 'settings'\n";
+    for (let option in [ "    option github_token ", "\toption\tgithub_token\t",
+        "\toption 'github_token' ", "\toption \"github_token\"  " ]) {
+        let remainder = "\toption github_token_label 'GitHub'\n";
+        t.eq(mask.forkop_config(settings + option + "'github_pat_test'\n" + remainder),
+            settings + option + "'MASKED'\n" + remainder);
+    }
+});
+
+t.test("multiline GitHub tokens are fully masked in standalone and inline UCI commands", () => {
+    let config = "config settings 'settings'";
+    for (let quote in [ "'", "\"" ]) {
+        let secret = quote + "\ngithub_pat_test\n" + quote;
+        for (let separator in [ "\n", ";" ]) {
+            let prefix = config + separator + "\toption github_token ";
+            let suffix = separator + "\toption github_token_label 'GitHub'\n";
+            t.eq(mask.forkop_config(prefix + secret + suffix), prefix + "'MASKED'" + suffix);
+        }
+    }
+});
+
+t.test("GitHub token masking preserves comments and values containing option-like text", () => {
+    let prefix = "config settings 'settings'; option title 'ordinary; option github_token text\n" +
+        "option github_token still text'; option github_token ";
+    let suffix = " # comment; option github_token example\n";
+    t.eq(mask.forkop_config(prefix + "github_pat_test" + suffix), prefix + "'MASKED'" + suffix);
 });
 
 t.test("hand-written outbounds are masked, however many lines they take", () => {

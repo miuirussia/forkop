@@ -171,6 +171,7 @@
     "Reapplying configuration"
   ],
   "password_fields": {
+    "github_token": "github_token",
     "ssh_password": "endpoint_json",
     "ssh_private_key": "endpoint_json",
     "ssh_private_key_passphrase": "endpoint_json",

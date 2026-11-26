@@ -1,4 +1,5 @@
 import { getLocalStorage } from './browserStorage.service';
+import { FORKOP_UCI_PACKAGE } from '../../constants';
 
 export const SING_GEOSITE_URL =
   'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/';
@@ -53,7 +54,12 @@ function createCatalogLoader(kind: 'geosite' | 'geoip') {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
       try {
-        const response = await fetch(catalogUrl, { signal: controller.signal });
+        const token =
+          `${uci.get(FORKOP_UCI_PACKAGE, 'settings', 'github_token') || ''}`.trim();
+        const response = await fetch(catalogUrl, {
+          signal: controller.signal,
+          ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+        });
         if (!response.ok) throw new Error(`GitHub HTTP ${response.status}`);
         const data = await response.json();
         if (data.truncated !== false || !Array.isArray(data.tree)) {

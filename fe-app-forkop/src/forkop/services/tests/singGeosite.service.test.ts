@@ -19,6 +19,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-11-08T12:00:00Z'));
   stored = new Map();
+  vi.stubGlobal('uci', { get: vi.fn().mockReturnValue(null) });
   vi.stubGlobal('window', {
     localStorage: {
       getItem: (key: string) => stored.get(key) ?? null,
@@ -33,6 +34,33 @@ afterEach(() => {
 });
 
 describe('sing-geosite catalog', () => {
+  it.each(['', ' github_pat_test123 '])(
+    'uses the configured token for both catalogs: %s',
+    async (token) => {
+      vi.mocked(uci.get).mockReturnValue(token);
+      const fetchMock = vi.fn(async (url: string) =>
+        catalog([
+          url.includes('sing-geoip/') ? 'geoip-ru.srs' : 'geosite-youtube.srs',
+        ]),
+      );
+      vi.stubGlobal('fetch', fetchMock);
+      const { loadSingGeositeFiles, loadSingGeoipFiles } = await import(
+        '../singGeo.service'
+      );
+      await Promise.all([loadSingGeositeFiles(), loadSingGeoipFiles()]);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      for (const [, options] of fetchMock.mock.calls as unknown as [
+        string,
+        RequestInit,
+      ][]) {
+        expect(options.headers).toEqual(
+          token ? { Authorization: `Bearer ${token.trim()}` } : undefined,
+        );
+      }
+      expect([...stored.values()].join('')).not.toContain('github_pat_test123');
+    },
+  );
+
   it('loads more than 1,000 SRS files including attribute variants, filtering other paths', async () => {
     const files = Array.from(
       { length: 1100 },

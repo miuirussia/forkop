@@ -27,6 +27,7 @@ jsonfilter() {
         *) echo https://assets.example/release.json;;
     esac
 }
+
 read_manifest() {
     if [ "$2" = forkop ]; then printf '2.0.0\n2.0.0\n1.14.4-r6\n';
     else printf '1.14.4-r6\nv1.14.4-r6\n2.0.0\n'; fi
@@ -36,6 +37,45 @@ read_manifest() {
     t.eq(result.status, expected_status ?? 0, result.stdout);
     return trim(result.stdout);
 }
+
+t.test("installer API downloads use the saved token or an environment override, keeping it away from other hosts", () => {
+    let result = shell(`
+uci() { echo github_pat_saved; }
+curl() { cat; printf '%s\\n' "$@"; }
+wget() { printf '%s\\n' "$@"; }
+fetch https://api.github.com/repos/miuirussia/forkop/releases/latest "$WORK/api"
+GITHUB_TOKEN_OVERRIDE=' github_pat_override '
+fetch https://api.github.com/repos/miuirussia/forkop/releases/assets/1 "$WORK/asset" application/octet-stream
+fetch https://mirror.example/file "$WORK/mirror"
+fetch https://api.github.com.evil.example/file "$WORK/other"
+MIRROR=https://api.github.com
+fetch https://api.github.com/mirror/file "$WORK/mirror"
+`);
+    let lines = split(result, "\n");
+    t.eq(length(filter(lines, (line) => index(line, "github_pat_") != -1)), 2);
+    t.eq(length(filter(lines, (line) => line == "Authorization: Bearer github_pat_saved")), 1);
+    t.eq(length(filter(lines, (line) => line == "Authorization: Bearer github_pat_override")), 1);
+    t.contains(result, "--header=Accept: application/octet-stream");
+    t.excludes(shell(`
+uci() { return 1; }
+wget() { printf '%s\\n' "$@"; }
+fetch https://api.github.com/rate_limit "$WORK/api"
+`), "Authorization");
+});
+
+t.test("an authenticated standalone download without curl tells the user how to install it", () => {
+    for (let manager in [ "apk", "opkg" ]) {
+        let result = shell(`
+PM=` + manager + `
+GITHUB_TOKEN_OVERRIDE=github_pat_test
+command() { return 1; }
+fetch https://api.github.com/rate_limit "$WORK/api" 2>&1
+`, 1);
+        t.contains(result, "Install curl to use a GitHub token");
+        t.contains(result, manager == "apk" ? "apk add curl" : "opkg install curl");
+        t.excludes(result, "github_pat_test");
+    }
+});
 
 t.test("reinstall selects installed releases and forces Forkop, its page, translation and the same core build", () => {
     let result = shell(`

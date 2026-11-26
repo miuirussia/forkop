@@ -531,6 +531,60 @@ t.test("through GitHub's API the run reads the release's listing, then its files
     t.eq(fs.stat(installer.paths.listing), null, "the listing goes with the downloads");
 });
 
+t.test("the saved GitHub token authenticates API listings, assets and rate checks without exposing it in arguments", () => {
+    require("fixture").seed({ settings: { github_token: "github_pat_test" } });
+    function authenticated(index) {
+        let process = uloop.__processes()[index];
+        t.eq(process.executable, "/bin/sh");
+        t.contains(process.args, "@-");
+        t.excludes(join(" ", process.args), "github_pat_test");
+        t.eq(process.env.FORKOP_GITHUB_TOKEN, "github_pat_test");
+    }
+    run_with({}, () => {
+        authenticated(0);
+        fs.writefile(installer.paths.listing, sprintf("%J", { assets: [
+            { name: "install.sh", url: "https://api.github.com/repos/miuirussia/forkop/releases/assets/1" },
+            { name: "release.json", url: "https://api.github.com/repos/miuirussia/forkop/releases/assets/2" }
+        ] }));
+        uloop.__exit(0, 0);
+        authenticated(1);
+        t.contains(uloop.__processes()[1].args, "--header=Accept: application/octet-stream");
+        uloop.__exit(1, 0);
+        authenticated(2);
+        fs.writefile(installer.paths.manifest, "{}");
+        uloop.__exit(2, 0);
+        t.eq(uloop.__processes()[3].env.FORKOP_GITHUB_TOKEN, null);
+        t.eq(uloop.__processes()[4].env.FORKOP_GITHUB_TOKEN, null);
+        uloop.__exit(4, 0);
+        uloop.__exit(3, 0);
+        uloop.__fire("timer");
+    }, "api");
+    t.excludes(fs.readfile(installer.paths.state), "github_pat_test");
+    t.excludes(fs.readfile(installer.paths.output) ?? "", "github_pat_test");
+
+    run_with({}, () => {
+        uloop.__exit(0, 22);
+        authenticated(1);
+        uloop.__exit(1, 22);
+        uloop.__fire("timer");
+    }, "api");
+    t.contains(fs.readfile(installer.paths.output), "Github API");
+
+    run_with({}, () => {
+        uloop.__exit(0, 127);
+        uloop.__fire("timer");
+    }, "api");
+    t.contains(fs.readfile(installer.paths.output), "curl");
+
+    run_with({}, () => {
+        t.eq(uloop.__processes()[0].executable, "uclient-fetch");
+        t.eq(uloop.__processes()[0].env.FORKOP_GITHUB_TOKEN, null);
+        uloop.__exit(0, 8);
+        uloop.__fire("timer");
+    });
+    require("fixture").seed({ settings: {} });
+});
+
 t.test("a stop between two tries of a download ends the run at once", () => {
     run_with({}, () => {
         uloop.__exit(0, 4);

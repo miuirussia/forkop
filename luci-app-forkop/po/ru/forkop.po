@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-25 14:28+0300\n"
-"PO-Revision-Date: 2026-11-25 14:28+0300\n"
+"POT-Creation-Date: 2026-11-26 13:36+0300\n"
+"PO-Revision-Date: 2026-11-26 13:36+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -1208,6 +1208,9 @@ msgstr "Папка хранения геоданных"
 msgid "Get report"
 msgstr "Получить отчёт"
 
+msgid "GitHub token"
+msgstr "Токен GitHub"
+
 msgid "goes past Forkop"
 msgstr "идёт мимо Forkop"
 
@@ -2066,6 +2069,9 @@ msgstr "Ожидает запуска"
 msgid "Persistent keepalive"
 msgstr "Постоянный keepalive"
 
+msgid "Personal access token for component updates and GeoIP/Geosite catalogs. Leave empty to use GitHub without authentication."
+msgstr "Персональный токен для обновления компонентов и каталогов GeoIP/Geosite. Оставьте поле пустым для запросов к GitHub без авторизации."
+
 msgid "Phobos obfuscation (JSON)"
 msgstr "Обфускация Phobos (JSON)"
 
@@ -2866,6 +2872,9 @@ msgstr "Допустимые алгоритмы подписи и размеры
 
 msgid "The subnets that go through this peer"
 msgstr "Подсети, которые пойдут через этого пира"
+
+msgid "The token must contain only letters, digits and underscores."
+msgstr "Токен должен содержать только латинские буквы, цифры и знаки подчёркивания."
 
 msgid "The tunnel is not running yet. Apply the settings, or start Forkop."
 msgstr "Туннель ещё не запущен. Примените настройки или запустите Forkop."

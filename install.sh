@@ -18,6 +18,7 @@
 #
 # The releases come through api.github.com, which takes 60 requests an hour from an address
 # without an account; FORKOP_DOWNLOAD_URL names a mirror with github.com's release paths instead.
+# FORKOP_GITHUB_TOKEN, or settings.github_token in /etc/config/forkop, authenticates API requests with curl.
 # https_proxy and http_proxy are honored, NO_COLOR turns colors off.
 #
 # Every release carries release.json beside its packages, install.sh and SHA256SUMS:
@@ -33,6 +34,8 @@ CORE_REPO=miuirussia/sing-box-forkop
 # github.com answers a release link with a header line longer than uclient-fetch reads
 API_URL=https://api.github.com
 MIRROR=${FORKOP_DOWNLOAD_URL:-}
+GITHUB_TOKEN_OVERRIDE=${FORKOP_GITHUB_TOKEN:-}
+unset FORKOP_GITHUB_TOKEN
 LOG=/tmp/forkop-install.log
 LOCK_DIR=/var/lock/forkop-install.lock
 OUR_PACKAGES="forkop luci-app-forkop luci-i18n-forkop-ru sing-box-forkop"
@@ -564,15 +567,52 @@ dep_names() { # the package names a Depends field lists
 
 # --- downloads ------------------------------------------------------------------------------
 
+github_token() {
+	local token=$GITHUB_TOKEN_OVERRIDE
+	token=${token#"${token%%[![:space:]]*}"}
+	token=${token%"${token##*[![:space:]]}"}
+	if [ -z "$token" ] && command -v uci >/dev/null 2>&1; then
+		token=$(uci -q get forkop.settings.github_token 2>/dev/null) || token=''
+		token=${token#"${token%%[![:space:]]*}"}
+		token=${token%"${token##*[![:space:]]}"}
+	fi
+	printf '%s' "$token"
+}
+
 fetch() { # fetch URL FILE [ACCEPT]: 0; 2 when the server answered with an HTTP error, 3 when that was GitHub's rate limit; 1 when it was not reached
-	local status
-	wget -T 30 ${3:+"--header=Accept: $3"} -O "$2" "$1" 2>"$WORK/fetch.log"
-	status=$?
+	local status token='' curl_install='opkg install curl'
+	case "$1" in
+	"$API_URL"/*) [ -n "$MIRROR" ] || token=$(github_token) ;;
+	esac
+	if [ -n "$token" ]; then
+		case "$token" in *[!A-Za-z0-9_]*) github_token_rejected ;; esac
+		[ "$PM" != apk ] || curl_install='apk add curl'
+		command -v curl >/dev/null 2>&1 || fail 1 need_curl \
+			"$(t 'Install curl to use a GitHub token' 'Для использования токена GitHub установите curl')" \
+			"$(t 'Run %s and start the installer again' 'Выполните %s и запустите установщик снова' "$curl_install")"
+		# curl drops Authorization on cross-origin redirects. Read the header from stdin.
+		curl -q -fsSL --proto '=https' --proto-redir '=https' --connect-timeout 30 --speed-limit 1 --speed-time 30 \
+			${3:+"--header=Accept: $3"} --header @- --output "$2" -- "$1" 2>"$WORK/fetch.log" <<EOF
+Authorization: Bearer $token
+EOF
+		status=$?
+		case "$status" in
+		0) ;;
+		22)
+			grep -q 'error: 401' "$WORK/fetch.log" && github_token_rejected
+			status=8
+			;;
+		*) status=1 ;;
+		esac
+	else
+		wget -T 30 ${3:+"--header=Accept: $3"} -O "$2" "$1" 2>"$WORK/fetch.log"
+		status=$?
+	fi
 	cat "$WORK/fetch.log" >>"$LOG"
 	# uclient-fetch exits 8 when the server answers with an error, which it names unless -q, 4 when it
 	# is not reached; GitHub's API answers 403 or 429 once an address spent its requests
 	if [ "$status" = 8 ]; then
-		grep -q -e 'HTTP error 403' -e 'HTTP error 429' -e 'ERROR 403' -e 'ERROR 429' "$WORK/fetch.log" && return 3
+		grep -q -E '(HTTP error |ERROR |error: )(403|429)' "$WORK/fetch.log" && return 3
 		return 2
 	fi
 	[ "$status" = 0 ]
@@ -614,7 +654,16 @@ asset_url() { # asset_url forkop|core FILE: where FILE of the release is, empty 
 	fi
 }
 
+github_token_rejected() {
+	fail 1 github_token "$(t 'GitHub rejected the token: check Settings → Github API or FORKOP_GITHUB_TOKEN' \
+		'GitHub отклонил токен: проверьте Настройки → Github API или FORKOP_GITHUB_TOKEN')"
+}
+
 rate_limited() {
+	if [ -z "$MIRROR" ] && [ -n "$(github_token)" ]; then
+		fail 1 rate_limit "$(t 'The GitHub API request limit for this token has been reached' 'Исчерпан лимит запросов GitHub API для этого токена')" \
+			"$(t 'Run the installer again later: the limit is reset within the hour' 'Запустите установщик снова позже: лимит сбрасывается в течение часа')"
+	fi
 	fail 1 rate_limit "$(t 'GitHub refuses more requests from this address for now: it takes 60 an hour without an account' 'GitHub пока не принимает запросы с этого адреса: без входа он даёт 60 запросов в час')" \
 		"$(t 'Run the installer again later: the limit is reset within the hour' 'Запустите установщик снова позже: лимит сбрасывается в течение часа')"
 }

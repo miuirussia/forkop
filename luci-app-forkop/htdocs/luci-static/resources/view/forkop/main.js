@@ -26454,7 +26454,11 @@ function createCatalogLoader(kind) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8e3);
       try {
-        const response = await fetch(catalogUrl, { signal: controller.signal });
+        const token = `${uci.get(FORKOP_UCI_PACKAGE, "settings", "github_token") || ""}`.trim();
+        const response = await fetch(catalogUrl, {
+          signal: controller.signal,
+          ...token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+        });
         if (!response.ok) throw new Error(`GitHub HTTP ${response.status}`);
         const data = await response.json();
         if (data.truncated !== false || !Array.isArray(data.tree)) {
@@ -31908,6 +31912,24 @@ function addAutodetectOptions(section2) {
   }
 }
 
+// src/forkop/tabs/settings/form/github.ts
+function addGithubOptions(section2) {
+  const o = section2.option(
+    form.Value,
+    "github_token",
+    _("GitHub token"),
+    _(
+      "Personal access token for component updates and GeoIP/Geosite catalogs. Leave empty to use GitHub without authentication."
+    )
+  );
+  o.password = true;
+  o.rmempty = true;
+  o.validate = (_sectionId, value) => !value || /^[A-Za-z0-9_]+$/.test(value.trim()) ? true : _("The token must contain only letters, digits and underscores.");
+  o.write = function(sectionId, value) {
+    return uci.set(this.map.config, sectionId, this.option, value.trim());
+  };
+}
+
 // src/forkop/tabs/settings/form/network.ts
 function addNetworkOptions(section2) {
   const excludedDevicesOption = section2.option(
@@ -32149,6 +32171,7 @@ function createSettingsContent(section2) {
     },
     { id: "traffic", title: _("Traffic"), add: [addTrafficOptions] },
     { id: "yacd", title: "YACD", add: [addYacdOptions] },
+    { id: "github", title: "Github API", add: [addGithubOptions] },
     {
       id: "latency",
       title: _("Latency measurement"),

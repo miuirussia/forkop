@@ -70,6 +70,10 @@ const TEXTS = {
     rate_limited: [ "GitHub refuses more requests from this address for now: it allows 60 an hour without an account",
         "GitHub пока не принимает запросы с этого адреса: без входа он даёт 60 запросов в час" ],
     try_later: [ "Run it again later: the limit is reset within the hour", "Запустите снова позже: лимит сбрасывается в течение часа" ],
+    token_rate_limited: [ "The GitHub API request limit for this token has been reached", "Исчерпан лимит запросов GitHub API для этого токена" ],
+    check_token: [ "GitHub rejected the request: check the token in Settings → Github API",
+        "GitHub отклонил запрос: проверьте токен в Настройки → Github API" ],
+    need_curl: [ "Install curl to use a GitHub token", "Для использования токена GitHub установите curl" ],
     no_terminal: [ "Cannot open a terminal for the installer", "Не удалось открыть терминал для установщика" ],
     interrupted: [ "Interrupted: nothing was changed", "Прервано, ничего не изменено" ]
 };
@@ -286,6 +290,7 @@ function child_environment() {
     let env = { ...getenv(), TERM: "xterm" };
     delete env.NO_COLOR;
     delete env.FORKOP_LIB;
+    delete env.FORKOP_GITHUB_TOKEN;
     return env;
 }
 
@@ -477,6 +482,8 @@ function run(id) {
 
     let packages_before = package_signature();
     let env = child_environment();
+    let token_override = trim(getenv("FORKOP_GITHUB_TOKEN") ?? "");
+    let token = mirror_url() ? "" : (token_override || trim(common.as_string(require("core.uci").get("forkop.settings.github_token"))));
     let terminal = null;
     let child = null;
     let pump = null;
@@ -609,7 +616,7 @@ function run(id) {
         size_watch = uloop.interval(1000, () => cap_output(fd));
         child = uloop.process("/bin/sh", [ "-c", child_script(state.interactive), "sh", terminal.tty, paths.script,
             ...install_arguments(state.action, state.variant ?? "", state.purge, state.lang, state.translation) ],
-            { ...env, FORKOP_INSTALL_FROM_LUCI: "1" }, on_child_exit);
+            { ...env, FORKOP_INSTALL_FROM_LUCI: "1", ...(token_override && token ? { FORKOP_GITHUB_TOKEN: token_override } : {}) }, on_child_exit);
         state = { ...state, child_pid: common.as_string(child.pid()) };
         write_state(state);
     }
@@ -624,14 +631,35 @@ function run(id) {
     function fetch_url(url, path, accept, done) {
         let tries = 0;
         let attempt = null;
-        let args = [ "-q", "-T", "" + DOWNLOAD_TIMEOUT_SECONDS, ...(accept ? [ "--header=Accept: " + accept ] : []), "-O", path, url ];
+        let authenticated = token && index(url, API_URL + "/") == 0;
+        let headers = accept ? [ "--header=Accept: " + accept ] : [];
+        let timeout = "" + DOWNLOAD_TIMEOUT_SECONDS;
+        let args = [ "-q", "-T", timeout, ...headers, "-O", path, url ];
+        if (authenticated) {
+            if (match(token, /^[A-Za-z0-9_]+$/) == null)
+                return fail_with([ mark_line("error", text(state.lang, "check_token")) ]);
+            // curl drops Authorization on cross-origin redirects. The header comes from stdin,
+            // and exec keeps the downloader's PID available for cancellation.
+            args = [ "-c", `token=$FORKOP_GITHUB_TOKEN
+unset FORKOP_GITHUB_TOKEN
+exec curl "$@" <<EOF
+Authorization: Bearer $token
+EOF`, "sh", "-q", "-fsL", "--proto", "=https", "--proto-redir", "=https",
+                "--connect-timeout", timeout, "--speed-limit", "1", "--speed-time", timeout,
+                ...headers, "--header", "@-", "--output", path, "--", url ];
+        }
         attempt = () => {
             tries++;
             fs.unlink(path);
-            download = uloop.process("uclient-fetch", args, env, (code) => {
+            download = uloop.process(authenticated ? "/bin/sh" : "uclient-fetch", args,
+                authenticated ? { ...env, FORKOP_GITHUB_TOKEN: token } : env, (code) => {
                 download = null;
                 if (state.stop_requested === true)
                     return stopped();
+                if (authenticated && code == 127)
+                    return fail_with([ mark_line("error", text(state.lang, "need_curl")) ]);
+                if (authenticated && code == 22)
+                    code = FETCH_HTTP_ERROR;
                 if (code == 0 || code == FETCH_HTTP_ERROR || tries >= DOWNLOAD_TRIES)
                     return done(code);
                 retry = uloop.timer(DOWNLOAD_RETRY_MS, () => {
@@ -663,7 +691,9 @@ function run(id) {
             // the API answers its rate limit and a missing release alike with an HTTP error
             return fetch_url(API_URL + "/rate_limit", paths.listing, null, (status) => {
                 if (status == 0 && rate_limited(fs.readfile(paths.listing)))
-                    return say([ [ "error", text(state.lang, "rate_limited") ], [ "warn", text(state.lang, "try_later") ] ]);
+                    return say([ [ "error", text(state.lang, token ? "token_rate_limited" : "rate_limited") ], [ "warn", text(state.lang, "try_later") ] ]);
+                if (status == FETCH_HTTP_ERROR && token)
+                    return say([ [ "error", text(state.lang, "check_token") ] ]);
                 say([ [ "error", text(state.lang, "no_script") ] ]);
             });
         }

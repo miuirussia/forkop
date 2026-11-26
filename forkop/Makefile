@@ -22,7 +22,7 @@ include $(INCLUDE_DIR)/package.mk
 define Package/forkop
 	SECTION:=net
 	CATEGORY:=Network
-	DEPENDS:=+ca-bundle +ucode +ucode-mod-fs +ucode-mod-resolv +ucode-mod-socket +ucode-mod-ubus +ucode-mod-uloop +ucode-mod-uci +uclient-fetch +kmod-nft-tproxy +nftables +kmod-nft-nat +kmod-tun +ip-tiny +sing-box-forkop
+	DEPENDS:=+ca-bundle +curl +ucode +ucode-mod-fs +ucode-mod-resolv +ucode-mod-socket +ucode-mod-ubus +ucode-mod-uloop +ucode-mod-uci +uclient-fetch +kmod-nft-tproxy +nftables +kmod-nft-nat +kmod-tun +ip-tiny +sing-box-forkop
 	TITLE:=Forkop backend service
 	URL:=https://github.com/miuirussia/forkop
 	PKGARCH:=all
