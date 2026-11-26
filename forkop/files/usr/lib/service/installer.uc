@@ -71,8 +71,8 @@ const TEXTS = {
         "GitHub пока не принимает запросы с этого адреса: без входа он даёт 60 запросов в час" ],
     try_later: [ "Run it again later: the limit is reset within the hour", "Запустите снова позже: лимит сбрасывается в течение часа" ],
     token_rate_limited: [ "The GitHub API request limit for this token has been reached", "Исчерпан лимит запросов GitHub API для этого токена" ],
-    check_token: [ "GitHub rejected the request: check the token in Settings → Github API",
-        "GitHub отклонил запрос: проверьте токен в Настройки → Github API" ],
+    check_token: [ "GitHub rejected the request: check the token in Settings → Service → Github API",
+        "GitHub отклонил запрос: проверьте токен в Настройки → Служба → Github API" ],
     need_curl: [ "Install curl to use a GitHub token", "Для использования токена GitHub установите curl" ],
     no_terminal: [ "Cannot open a terminal for the installer", "Не удалось открыть терминал для установщика" ],
     interrupted: [ "Interrupted: nothing was changed", "Прервано, ничего не изменено" ]

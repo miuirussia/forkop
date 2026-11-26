@@ -1,7 +1,6 @@
 import { E } from '../../../helpers/element';
 import { addDnsOptions } from './form/dns';
 import { addAutodetectOptions } from './form/autodetect';
-import { addGithubOptions } from './form/github';
 import { addNetworkOptions } from './form/network';
 import { addServiceOptions } from './form/service';
 import { addTrafficOptions, addYacdOptions } from './form/traffic';
@@ -17,7 +16,6 @@ export function createSettingsContent(section: CBISection) {
     },
     { id: 'traffic', title: _('Traffic'), add: [addTrafficOptions] },
     { id: 'yacd', title: 'YACD', add: [addYacdOptions] },
-    { id: 'github', title: 'Github API', add: [addGithubOptions] },
     {
       id: 'latency',
       title: _('Latency measurement'),

@@ -7,6 +7,7 @@ let repo = require("repo");
 let constants = require("core.constants");
 let singbox_constants = require("singbox.constants");
 let cli = require("service.cli");
+let exec = require("core.exec");
 
 const MAKEFILE = fs.readfile(repo.path("forkop/Makefile"));
 const BUILD_SH = fs.readfile(repo.path("build.sh"));
@@ -148,6 +149,36 @@ t.test("build.sh explains itself and refuses a malformed version before building
     let malformed = run("1.2");
     t.ok(malformed.status != 0);
     t.contains(malformed.output, "x.y.z");
+});
+
+t.test("release builders and feed packages accept numeric revisions consistently", () => {
+    let setup = substr(BUILD_SH, 0, index(BUILD_SH, "\nBUILD_DIR="));
+    let build_script = getenv("FORKOP_TEST_TMP") + "/release-version.sh";
+    fs.writefile(build_script, setup + "\nprintf '%s|%s' \"$RELEASE_VERSION\" \"$APK_INTERNAL_VERSION\"");
+    let workflow = fs.readfile(repo.path(".github/workflows/build.yml"));
+    let guard = substr(workflow, index(workflow, "if [ \"$REF_TYPE\""));
+    guard = substr(guard, 0, index(guard, "fi\n") + 2);
+    for (let entry in [ [ "2.0.36", true ], [ "2.0.36-r1", true ], [ "2.0.36-r10", true ],
+        [ "2.0.36-r", false ], [ "2.0.36-rc1", false ] ]) {
+        let version = entry[0], valid = entry[1];
+        let result = exec.capture([ "bash", build_script, version ]);
+        t.eq(result.status == 0, valid, "build.sh: " + version);
+        if (valid)
+            t.eq(result.stdout, version + "|" + version);
+        result = exec.capture([ "env", "REF_TYPE=tag", "REF_NAME=" + version, "bash", "-c", guard ]);
+        t.eq(result.status == 0, valid, "workflow: " + version);
+        for (let file in [ "forkop/Makefile", "luci-app-forkop/Makefile" ]) {
+            let source = fs.readfile(repo.path(file));
+            source = substr(source, index(source, "\nPKG_NAME"));
+            source = substr(source, 0, index(source, "\nPKG_RELEASE:=") + length("\nPKG_RELEASE:="));
+            let path = getenv("FORKOP_TEST_TMP") + "/release-version.mk";
+            fs.writefile(path, source + "\nall:\n\t@printf '%s|%s' '$(PKG_VERSION)' '$(FORKOP_COMPILED_VERSION)'\n");
+            result = exec.capture([ "make", "--no-print-directory", "-s", "-f", path, "FORKOP_VERSION=" + version ]);
+            t.eq(result.status == 0, valid, file + ": " + version);
+            if (valid)
+                t.eq(result.stdout, version + "|" + version);
+        }
+    }
 });
 
 t.done();

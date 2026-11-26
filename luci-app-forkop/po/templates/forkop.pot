@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-26 13:36+0300\n"
-"PO-Revision-Date: 2026-11-26 13:36+0300\n"
+"POT-Creation-Date: 2026-11-26 14:11+0300\n"
+"PO-Revision-Date: 2026-11-26 14:11+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -1695,10 +1695,6 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/partials/renderRunAction.ts
 msgid "Get report"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/settings/form/github.ts
-msgid "GitHub token"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/traffic.ts

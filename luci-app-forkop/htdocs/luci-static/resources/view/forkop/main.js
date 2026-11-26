@@ -31912,24 +31912,6 @@ function addAutodetectOptions(section2) {
   }
 }
 
-// src/forkop/tabs/settings/form/github.ts
-function addGithubOptions(section2) {
-  const o = section2.option(
-    form.Value,
-    "github_token",
-    _("GitHub token"),
-    _(
-      "Personal access token for component updates and GeoIP/Geosite catalogs. Leave empty to use GitHub without authentication."
-    )
-  );
-  o.password = true;
-  o.rmempty = true;
-  o.validate = (_sectionId, value) => !value || /^[A-Za-z0-9_]+$/.test(value.trim()) ? true : _("The token must contain only letters, digits and underscores.");
-  o.write = function(sectionId, value) {
-    return uci.set(this.map.config, sectionId, this.option, value.trim());
-  };
-}
-
 // src/forkop/tabs/settings/form/network.ts
 function addNetworkOptions(section2) {
   const excludedDevicesOption = section2.option(
@@ -32060,6 +32042,24 @@ function validateSingBoxPath(value, fileName2) {
   return validateSingBoxFilePath(`${value || ""}`, fileName2);
 }
 
+// src/forkop/tabs/settings/form/github.ts
+function addGithubOptions(section2) {
+  const o = section2.option(
+    form.Value,
+    "github_token",
+    "Github API",
+    _(
+      "Personal access token for component updates and GeoIP/Geosite catalogs. Leave empty to use GitHub without authentication."
+    )
+  );
+  o.password = true;
+  o.rmempty = true;
+  o.validate = (_sectionId, value) => !value || /^[A-Za-z0-9_]+$/.test(value.trim()) ? true : _("The token must contain only letters, digits and underscores.");
+  o.write = function(sectionId, value) {
+    return uci.set(this.map.config, sectionId, this.option, value.trim());
+  };
+}
+
 // src/forkop/tabs/settings/form/service.ts
 function addServiceOptions(section2) {
   let o = section2.option(
@@ -32102,6 +32102,7 @@ function addServiceOptions(section2) {
   o.value("panic", "Panic");
   o.default = "warn";
   o.rmempty = false;
+  addGithubOptions(section2);
 }
 
 // src/forkop/tabs/settings/form/traffic.ts
@@ -32171,7 +32172,6 @@ function createSettingsContent(section2) {
     },
     { id: "traffic", title: _("Traffic"), add: [addTrafficOptions] },
     { id: "yacd", title: "YACD", add: [addYacdOptions] },
-    { id: "github", title: "Github API", add: [addGithubOptions] },
     {
       id: "latency",
       title: _("Latency measurement"),

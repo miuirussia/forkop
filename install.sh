@@ -655,8 +655,8 @@ asset_url() { # asset_url forkop|core FILE: where FILE of the release is, empty 
 }
 
 github_token_rejected() {
-	fail 1 github_token "$(t 'GitHub rejected the token: check Settings → Github API or FORKOP_GITHUB_TOKEN' \
-		'GitHub отклонил токен: проверьте Настройки → Github API или FORKOP_GITHUB_TOKEN')"
+	fail 1 github_token "$(t 'GitHub rejected the token: check Settings → Service → Github API or FORKOP_GITHUB_TOKEN' \
+		'GitHub отклонил токен: проверьте Настройки → Служба → Github API или FORKOP_GITHUB_TOKEN')"
 }
 
 rate_limited() {

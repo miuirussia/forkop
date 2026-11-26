@@ -6,6 +6,8 @@ t.test("a version is at least the one it is compared with", () => {
         [ "1.12.4", "1.12.4" ],
         [ "1.12.10", "1.12.4" ],
         [ "1.13.18-extended-2.6.5-f39", "1.13.18-extended-2.6.5" ],
+        [ "2.0.36-r1", "2.0.36" ],
+        [ "2.0.36-r10", "2.0.36-r2" ],
         // Leading zeroes are numeric noise.
         [ "1.012.4", "1.12.4" ]
     ])
@@ -17,6 +19,8 @@ t.test("an older version is not", () => {
         [ "1.12.3", "1.12.4" ],
         [ "1.9.0", "1.12.4" ],
         [ "1.13.18", "1.13.18-extended-2.6.5" ],
+        [ "2.0.36", "2.0.36-r1" ],
+        [ "2.0.36-r1", "2.0.37" ],
         // "~" sorts before an empty segment.
         [ "1.12.4~rc1", "1.12.4" ]
     ])

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { createHarness } from '../lib/luciForm.js';
 
-it('keeps the GitHub token in its own settings group and allows replacing and removing it', async () => {
+it('keeps Github API in Service settings and allows replacing and removing the token', async () => {
   const harness = createHarness();
   harness.uci.add('forkop', 'settings', 'settings');
   harness.uci.set('forkop', 'settings', 'github_token', 'github_pat_old');
@@ -11,7 +11,9 @@ it('keeps the GitHub token in its own settings group and allows replacing and re
   section.cfgsections = () => ['settings'];
   await section.load();
   const token = section.children.find((o) => o.option === 'github_token');
-  expect(token.tab).toBe('settings-github');
+  expect(token.tab).toBe('settings-service');
+  expect(token.title).toBe('Github API');
+  expect(section.children.some((o) => o.tab === 'settings-github')).toBe(false);
   expect(token.password).toBe(true);
   expect(token.validate('settings', '')).toBe(true);
   expect(token.validate('settings', ' github_pat_new ')).toBe(true);

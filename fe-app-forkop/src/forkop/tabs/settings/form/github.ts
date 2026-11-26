@@ -2,7 +2,7 @@ export function addGithubOptions(section: Pick<CBISection, 'option'>) {
   const o = section.option(
     form.Value,
     'github_token',
-    _('GitHub token'),
+    'Github API',
     _(
       'Personal access token for component updates and GeoIP/Geosite catalogs. Leave empty to use GitHub without authentication.',
     ),

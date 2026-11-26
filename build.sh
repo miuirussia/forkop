@@ -8,7 +8,7 @@ usage() {
 Usage: $(basename "$0") <version> [output-directory]
 
 Build Forkop IPK and APK packages and the other files of its release: install.sh,
-release.json and SHA256SUMS. The version must use x.y.z format.
+release.json and SHA256SUMS. The version must use x.y.z or x.y.z-rN format.
 
 INSTALL_COMMAND, when set, goes into release.json as install_command: the release installs
 only with that command, and the Components tab shows it instead of installing the release.
@@ -32,8 +32,8 @@ fi
 RELEASE_VERSION="$1"
 OUTPUT_DIR="${2:-$ROOT_DIR/dist/release-final}"
 
-if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Expected release version in the form x.y.z" >&2
+if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-r[0-9]+)?$ ]]; then
+  echo "Expected release version in the form x.y.z or x.y.z-rN" >&2
   exit 2
 fi
 APK_INTERNAL_VERSION="$RELEASE_VERSION"

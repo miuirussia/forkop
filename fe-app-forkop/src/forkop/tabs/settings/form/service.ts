@@ -1,4 +1,5 @@
 import { validateSingBoxPath } from '../validators';
+import { addGithubOptions } from './github';
 
 export function addServiceOptions(section: Pick<CBISection, 'option'>) {
   let o = section.option(
@@ -44,4 +45,6 @@ export function addServiceOptions(section: Pick<CBISection, 'option'>) {
   o.value('panic', 'Panic');
   o.default = 'warn';
   o.rmempty = false;
+
+  addGithubOptions(section);
 }
