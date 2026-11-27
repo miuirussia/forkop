@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 16:03+0300\n"
-"PO-Revision-Date: 2026-11-27 16:03+0300\n"
+"POT-Creation-Date: 2026-11-27 20:55+0300\n"
+"PO-Revision-Date: 2026-11-27 20:55+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -794,7 +794,7 @@ msgstr ""
 msgid "Clear"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+#: fe-app-forkop/src/forkop/tabs/dashboard/desync.ts
 msgid "Clear learning results"
 msgstr ""
 
@@ -831,6 +831,7 @@ msgstr ""
 msgid "Clients"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/dashboard/desync.ts
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
 #: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
@@ -1100,7 +1101,7 @@ msgstr ""
 msgid "Current strategy"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+#: fe-app-forkop/src/forkop/tabs/dashboard/desync.ts
 msgid "Current strategy, switch reason and learning statistics"
 msgstr ""
 
@@ -1209,6 +1210,11 @@ msgstr ""
 msgid "Desync"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/dashboard/desync.ts
+#: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts
+msgid "Desync details"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/references.ts
 msgid "Desync needs a direct socket. Remove connection sources and cascades before changing this section to Desync, or create a new section."
 msgstr ""
@@ -1250,10 +1256,6 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/initController.ts
 msgid "Diagnostic report"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
-msgid "Diagnostics"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/monitoring/initController.ts
@@ -2517,7 +2519,7 @@ msgstr ""
 msgid "Learned destinations"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+#: fe-app-forkop/src/forkop/tabs/dashboard/desync.ts
 msgid "Learning results cleared"
 msgstr ""
 
@@ -2587,6 +2589,7 @@ msgid "Loading logs..."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
+#: fe-app-forkop/src/forkop/tabs/dashboard/desync.ts
 #: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 #: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
@@ -3465,7 +3468,7 @@ msgstr ""
 msgid "Random server order"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+#: fe-app-forkop/src/forkop/tabs/dashboard/desync.ts
 msgid "Raw diagnostics JSON"
 msgstr ""
 
@@ -3502,7 +3505,7 @@ msgstr ""
 msgid "Refill"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+#: fe-app-forkop/src/forkop/tabs/dashboard/desync.ts
 msgid "Refresh diagnostics"
 msgstr ""
 

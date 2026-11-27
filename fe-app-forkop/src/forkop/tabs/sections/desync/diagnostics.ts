@@ -1,4 +1,5 @@
 import { E } from '../../../../helpers/element';
+import { pageLanguage } from '../../../../helpers/relativeTime';
 
 interface LearningScore {
   success?: number;
@@ -22,34 +23,60 @@ export interface DesyncDiagnostics {
   outbounds?: Record<string, OutboundLearning>;
 }
 
+function measurement(
+  label: string,
+  value: string | HTMLElement,
+  className = '',
+) {
+  return E('div', {}, [
+    E('dt', {}, label),
+    E('dd', { class: className }, value),
+  ]);
+}
+
+function updatedTime(value?: string) {
+  if (!value) return E('span', {}, '—');
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return E('span', {}, value);
+  return E(
+    'time',
+    { dateTime: value, title: value },
+    date.toLocaleString(pageLanguage(), {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }),
+  );
+}
+
 export function renderDesyncDiagnostics(snapshot: DesyncDiagnostics) {
   const outbounds = Object.entries(snapshot.outbounds || {});
   if (!outbounds.length)
     return E(
       'p',
-      {},
+      { class: 'fkp-desync__diagnostic-empty' },
       _('No active Desync outbound. Save and apply the section first.'),
     );
   return E(
     'div',
-    {},
-    outbounds.map(([name, value]) =>
-      E('div', {}, [
-        E('strong', {}, name),
-        E('dl', {}, [
-          E('dt', {}, _('Current strategy')),
-          E('dd', {}, value.current || _('No observations yet')),
-          E('dt', {}, _('Switch reason')),
-          E('dd', {}, value.reason || '—'),
-          E('dt', {}, _('Active probes')),
-          E('dd', {}, String(value.active ?? 0)),
-          E('dt', {}, _('Learned destinations')),
-          E(
-            'dd',
-            {},
-            String(
-              value.entry_count ?? Object.keys(value.entries || {}).length,
-            ),
+    { class: 'fkp-desync__diagnostics' },
+    outbounds.map(([name, value]) => {
+      const entries = Object.entries(value.entries || {});
+      return E('section', { class: 'fkp-desync__outbound' }, [
+        E('h4', { class: 'fkp-desync__heading' }, name),
+        E('dl', { class: 'fkp-desync__metrics fkp-desync__overview' }, [
+          measurement(
+            _('Current strategy'),
+            value.current || _('No observations yet'),
+          ),
+          measurement(_('Switch reason'), value.reason || '—'),
+          measurement(_('Active probes'), String(value.active ?? 0)),
+          measurement(
+            _('Learned destinations'),
+            String(value.entry_count ?? entries.length),
           ),
         ]),
         ...(value.entries_truncated
@@ -64,66 +91,83 @@ export function renderDesyncDiagnostics(snapshot: DesyncDiagnostics) {
             ]
           : []),
         E(
-          'div',
-          { style: 'overflow-x:auto' },
-          E('table', { class: 'table' }, [
-            E(
-              'thead',
-              {},
+          'ul',
+          { class: 'fkp-desync__result-list' },
+          entries.map(([destination, entry]) =>
+            E('li', { class: 'fkp-desync__result fkp-desync__destination' }, [
               E(
-                'tr',
-                {},
+                'dl',
+                { class: 'fkp-desync__metrics fkp-desync__destination-header' },
                 [
-                  _('Destination'),
-                  _('Strategy'),
-                  _('Success'),
-                  _('Failed'),
-                  _('Latency'),
-                  _('Switch reason'),
-                  _('Updated'),
-                ].map((label) => E('th', { scope: 'col' }, label)),
+                  measurement(_('Destination'), destination),
+                  measurement(_('Updated'), updatedTime(entry.updated)),
+                ],
               ),
-            ),
-            E(
-              'tbody',
-              {},
-              Object.entries(value.entries || {}).flatMap(
-                ([destination, entry]) =>
-                  Object.entries(entry.strategies || {}).map(
-                    ([strategy, score]) =>
+              E(
+                'ul',
+                { class: 'fkp-desync__strategies' },
+                Object.entries(entry.strategies || {}).map(
+                  ([strategy, score]) =>
+                    E('li', { class: 'fkp-desync__strategy' }, [
                       E(
-                        'tr',
-                        {},
+                        'dl',
+                        {
+                          class:
+                            'fkp-desync__metrics fkp-desync__strategy-metrics',
+                        },
                         [
-                          destination,
-                          strategy,
-                          String(score.success ?? 0),
-                          String(score.failure ?? 0),
-                          score.latency_ms === undefined
-                            ? '—'
-                            : `${Math.round(score.latency_ms * 100) / 100} ms`,
-                          score.last_reason || '—',
-                          entry.updated || '—',
-                        ].map((text, index) =>
-                          E(
-                            'td',
-                            {
-                              style: 'overflow-wrap:anywhere',
-                              class:
-                                index === 3 && (score.failure ?? 0) > 0
-                                  ? 'fkp-desync__failure'
-                                  : '',
-                            },
-                            text,
+                          measurement(_('Strategy'), strategy),
+                          measurement(
+                            _('Success'),
+                            String(score.success ?? 0),
+                            (score.success ?? 0) > 0
+                              ? 'fkp-desync__success'
+                              : '',
                           ),
-                        ),
+                          measurement(
+                            _('Failed'),
+                            String(score.failure ?? 0),
+                            (score.failure ?? 0) > 0
+                              ? 'fkp-desync__failure'
+                              : '',
+                          ),
+                          measurement(
+                            _('Latency'),
+                            score.latency_ms === undefined
+                              ? '—'
+                              : `${Math.round(score.latency_ms * 100) / 100} ms`,
+                          ),
+                        ],
                       ),
-                  ),
+                      E(
+                        'dl',
+                        {
+                          class:
+                            'fkp-desync__metrics fkp-desync__strategy-reason',
+                        },
+                        [
+                          measurement(
+                            _('Switch reason'),
+                            score.last_reason || '—',
+                          ),
+                        ],
+                      ),
+                    ]),
+                ),
               ),
-            ),
-          ]),
+            ]),
+          ),
         ),
-      ]),
-    ),
+        ...(!entries.length
+          ? [
+              E(
+                'p',
+                { class: 'fkp-desync__diagnostic-empty' },
+                _('No observations yet'),
+              ),
+            ]
+          : []),
+      ]);
+    }),
   );
 }

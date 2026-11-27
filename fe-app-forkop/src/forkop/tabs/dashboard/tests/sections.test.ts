@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   getClashApiProxyLatency: vi.fn(),
   updateClashApiProxyProviders: vi.fn(),
   showToast: vi.fn(),
+  desyncDiagnostics: vi.fn(),
+  clearDesync: vi.fn(),
 }));
 
 vi.mock('../../../services/socket.service', () => ({
@@ -31,6 +33,9 @@ vi.mock('../../../methods/custom/getClashApiSecret', () => ({
 vi.mock('../../../services/runtimeUiState.service', () => ({
   refreshRuntimeUiState: vi.fn(),
 }));
+vi.mock('../../sections/desync/api', () => ({
+  desyncApi: { diagnostics: mocks.desyncDiagnostics, clear: mocks.clearDesync },
+}));
 
 interface FakeNode {
   type: string;
@@ -38,6 +43,9 @@ interface FakeNode {
   children: Array<FakeNode | string>;
   isConnected: boolean;
   scrollTop: number;
+  disabled?: boolean;
+  hidden?: boolean;
+  textContent?: string;
   appendChild(child: FakeNode): void;
   setAttribute(name: string, value: string): void;
   replaceChildren(...nodes: FakeNode[]): void;
@@ -1043,6 +1051,129 @@ describe('folded sections', () => {
       stopPropagation() {},
     } as MouseEvent);
     expect(collapseButton('first')?.attrs['aria-expanded']).toBe('false');
+  });
+});
+
+describe('the Desync details dialog', () => {
+  const snapshot = {
+    outbounds: {
+      YouTube: {
+        current: 'disorder',
+        entries: {
+          'global|route:123': {
+            strategies: { disorder: { success: 86, failure: 22 } },
+          },
+        },
+      },
+    },
+  };
+
+  function find(node: FakeNode | string, label: string): FakeNode | undefined {
+    if (typeof node === 'string') return;
+    if (
+      node.attrs['aria-label'] === label ||
+      (node.type === 'button' && textOf(node) === label)
+    )
+      return node;
+    for (const child of node.children) {
+      const found = find(child, label);
+      if (found) return found;
+    }
+  }
+
+  async function openDesyncDetails() {
+    await openDashboard([
+      section('cfg_desync', {
+        displayName: 'YouTube',
+        action: 'desync',
+        withTagSelect: false,
+        outbounds: [
+          {
+            code: 'YouTube',
+            displayName: 'YouTube',
+            type: 'Desync',
+            selected: true,
+            latency: 0,
+          },
+        ],
+      }),
+      section('other'),
+    ]);
+    const info = find(
+      container('dashboard-sections-grid').children[0],
+      'Desync details',
+    );
+    expect(info).toBeDefined();
+    const stopPropagation = vi.fn();
+    (info!.attrs.click as (event: object) => void)({ stopPropagation });
+    expect(stopPropagation).toHaveBeenCalledOnce();
+    return shownModal as unknown as FakeNode;
+  }
+
+  function click(dialog: FakeNode, label: string) {
+    (find(dialog, label)!.attrs.click as () => void)();
+  }
+
+  it('loads the clicked section automatically and keeps its JSON collapsed', async () => {
+    const response = deferred<typeof snapshot>();
+    mocks.desyncDiagnostics.mockReturnValue(response.promise);
+    const dialog = await openDesyncDetails();
+    const raw = findByClass(dialog, 'fkp-desync__panel')!;
+    expect(mocks.desyncDiagnostics).toHaveBeenCalledExactlyOnceWith(
+      'cfg_desync',
+    );
+    expect(raw.hidden).toBe(true);
+    expect(find(dialog, 'Refresh diagnostics')?.disabled).toBe(true);
+    expect(find(dialog, 'Clear learning results')?.disabled).toBe(true);
+
+    response.resolve(snapshot);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(textOf(dialog)).toContain('86');
+    expect(raw.hidden).toBe(false);
+    expect(raw.attrs.open).toBeUndefined();
+    expect(findByClass(raw, 'fkp-desync__result-json')?.textContent).toBe(
+      JSON.stringify(snapshot, null, 2),
+    );
+    expect(find(dialog, 'Refresh diagnostics')?.disabled).toBe(false);
+    expect(mocks.getClashApiProxyLatency).not.toHaveBeenCalled();
+  });
+
+  it('refreshes and clears only the selected section, preserving JSON disclosure', async () => {
+    mocks.desyncDiagnostics.mockResolvedValue(snapshot);
+    mocks.clearDesync.mockResolvedValue({ success: true });
+    const dialog = await openDesyncDetails();
+    await vi.advanceTimersByTimeAsync(0);
+    const raw = findByClass(dialog, 'fkp-desync__panel')!;
+    raw.attrs.open = '';
+
+    click(dialog, 'Refresh diagnostics');
+    await vi.advanceTimersByTimeAsync(0);
+    click(dialog, 'Clear learning results');
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(mocks.clearDesync).toHaveBeenCalledExactlyOnceWith('cfg_desync');
+    expect(mocks.desyncDiagnostics.mock.calls).toEqual([
+      ['cfg_desync'],
+      ['cfg_desync'],
+      ['cfg_desync'],
+    ]);
+    expect(raw.attrs.open).toBe('');
+  });
+
+  it('shows load failures and allows a retry', async () => {
+    mocks.desyncDiagnostics
+      .mockRejectedValueOnce(new Error('Offline'))
+      .mockResolvedValue(snapshot);
+    const dialog = await openDesyncDetails();
+    await vi.advanceTimersByTimeAsync(0);
+    const error = findByClass(dialog, 'fkp-desync__error')!;
+    expect(error.textContent).toBe('Offline');
+    expect(find(dialog, 'Refresh diagnostics')?.disabled).toBe(false);
+    click(dialog, 'Refresh diagnostics');
+    await vi.advanceTimersByTimeAsync(0);
+    expect(error.textContent).toBe('');
+    expect(textOf(dialog)).toContain('86');
   });
 });
 

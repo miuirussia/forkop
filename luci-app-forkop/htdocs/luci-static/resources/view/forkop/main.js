@@ -5506,6 +5506,7 @@ function renderDefaultState({
   onShowUrlTestInfo,
   onShowFallbackInfo,
   onShowTailscaleInfo,
+  onShowDesyncInfo,
   onTestLatency,
   onTestOutboundLatency,
   onSortByLatencyChange,
@@ -5639,6 +5640,22 @@ function renderDefaultState({
                 click: (event) => {
                   event.stopPropagation();
                   onShowFallbackInfo(outbound);
+                }
+              },
+              renderInfoIcon24()
+            )
+          ] : [],
+          ...section2.action === "desync" && outbound.type === "Desync" ? [
+            textE(
+              "button",
+              {
+                type: "button",
+                class: "btn fkp_dashboard-page__outbound-grid__item__copy-button",
+                title: _("Desync details"),
+                "aria-label": _("Desync details"),
+                click: (event) => {
+                  event.stopPropagation();
+                  onShowDesyncInfo(outbound);
                 }
               },
               renderInfoIcon24()
@@ -5857,6 +5874,8 @@ function renderSectionsPlaceholder(state) {
     onShowFallbackInfo: () => {
     },
     onShowTailscaleInfo: () => {
+    },
+    onShowDesyncInfo: () => {
     },
     latencyFetching: false
   });
@@ -10343,6 +10362,367 @@ function showTailscaleServerDetailsModal(sectionId) {
   );
 }
 
+// src/forkop/tabs/sections/desync/api.ts
+async function desyncRequest(method, payload = {}) {
+  const response = await callUbus({
+    object: "forkop",
+    method,
+    params: { payload: JSON.stringify(payload) },
+    timeoutMs: 15e3,
+    retryUnavailable: false
+  });
+  if (!response.success) throw new Error(response.message);
+  if (!response.data.success)
+    throw new Error(response.data.message || _("Desync request failed"));
+  return response.data;
+}
+var desyncApi = {
+  capabilities: async () => {
+    const reply = await desyncRequest("desync_capabilities");
+    const core = reply.capabilities;
+    const matrix = core?.parameters && !Array.isArray(core.parameters) ? core.parameters : void 0;
+    const unsupported = Object.fromEntries(
+      Object.entries(matrix || {}).filter(([, value]) => value.supported === false).map(([key, value]) => [
+        key,
+        value.requirements || _("Unsupported by the installed core")
+      ])
+    );
+    const requirements = Object.fromEntries(
+      Object.entries(matrix || {}).filter(([, value]) => value.requirements).map(([key, value]) => [key, value.requirements])
+    );
+    const unsupportedModes = Object.fromEntries(
+      Object.entries(core?.mode_support || {}).filter(([, value]) => value.supported === false).map(([key, value]) => [
+        key,
+        value.requirements || _("Unsupported by the installed core")
+      ])
+    );
+    return {
+      ...core,
+      parameters: matrix ? Object.keys(matrix) : Array.isArray(core?.parameters) ? core.parameters : void 0,
+      unsupported: { ...core?.unsupported, ...unsupported },
+      requirements: { ...core?.requirements, ...requirements },
+      unsupported_modes: { ...core?.unsupported_modes, ...unsupportedModes },
+      supported: reply.available && core?.supported !== false,
+      reason: reply.reason,
+      modes: reply.capabilities?.modes || reply.modes,
+      presets: reply.capabilities?.presets || reply.presets
+    };
+  },
+  diagnostics: async (section2) => {
+    const response = await desyncRequest(
+      "desync_diagnostics",
+      { section: section2 }
+    );
+    return response.diagnostics;
+  },
+  clear: (section2) => desyncRequest("desync_clear_cache", { section: section2 }),
+  start: (request) => desyncRequest("desync_tune_start", request),
+  progress: (id) => desyncRequest("desync_tune_progress", { id }),
+  cancel: (id) => desyncRequest("desync_tune_cancel", { id })
+};
+
+// src/forkop/tabs/sections/desync/diagnostics.ts
+function measurement(label, value, className = "") {
+  return textE("div", {}, [
+    textE("dt", {}, label),
+    textE("dd", { class: className }, value)
+  ]);
+}
+function updatedTime(value) {
+  if (!value) return textE("span", {}, "\u2014");
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return textE("span", {}, value);
+  return textE(
+    "time",
+    { dateTime: value, title: value },
+    date.toLocaleString(pageLanguage(), {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    })
+  );
+}
+function renderDesyncDiagnostics(snapshot) {
+  const outbounds = Object.entries(snapshot.outbounds || {});
+  if (!outbounds.length)
+    return textE(
+      "p",
+      { class: "fkp-desync__diagnostic-empty" },
+      _("No active Desync outbound. Save and apply the section first.")
+    );
+  return textE(
+    "div",
+    { class: "fkp-desync__diagnostics" },
+    outbounds.map(([name, value]) => {
+      const entries = Object.entries(value.entries || {});
+      return textE("section", { class: "fkp-desync__outbound" }, [
+        textE("h4", { class: "fkp-desync__heading" }, name),
+        textE("dl", { class: "fkp-desync__metrics fkp-desync__overview" }, [
+          measurement(
+            _("Current strategy"),
+            value.current || _("No observations yet")
+          ),
+          measurement(_("Switch reason"), value.reason || "\u2014"),
+          measurement(_("Active probes"), String(value.active ?? 0)),
+          measurement(
+            _("Learned destinations"),
+            String(value.entry_count ?? entries.length)
+          )
+        ]),
+        ...value.entries_truncated ? [
+          textE(
+            "p",
+            {},
+            _(
+              "Only recent destinations are shown. The full history remains in the core cache."
+            )
+          )
+        ] : [],
+        textE(
+          "ul",
+          { class: "fkp-desync__result-list" },
+          entries.map(
+            ([destination, entry]) => textE("li", { class: "fkp-desync__result fkp-desync__destination" }, [
+              textE(
+                "dl",
+                { class: "fkp-desync__metrics fkp-desync__destination-header" },
+                [
+                  measurement(_("Destination"), destination),
+                  measurement(_("Updated"), updatedTime(entry.updated))
+                ]
+              ),
+              textE(
+                "ul",
+                { class: "fkp-desync__strategies" },
+                Object.entries(entry.strategies || {}).map(
+                  ([strategy, score]) => textE("li", { class: "fkp-desync__strategy" }, [
+                    textE(
+                      "dl",
+                      {
+                        class: "fkp-desync__metrics fkp-desync__strategy-metrics"
+                      },
+                      [
+                        measurement(_("Strategy"), strategy),
+                        measurement(
+                          _("Success"),
+                          String(score.success ?? 0),
+                          (score.success ?? 0) > 0 ? "fkp-desync__success" : ""
+                        ),
+                        measurement(
+                          _("Failed"),
+                          String(score.failure ?? 0),
+                          (score.failure ?? 0) > 0 ? "fkp-desync__failure" : ""
+                        ),
+                        measurement(
+                          _("Latency"),
+                          score.latency_ms === void 0 ? "\u2014" : `${Math.round(score.latency_ms * 100) / 100} ms`
+                        )
+                      ]
+                    ),
+                    textE(
+                      "dl",
+                      {
+                        class: "fkp-desync__metrics fkp-desync__strategy-reason"
+                      },
+                      [
+                        measurement(
+                          _("Switch reason"),
+                          score.last_reason || "\u2014"
+                        )
+                      ]
+                    )
+                  ])
+                )
+              )
+            ])
+          )
+        ),
+        ...!entries.length ? [
+          textE(
+            "p",
+            { class: "fkp-desync__diagnostic-empty" },
+            _("No observations yet")
+          )
+        ] : []
+      ]);
+    })
+  );
+}
+
+// src/forkop/tabs/sections/desync/ui.ts
+function desyncField(label, control) {
+  return textE("label", { class: "fkp-desync__field" }, [
+    textE("span", {}, label),
+    control
+  ]);
+}
+function desyncGroup(label, children2) {
+  return textE("section", { class: "fkp-desync__group" }, [
+    textE("h4", { class: "fkp-desync__heading" }, label),
+    textE("div", { class: "fkp-desync__body" }, children2)
+  ]);
+}
+function desyncPanel(label, children2) {
+  return textE("details", { class: "fkp-desync__panel" }, [
+    textE("summary", {}, [
+      textE("span", { class: "fkp-desync__title" }, label),
+      textE(
+        "span",
+        { class: "btn cbi-button fkp-desync__toggle", "aria-hidden": "true" },
+        [
+          textE("span", { class: "fkp-desync__show" }, _("Show")),
+          textE("span", { class: "fkp-desync__hide" }, _("Hide"))
+        ]
+      )
+    ]),
+    textE("div", { class: "fkp-desync__body" }, children2)
+  ]);
+}
+function desyncActions(children2) {
+  return textE("div", { class: "fkp-desync__actions" }, children2);
+}
+function desyncTabs(id, tabs) {
+  const panes = tabs.map(
+    ({ key, content }) => textE(
+      "div",
+      {
+        id: `${id}-${key}-pane`,
+        role: "tabpanel",
+        "aria-labelledby": `${id}-${key}-tab`
+      },
+      content
+    )
+  );
+  const links = tabs.map(
+    ({ key, label }, index) => textE(
+      "a",
+      {
+        id: `${id}-${key}-tab`,
+        href: `#${id}-${key}-pane`,
+        role: "tab",
+        "aria-controls": `${id}-${key}-pane`,
+        click: (event) => {
+          event.preventDefault();
+          select(index);
+        },
+        keydown: (event) => {
+          const next = event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : void 0;
+          if (next === void 0) return;
+          event.preventDefault();
+          select(next);
+          links[next].focus();
+        }
+      },
+      label
+    )
+  );
+  const items = links.map((link) => textE("li", { role: "presentation" }, link));
+  function select(index) {
+    links.forEach((link, i) => {
+      link.setAttribute("aria-selected", String(i === index));
+      link.setAttribute("tabindex", i === index ? "0" : "-1");
+      items[i].setAttribute(
+        "class",
+        i === index ? "cbi-tab" : "cbi-tab-disabled"
+      );
+      panes[i].hidden = i !== index;
+    });
+  }
+  select(0);
+  return textE("div", { class: "fkp-desync__tabs" }, [
+    textE(
+      "ul",
+      { class: "cbi-tabmenu", role: "tablist", "aria-label": _("Desync") },
+      items
+    ),
+    ...panes
+  ]);
+}
+
+// src/forkop/tabs/dashboard/desync.ts
+function showDesyncDetailsModal(section2, name) {
+  const error = textE("p", { role: "alert", class: "fkp-desync__error" });
+  const status = textE("p", { role: "status" });
+  const learning = textE("div");
+  const json = textE("pre", { class: "fkp-desync__result-json" });
+  const raw = desyncPanel(_("Raw diagnostics JSON"), [json]);
+  raw.hidden = true;
+  let pending = false;
+  const refresh = textE(
+    "button",
+    {
+      type: "button",
+      class: "btn cbi-button",
+      click: () => void load()
+    },
+    _("Refresh diagnostics")
+  );
+  const clear = textE(
+    "button",
+    {
+      type: "button",
+      class: "btn cbi-button",
+      click: () => void load(true)
+    },
+    _("Clear learning results")
+  );
+  async function load(clearLearning = false) {
+    if (pending) return;
+    pending = true;
+    refresh.disabled = clear.disabled = true;
+    error.textContent = "";
+    status.textContent = _("Loading\u2026");
+    try {
+      if (clearLearning) await desyncApi.clear(section2);
+      const snapshot = await desyncApi.diagnostics(section2);
+      learning.replaceChildren(renderDesyncDiagnostics(snapshot));
+      json.textContent = JSON.stringify(snapshot, null, 2);
+      raw.hidden = false;
+      status.textContent = clearLearning ? _("Learning results cleared") : "";
+    } catch (reason) {
+      error.textContent = reason instanceof Error ? reason.message : String(reason);
+      status.textContent = "";
+    } finally {
+      pending = false;
+      refresh.disabled = clear.disabled = false;
+    }
+  }
+  ui.showModal(
+    `${_("Desync details")}: ${name}`,
+    textE(
+      "div",
+      { class: "fkp_dashboard-page__urltest-details" },
+      textE("div", { class: "fkp-desync" }, [
+        textE(
+          "p",
+          {},
+          _("Current strategy, switch reason and learning statistics")
+        ),
+        desyncActions([refresh, clear]),
+        error,
+        status,
+        learning,
+        raw,
+        textE("div", { class: "fkp_dashboard-page__urltest-details__footer" }, [
+          textE(
+            "button",
+            {
+              type: "button",
+              class: "btn cbi-button cbi-button-neutral",
+              click: () => ui.hideModal()
+            },
+            _("Close")
+          )
+        ])
+      ])
+    )
+  );
+  void load();
+}
+
 // src/forkop/tabs/dashboard/initController.ts
 var SECTIONS_REFRESH_INTERVAL_MS = 1e4;
 var COLLAPSED_SECTIONS_STORAGE_KEY = "forkop:dashboard-collapsed-sections:v1";
@@ -10441,11 +10821,11 @@ async function fetchDashboardSectionsOnce(mountId, ordinaryRefresh) {
     }
     const current = store.get().sectionsWidget;
     for (const measurements of latencyMeasurements.values()) {
-      for (const [code, measurement] of measurements) {
-        if (!measurement.failed && measurement.settled > 0 && measurement.initiated <= releasePositiveThrough) {
-          const selected = measurements.get(measurement.selectedCode || "");
-          if (selected && selected.initiated <= measurement.settled) {
-            measurements.delete(measurement.selectedCode);
+      for (const [code, measurement2] of measurements) {
+        if (!measurement2.failed && measurement2.settled > 0 && measurement2.initiated <= releasePositiveThrough) {
+          const selected = measurements.get(measurement2.selectedCode || "");
+          if (selected && selected.initiated <= measurement2.settled) {
+            measurements.delete(measurement2.selectedCode);
           }
           measurements.delete(code);
         }
@@ -10911,8 +11291,8 @@ function applyLatencyMeasurements(section2) {
     ...section2,
     outbounds: section2.outbounds.map((outbound) => {
       const info = outbound.urlTestInfo || outbound.fallbackInfo;
-      const measurement = measurements?.get(outbound.code);
-      if (measurement?.selectedCode !== void 0 && measurement.selectedCode !== (info?.selectedCode || "")) {
+      const measurement2 = measurements?.get(outbound.code);
+      if (measurement2?.selectedCode !== void 0 && measurement2.selectedCode !== (info?.selectedCode || "")) {
         measurements?.delete(outbound.code);
       }
       const urlTestInfo = outbound.urlTestInfo ? {
@@ -11724,6 +12104,10 @@ async function renderSectionsWidget() {
       },
       onShowTailscaleInfo: (outbound) => {
         handleShowTailscaleInfo(outbound);
+      },
+      onShowDesyncInfo: (outbound) => {
+        closeDetailsModal();
+        showDesyncDetailsModal(section2.sectionName, outbound.displayName);
       },
       exitPanel: exitPanel?.sectionName === section2.sectionName ? {
         ...exitPanel,
@@ -17423,6 +17807,10 @@ var DesyncStyles = `
     padding: 0;
 }
 
+.fkp-desync__panel:not([open]) > .fkp-desync__body {
+    display: none;
+}
+
 .fkp-desync .fkp-desync__panel > summary {
     display: flex;
     align-items: center;
@@ -17621,6 +18009,116 @@ var DesyncStyles = `
 
 .fkp-desync__result > .fkp-desync__actions {
     margin-bottom: 0;
+}
+
+.fkp-desync__diagnostics {
+    container-type: inline-size;
+    min-width: 0;
+}
+
+.fkp-desync__outbound + .fkp-desync__outbound {
+    margin-top: 32px;
+}
+
+.fkp-desync__outbound > .fkp-desync__heading {
+    overflow-wrap: anywhere;
+}
+
+.fkp-desync .fkp-desync__overview {
+    gap: 16px 24px;
+    padding: 16px 0;
+    border-top: 1px solid var(--border-color-low, #8886);
+}
+
+.fkp-desync__overview dd,
+.fkp-desync__strategy-metrics dd {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.fkp-desync .fkp-desync__destination {
+    padding: 0;
+    overflow: hidden;
+}
+
+.fkp-desync .fkp-desync__destination-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px 24px;
+    margin: 0;
+    padding: 16px;
+    background: var(--background-color-low, #8881);
+}
+
+.fkp-desync__destination-header > :last-child {
+    text-align: right;
+}
+
+.fkp-desync__destination-header > :first-child dd {
+    font-weight: 600;
+}
+
+.fkp-desync .fkp-desync__strategies {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.fkp-desync .fkp-desync__strategy {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 16px 24px;
+    margin: 0;
+    padding: 16px;
+    border-top: 1px solid var(--border-color-low, #8886);
+    list-style: none;
+}
+
+.fkp-desync .fkp-desync__strategy-metrics {
+    grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 0;
+}
+
+.fkp-desync .fkp-desync__strategy-reason {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.fkp-desync .fkp-desync__success {
+    color: var(--success-color-high, #18723b);
+    color: light-dark(#18723b, #7cdda3);
+}
+
+.fkp-desync .fkp-desync__diagnostic-empty {
+    padding: 16px;
+    border: 1px dashed var(--border-color-low, #8886);
+    border-radius: 8px;
+}
+
+@container (max-width: 48rem) {
+    .fkp-desync .fkp-desync__strategy {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@container (max-width: 30rem) {
+    .fkp-desync .fkp-desync__destination-header {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .fkp-desync__destination-header > :last-child {
+        text-align: left;
+    }
+
+    .fkp-desync .fkp-desync__strategy-metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .fkp-desync__strategy-metrics > :first-child {
+        grid-column: 1 / -1;
+    }
 }
 `;
 
@@ -19552,65 +20050,6 @@ function mountTabOption(section2, key, tab) {
   o.cfgvalue = () => mountTab(key, tab.render, tab.initController);
 }
 
-// src/forkop/tabs/sections/desync/api.ts
-async function desyncRequest(method, payload = {}) {
-  const response = await callUbus({
-    object: "forkop",
-    method,
-    params: { payload: JSON.stringify(payload) },
-    timeoutMs: 15e3,
-    retryUnavailable: false
-  });
-  if (!response.success) throw new Error(response.message);
-  if (!response.data.success)
-    throw new Error(response.data.message || _("Desync request failed"));
-  return response.data;
-}
-var desyncApi = {
-  capabilities: async () => {
-    const reply = await desyncRequest("desync_capabilities");
-    const core = reply.capabilities;
-    const matrix = core?.parameters && !Array.isArray(core.parameters) ? core.parameters : void 0;
-    const unsupported = Object.fromEntries(
-      Object.entries(matrix || {}).filter(([, value]) => value.supported === false).map(([key, value]) => [
-        key,
-        value.requirements || _("Unsupported by the installed core")
-      ])
-    );
-    const requirements = Object.fromEntries(
-      Object.entries(matrix || {}).filter(([, value]) => value.requirements).map(([key, value]) => [key, value.requirements])
-    );
-    const unsupportedModes = Object.fromEntries(
-      Object.entries(core?.mode_support || {}).filter(([, value]) => value.supported === false).map(([key, value]) => [
-        key,
-        value.requirements || _("Unsupported by the installed core")
-      ])
-    );
-    return {
-      ...core,
-      parameters: matrix ? Object.keys(matrix) : Array.isArray(core?.parameters) ? core.parameters : void 0,
-      unsupported: { ...core?.unsupported, ...unsupported },
-      requirements: { ...core?.requirements, ...requirements },
-      unsupported_modes: { ...core?.unsupported_modes, ...unsupportedModes },
-      supported: reply.available && core?.supported !== false,
-      reason: reply.reason,
-      modes: reply.capabilities?.modes || reply.modes,
-      presets: reply.capabilities?.presets || reply.presets
-    };
-  },
-  diagnostics: async (section2) => {
-    const response = await desyncRequest(
-      "desync_diagnostics",
-      { section: section2 }
-    );
-    return response.diagnostics;
-  },
-  clear: (section2) => desyncRequest("desync_clear_cache", { section: section2 }),
-  start: (request) => desyncRequest("desync_tune_start", request),
-  progress: (id) => desyncRequest("desync_tune_progress", { id }),
-  cancel: (id) => desyncRequest("desync_tune_cancel", { id })
-};
-
 // src/forkop/tabs/sections/desync/model.ts
 var DESYNC_PRESETS = [
   "auto",
@@ -20013,104 +20452,6 @@ function validateDesync(options, capabilities) {
   }
 }
 
-// src/forkop/tabs/sections/desync/diagnostics.ts
-function renderDesyncDiagnostics(snapshot) {
-  const outbounds = Object.entries(snapshot.outbounds || {});
-  if (!outbounds.length)
-    return textE(
-      "p",
-      {},
-      _("No active Desync outbound. Save and apply the section first.")
-    );
-  return textE(
-    "div",
-    {},
-    outbounds.map(
-      ([name, value]) => textE("div", {}, [
-        textE("strong", {}, name),
-        textE("dl", {}, [
-          textE("dt", {}, _("Current strategy")),
-          textE("dd", {}, value.current || _("No observations yet")),
-          textE("dt", {}, _("Switch reason")),
-          textE("dd", {}, value.reason || "\u2014"),
-          textE("dt", {}, _("Active probes")),
-          textE("dd", {}, String(value.active ?? 0)),
-          textE("dt", {}, _("Learned destinations")),
-          textE(
-            "dd",
-            {},
-            String(
-              value.entry_count ?? Object.keys(value.entries || {}).length
-            )
-          )
-        ]),
-        ...value.entries_truncated ? [
-          textE(
-            "p",
-            {},
-            _(
-              "Only recent destinations are shown. The full history remains in the core cache."
-            )
-          )
-        ] : [],
-        textE(
-          "div",
-          { style: "overflow-x:auto" },
-          textE("table", { class: "table" }, [
-            textE(
-              "thead",
-              {},
-              textE(
-                "tr",
-                {},
-                [
-                  _("Destination"),
-                  _("Strategy"),
-                  _("Success"),
-                  _("Failed"),
-                  _("Latency"),
-                  _("Switch reason"),
-                  _("Updated")
-                ].map((label) => textE("th", { scope: "col" }, label))
-              )
-            ),
-            textE(
-              "tbody",
-              {},
-              Object.entries(value.entries || {}).flatMap(
-                ([destination, entry]) => Object.entries(entry.strategies || {}).map(
-                  ([strategy, score]) => textE(
-                    "tr",
-                    {},
-                    [
-                      destination,
-                      strategy,
-                      String(score.success ?? 0),
-                      String(score.failure ?? 0),
-                      score.latency_ms === void 0 ? "\u2014" : `${Math.round(score.latency_ms * 100) / 100} ms`,
-                      score.last_reason || "\u2014",
-                      entry.updated || "\u2014"
-                    ].map(
-                      (text8, index) => textE(
-                        "td",
-                        {
-                          style: "overflow-wrap:anywhere",
-                          class: index === 3 && (score.failure ?? 0) > 0 ? "fkp-desync__failure" : ""
-                        },
-                        text8
-                      )
-                    )
-                  )
-                )
-              )
-            )
-          ])
-        )
-      ])
-    )
-  );
-}
-
 // src/forkop/tabs/sections/desync/results.ts
 function summarizeDesyncResults(probes) {
   const groups = /* @__PURE__ */ new Map();
@@ -20150,126 +20491,11 @@ function summarizeDesyncResults(probes) {
   });
 }
 
-// src/forkop/tabs/sections/desync/ui.ts
-function desyncField(label, control) {
-  return textE("label", { class: "fkp-desync__field" }, [
-    textE("span", {}, label),
-    control
-  ]);
-}
-function desyncGroup(label, children2) {
-  return textE("section", { class: "fkp-desync__group" }, [
-    textE("h4", { class: "fkp-desync__heading" }, label),
-    textE("div", { class: "fkp-desync__body" }, children2)
-  ]);
-}
-function desyncPanel(label, children2) {
-  return textE("details", { class: "fkp-desync__panel" }, [
-    textE("summary", {}, [
-      textE("span", { class: "fkp-desync__title" }, label),
-      textE(
-        "span",
-        { class: "btn cbi-button fkp-desync__toggle", "aria-hidden": "true" },
-        [
-          textE("span", { class: "fkp-desync__show" }, _("Show")),
-          textE("span", { class: "fkp-desync__hide" }, _("Hide"))
-        ]
-      )
-    ]),
-    textE("div", { class: "fkp-desync__body" }, children2)
-  ]);
-}
-function desyncActions(children2) {
-  return textE("div", { class: "fkp-desync__actions" }, children2);
-}
-function desyncTabs(id, tabs) {
-  const panes = tabs.map(
-    ({ key, content }) => textE(
-      "div",
-      {
-        id: `${id}-${key}-pane`,
-        role: "tabpanel",
-        "aria-labelledby": `${id}-${key}-tab`
-      },
-      content
-    )
-  );
-  const links = tabs.map(
-    ({ key, label }, index) => textE(
-      "a",
-      {
-        id: `${id}-${key}-tab`,
-        href: `#${id}-${key}-pane`,
-        role: "tab",
-        "aria-controls": `${id}-${key}-pane`,
-        click: (event) => {
-          event.preventDefault();
-          select(index);
-        },
-        keydown: (event) => {
-          const next = event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : void 0;
-          if (next === void 0) return;
-          event.preventDefault();
-          select(next);
-          links[next].focus();
-        }
-      },
-      label
-    )
-  );
-  const items = links.map((link) => textE("li", { role: "presentation" }, link));
-  function select(index) {
-    links.forEach((link, i) => {
-      link.setAttribute("aria-selected", String(i === index));
-      link.setAttribute("tabindex", i === index ? "0" : "-1");
-      items[i].setAttribute(
-        "class",
-        i === index ? "cbi-tab" : "cbi-tab-disabled"
-      );
-      panes[i].hidden = i !== index;
-    });
-  }
-  select(0);
-  return textE("div", { class: "fkp-desync__tabs" }, [
-    textE(
-      "ul",
-      { class: "cbi-tabmenu", role: "tablist", "aria-label": _("Desync") },
-      items
-    ),
-    ...panes
-  ]);
-}
-
 // src/forkop/tabs/sections/desync/tools.ts
 function renderDesyncTools(section2, read, apply, capabilities, strategyLabels) {
   const error = textE("p", {
     role: "alert",
     class: "fkp-desync__error"
-  });
-  const diagnostics = textE("pre", {
-    style: "white-space:pre-wrap;overflow-wrap:anywhere"
-  });
-  const learning = textE("div");
-  function showDiagnostics(snapshot) {
-    learning.replaceChildren(renderDesyncDiagnostics(snapshot));
-    diagnostics.textContent = JSON.stringify(snapshot, null, 2);
-    rawDiagnostics.hidden = false;
-  }
-  const diagnosticStatus = textE("p", { "aria-live": "polite" });
-  const diagnosticLabels = textE(
-    "p",
-    {},
-    _("Current strategy, switch reason and learning statistics")
-  );
-  const refresh = button(_("Refresh diagnostics"), async () => {
-    const snapshot = await desyncApi.diagnostics(section2);
-    showDiagnostics(snapshot);
-  });
-  const clear = button(_("Clear learning results"), async () => {
-    await desyncApi.clear(section2);
-    diagnosticStatus.textContent = _("Learning results cleared");
-    const snapshot = await desyncApi.diagnostics(section2);
-    showDiagnostics(snapshot);
   });
   const target2 = textE("input", {
     type: "text",
@@ -20387,7 +20613,7 @@ function renderDesyncTools(section2, read, apply, capabilities, strategyLabels) 
   function renderResults(items) {
     const metric = (value, suffix = "") => typeof value === "number" ? `${value}${suffix}` : _("Not measured");
     const check = (value) => typeof value === "boolean" ? value ? _("Success") : _("Failed") : _("Not tested");
-    const measurement = (label, value, failed2 = false) => textE("div", {}, [
+    const measurement2 = (label, value, failed2 = false) => textE("div", {}, [
       textE("dt", {}, label),
       textE("dd", { class: failed2 ? "fkp-desync__failure" : "" }, value)
     ]);
@@ -20416,21 +20642,21 @@ function renderDesyncTools(section2, read, apply, capabilities, strategyLabels) 
             strategyLabels[name] || name
           ),
           textE("dl", { class: "fkp-desync__metrics" }, [
-            measurement(
+            measurement2(
               _("Result"),
               item.error || check(item.success),
               !!item.error || !item.success
             ),
             ...["tls", "http", "quic"].map(
-              (protocol2) => measurement(
+              (protocol2) => measurement2(
                 protocol2.toUpperCase(),
                 check(item[protocol2]),
                 item[protocol2] === false
               )
             ),
-            measurement(_("Latency"), metric(item.latency_ms, " ms")),
-            measurement(_("Successful probes"), metric(item.stability, "%")),
-            measurement(_("Speed"), metric(item.throughput_bps, " B/s"))
+            measurement2(_("Latency"), metric(item.latency_ms, " ms")),
+            measurement2(_("Successful probes"), metric(item.stability, "%")),
+            measurement2(_("Speed"), metric(item.throughput_bps, " B/s"))
           ]),
           desyncPanel(_("Strategy settings (JSON)"), [
             textE(
@@ -20538,15 +20764,6 @@ function renderDesyncTools(section2, read, apply, capabilities, strategyLabels) 
     },
     _("Cancel tests")
   );
-  const rawDiagnostics = desyncGroup(_("Raw diagnostics JSON"), [diagnostics]);
-  rawDiagnostics.hidden = true;
-  const diagnosticView = textE("div", {}, [
-    diagnosticLabels,
-    desyncActions([refresh, clear]),
-    diagnosticStatus,
-    learning,
-    rawDiagnostics
-  ]);
   root.append(
     textE(
       "p",
@@ -20581,7 +20798,7 @@ function renderDesyncTools(section2, read, apply, capabilities, strategyLabels) 
     status,
     results
   );
-  return { error, diagnostics: diagnosticView, testing: root };
+  return { error, testing: root };
 }
 function numeric(value, min, max) {
   return textE("input", {
@@ -20944,11 +21161,6 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
     tools.error,
     desyncTabs(`desync-${sectionId}`, [
       { key: "parameters", label: _("Parameters"), content: parameters },
-      {
-        key: "diagnostics",
-        label: _("Diagnostics"),
-        content: tools.diagnostics
-      },
       { key: "testing", label: _("Strategy testing"), content: tools.testing }
     ])
   ]);

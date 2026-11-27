@@ -42,6 +42,7 @@ import {
 import type { CoreUsageReading } from './coreUsage';
 import { resolveOutboundProxyLink } from './resolveOutboundProxyLink';
 import { showTailscaleDetailsModal } from '../servers/tailscale';
+import { showDesyncDetailsModal } from './desync';
 import { E } from '../../../helpers/element';
 
 const SECTIONS_REFRESH_INTERVAL_MS = 10000;
@@ -1833,6 +1834,10 @@ async function renderSectionsWidget() {
       },
       onShowTailscaleInfo: (outbound) => {
         handleShowTailscaleInfo(outbound);
+      },
+      onShowDesyncInfo: (outbound) => {
+        closeDetailsModal();
+        showDesyncDetailsModal(section.sectionName, outbound.displayName);
       },
       exitPanel:
         exitPanel?.sectionName === section.sectionName

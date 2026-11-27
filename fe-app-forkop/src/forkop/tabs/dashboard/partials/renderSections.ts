@@ -36,6 +36,7 @@ interface IRenderSectionsProps {
   onShowUrlTestInfo: (outbound: Forkop.Outbound) => void;
   onShowFallbackInfo: (outbound: Forkop.Outbound) => void;
   onShowTailscaleInfo: (outbound: Forkop.Outbound) => void;
+  onShowDesyncInfo: (outbound: Forkop.Outbound) => void;
   onSortByLatencyChange?: (sectionName: string, enabled: boolean) => void;
   onCollapsedChange?: (sectionName: string, collapsed: boolean) => void;
   latencyFetching: boolean;
@@ -297,6 +298,7 @@ function renderDefaultState({
   onShowUrlTestInfo,
   onShowFallbackInfo,
   onShowTailscaleInfo,
+  onShowDesyncInfo,
   onTestLatency,
   onTestOutboundLatency,
   onSortByLatencyChange,
@@ -461,6 +463,25 @@ function renderDefaultState({
                     click: (event: MouseEvent) => {
                       event.stopPropagation();
                       onShowFallbackInfo(outbound);
+                    },
+                  },
+                  renderInfoIcon24(),
+                ),
+              ]
+            : []),
+          ...(section.action === 'desync' && outbound.type === 'Desync'
+            ? [
+                E(
+                  'button',
+                  {
+                    type: 'button',
+                    class:
+                      'btn fkp_dashboard-page__outbound-grid__item__copy-button',
+                    title: _('Desync details'),
+                    'aria-label': _('Desync details'),
+                    click: (event: MouseEvent) => {
+                      event.stopPropagation();
+                      onShowDesyncInfo(outbound);
                     },
                   },
                   renderInfoIcon24(),
@@ -729,6 +750,7 @@ export function renderSectionsPlaceholder(state: {
     onShowUrlTestInfo: () => {},
     onShowFallbackInfo: () => {},
     onShowTailscaleInfo: () => {},
+    onShowDesyncInfo: () => {},
     latencyFetching: false,
   });
 }

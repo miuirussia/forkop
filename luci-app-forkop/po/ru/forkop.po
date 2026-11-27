@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 15:08+0300\n"
-"PO-Revision-Date: 2026-11-27 15:08+0300\n"
+"POT-Creation-Date: 2026-11-27 20:55+0300\n"
+"PO-Revision-Date: 2026-11-27 20:55+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -863,6 +863,9 @@ msgstr "Назначение"
 msgid "Desync"
 msgstr "Desync"
 
+msgid "Desync details"
+msgstr "Диагностика Desync"
+
 msgid "Desync needs a direct socket. Remove connection sources and cascades before changing this section to Desync, or create a new section."
 msgstr "Desync требуется прямой сокет. Удалите источники соединений и каскады перед сменой действия на Desync или создайте новую секцию."
 
@@ -892,9 +895,6 @@ msgstr "Устройства"
 
 msgid "Diagnostic report"
 msgstr "Отчёт диагностики"
-
-msgid "Diagnostics"
-msgstr "Диагностика"
 
 msgid "Direct"
 msgstr "Напрямую"

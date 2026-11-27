@@ -1,4 +1,3 @@
-import { renderDesyncDiagnostics, type DesyncDiagnostics } from './diagnostics';
 import { summarizeDesyncResults } from './results';
 import {
   desyncActions,
@@ -26,31 +25,6 @@ export function renderDesyncTools(
   const error = E('p', {
     role: 'alert',
     class: 'fkp-desync__error',
-  });
-  const diagnostics = E('pre', {
-    style: 'white-space:pre-wrap;overflow-wrap:anywhere',
-  });
-  const learning = E('div');
-  function showDiagnostics(snapshot: DesyncDiagnostics) {
-    learning.replaceChildren(renderDesyncDiagnostics(snapshot));
-    diagnostics.textContent = JSON.stringify(snapshot, null, 2);
-    rawDiagnostics.hidden = false;
-  }
-  const diagnosticStatus = E('p', { 'aria-live': 'polite' });
-  const diagnosticLabels = E(
-    'p',
-    {},
-    _('Current strategy, switch reason and learning statistics'),
-  );
-  const refresh = button(_('Refresh diagnostics'), async () => {
-    const snapshot = await desyncApi.diagnostics(section);
-    showDiagnostics(snapshot);
-  });
-  const clear = button(_('Clear learning results'), async () => {
-    await desyncApi.clear(section);
-    diagnosticStatus.textContent = _('Learning results cleared');
-    const snapshot = await desyncApi.diagnostics(section);
-    showDiagnostics(snapshot);
   });
   const target = E('input', {
     type: 'text',
@@ -349,15 +323,6 @@ export function renderDesyncTools(
     },
     _('Cancel tests'),
   );
-  const rawDiagnostics = desyncGroup(_('Raw diagnostics JSON'), [diagnostics]);
-  rawDiagnostics.hidden = true;
-  const diagnosticView = E('div', {}, [
-    diagnosticLabels,
-    desyncActions([refresh, clear]),
-    diagnosticStatus,
-    learning,
-    rawDiagnostics,
-  ]);
   root.append(
     E(
       'p',
@@ -392,7 +357,7 @@ export function renderDesyncTools(
     status,
     results,
   );
-  return { error, diagnostics: diagnosticView, testing: root };
+  return { error, testing: root };
 }
 
 function numeric(value: string, min: string, max: string) {

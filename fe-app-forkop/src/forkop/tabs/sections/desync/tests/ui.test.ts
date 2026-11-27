@@ -208,8 +208,9 @@ describe('Desync editor and tuner', () => {
     control(root, 'Strategy import or export').value = '{';
     button(root, 'Import strategy').click();
     expect(alerts[0].textContent).not.toBe('');
-    vi.mocked(desyncApi.diagnostics).mockRejectedValue(new Error('Offline'));
-    button(root, 'Refresh diagnostics').click();
+    vi.mocked(desyncApi.start).mockRejectedValue(new Error('Offline'));
+    field(root, 'Test target').value = 'example.org:443';
+    button(root, 'Find a strategy').click();
     await settle();
     expect(alerts[1].textContent).toBe('Offline');
 
@@ -225,38 +226,27 @@ describe('Desync editor and tuner', () => {
   it('preserves form edits across tabs and supports keyboard tab selection', () => {
     const { root, source } = editor();
     expect(pane(root, 'Parameters').hidden).toBe(false);
-    expect(pane(root, 'Diagnostics').hidden).toBe(true);
+    expect(
+      nodes(root).some(
+        (node) =>
+          node.attrs.role === 'tab' && node.textContent === 'Diagnostics',
+      ),
+    ).toBe(false);
     expect(pane(root, 'Strategy testing').hidden).toBe(true);
     control(root, 'TCP mode').change('multi_split');
     const saved = source.value;
-    tab(root, 'Diagnostics').click();
+    tab(root, 'Strategy testing').click();
     expect(pane(root, 'Parameters').hidden).toBe(true);
-    expect(pane(root, 'Diagnostics').hidden).toBe(false);
-    expect(tab(root, 'Diagnostics').attrs['aria-selected']).toBe('true');
+    expect(pane(root, 'Strategy testing').hidden).toBe(false);
+    expect(tab(root, 'Strategy testing').attrs['aria-selected']).toBe('true');
     expect(tab(root, 'Parameters').attrs.tabindex).toBe('-1');
-    const keydown = tab(root, 'Diagnostics').attrs.keydown as (
+    const keydown = tab(root, 'Strategy testing').attrs.keydown as (
       event: KeyboardEvent,
     ) => void;
-    keydown({ key: 'End', preventDefault() {} } as KeyboardEvent);
-    expect(pane(root, 'Strategy testing').hidden).toBe(false);
-    expect(tab(root, 'Strategy testing').attrs.tabindex).toBe('0');
-    tab(root, 'Parameters').click();
+    keydown({ key: 'Home', preventDefault() {} } as KeyboardEvent);
+    expect(pane(root, 'Parameters').hidden).toBe(false);
+    expect(tab(root, 'Parameters').attrs.tabindex).toBe('0');
     expect(control(root, 'TCP mode').value).toBe('multi_split');
-    expect(source.value).toBe(saved);
-  });
-  it('refreshes diagnostics in its tab without changing the strategy', async () => {
-    const { root, source } = editor();
-    const saved = source.value;
-    vi.mocked(desyncApi.diagnostics).mockResolvedValue({ outbounds: {} });
-    tab(root, 'Diagnostics').click();
-    button(root, 'Refresh diagnostics').click();
-    await settle();
-    expect(desyncApi.diagnostics).toHaveBeenCalledWith('s1');
-    expect(
-      nodes(pane(root, 'Diagnostics')).some((node) =>
-        node.textContent.includes('No active Desync outbound'),
-      ),
-    ).toBe(true);
     expect(source.value).toBe(saved);
   });
   it('edits advanced QUIC controls without losing false and zero, or declaring pre-SYN unsupported', () => {

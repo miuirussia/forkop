@@ -126,6 +126,7 @@ describe('renderSections latency actions', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const button = findNode(
@@ -189,6 +190,7 @@ describe('renderSections latency actions', () => {
         onShowUrlTestInfo: vi.fn(),
         onShowFallbackInfo: vi.fn(),
         onShowTailscaleInfo: vi.fn(),
+        onShowDesyncInfo: vi.fn(),
         onSortByLatencyChange,
         sortByLatency,
         latencyFetching: false,
@@ -260,6 +262,7 @@ describe('renderSections latency actions', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
 
@@ -297,6 +300,7 @@ describe('renderSections latency actions', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const card = findNode(root, (node) =>
@@ -370,6 +374,7 @@ describe('renderSections latency actions', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const button = findNode(
@@ -447,6 +452,7 @@ describe('renderSections latency actions', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const buttons = findNodes(root, (node) => node.type === 'button');
@@ -512,6 +518,7 @@ describe('renderSections latency actions', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: true,
     };
     const root = renderSections(props) as unknown as FakeNode;
@@ -600,6 +607,7 @@ describe('renderSections latency actions', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
       latencyFetchingTargets: new Set(['main/URLTest']),
     }) as unknown as FakeNode;
@@ -662,6 +670,7 @@ describe('renderSections latency actions', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const latency = findNode(
@@ -724,6 +733,7 @@ describe('renderSections latency actions', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo,
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const cards = findNodes(root, (node) =>
@@ -784,6 +794,7 @@ describe('renderSections subscription metadata', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const links = findNodes(
@@ -829,6 +840,7 @@ describe('renderSections subscription metadata', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const heading = findNodes(
@@ -868,6 +880,7 @@ describe('renderSections subscription metadata', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const heading = findNode(
@@ -910,6 +923,7 @@ describe('renderSections subscription metadata', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
 
@@ -951,6 +965,7 @@ describe('renderSections subscription metadata', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
 
@@ -997,6 +1012,7 @@ describe('renderSections subscription update time', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
   }
@@ -1127,6 +1143,7 @@ describe('renderSections collapse action', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
       ...props,
     }) as unknown as FakeNode;
@@ -1281,6 +1298,7 @@ describe('renderSections header', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
       collapsible: true,
       collapsed,
@@ -1350,6 +1368,7 @@ describe('renderSections header', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const button = findNode(
@@ -1392,6 +1411,7 @@ describe('renderSections header', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
     }) as unknown as FakeNode;
     const labels = findNodes(root, (candidate) => candidate.type === 'button')
@@ -1430,6 +1450,7 @@ describe('renderSections header', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
       ...props,
     }) as unknown as FakeNode;
@@ -1514,6 +1535,7 @@ describe('renderSections exit action', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo: vi.fn(),
       latencyFetching: false,
       ...props,
     }) as unknown as FakeNode;
@@ -1627,7 +1649,11 @@ describe('renderSections exit action', () => {
 describe('renderSections standalone Desync', () => {
   async function render(
     active: boolean,
-    { collapsed = false, latencyFailed = false } = {},
+    {
+      collapsed = false,
+      latencyFailed = false,
+      action = 'desync' as Forkop.OutboundGroup['action'],
+    } = {},
   ) {
     installElementFactory();
     const { renderSections } = await import('../partials/renderSections');
@@ -1636,6 +1662,7 @@ describe('renderSections standalone Desync', () => {
     const onChooseOutbound = vi.fn();
     const onCopyOutbound = vi.fn();
     const onToggleExit = vi.fn();
+    const onShowDesyncInfo = vi.fn();
     const root = renderSections({
       loading: false,
       failed: false,
@@ -1643,7 +1670,7 @@ describe('renderSections standalone Desync', () => {
         code: 'YouTube',
         sectionName: 'youtube',
         displayName: 'YouTube',
-        action: 'desync',
+        action,
         withTagSelect: false,
         unavailableMessage: active
           ? undefined
@@ -1669,6 +1696,7 @@ describe('renderSections standalone Desync', () => {
       onShowUrlTestInfo: vi.fn(),
       onShowFallbackInfo: vi.fn(),
       onShowTailscaleInfo: vi.fn(),
+      onShowDesyncInfo,
       onToggleExit,
       latencyFetching: false,
       collapsible: true,
@@ -1681,6 +1709,7 @@ describe('renderSections standalone Desync', () => {
       onChooseOutbound,
       onCopyOutbound,
       onToggleExit,
+      onShowDesyncInfo,
     };
   }
 
@@ -1689,6 +1718,31 @@ describe('renderSections standalone Desync', () => {
       .split(' ')
       .includes(name);
   const event = () => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+
+  it.each(['desync', 'connection'] as const)(
+    'scopes diagnostics Info to the standalone Desync action: %s',
+    async (action) => {
+      const { root, onShowDesyncInfo, onChooseOutbound } = await render(true, {
+        action,
+      });
+      const info = findNode(
+        root,
+        (node) => node.attrs['aria-label'] === 'Desync details',
+      );
+      if (action === 'connection') {
+        expect(info).toBeUndefined();
+        return;
+      }
+      expect(info).toBeDefined();
+      const click = event();
+      (info!.attrs.click as (event: unknown) => void)(click);
+      expect(click.stopPropagation).toHaveBeenCalledOnce();
+      expect(onShowDesyncInfo).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'YouTube' }),
+      );
+      expect(onChooseOutbound).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     { latencyFailed: false, value: '87ms', color: 'green' },

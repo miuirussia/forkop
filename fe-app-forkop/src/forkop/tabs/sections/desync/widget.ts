@@ -402,11 +402,6 @@ export function renderDesyncEditor(
     tools.error,
     desyncTabs(`desync-${sectionId}`, [
       { key: 'parameters', label: _('Parameters'), content: parameters },
-      {
-        key: 'diagnostics',
-        label: _('Diagnostics'),
-        content: tools.diagnostics,
-      },
       { key: 'testing', label: _('Strategy testing'), content: tools.testing },
     ]),
   ]);
