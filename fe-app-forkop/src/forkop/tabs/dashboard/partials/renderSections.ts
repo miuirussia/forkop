@@ -589,17 +589,21 @@ function renderDefaultState({
       )
     : undefined;
 
-  // The node the choice landed on, the one thing a folded section still shows.
+  // Keep the current connection visible when its card is folded away.
   const selected =
     section.withTagSelect && (collapsed || section.outbounds.length > 1)
       ? section.outbounds.find((outbound) => outbound.selected)
-      : undefined;
+      : section.action === 'desync' && collapsed
+        ? section.outbounds[0]
+        : undefined;
   const current = selected
     ? E('span', { class: 'fkp_dashboard-page__outbound-section__current' }, [
         E(
           'span',
           { class: 'fkp_dashboard-page__outbound-section__current-name' },
-          renderFlagEmojis(selected.displayName),
+          renderFlagEmojis(
+            section.action === 'desync' ? selected.type : selected.displayName,
+          ),
         ),
         ...(selected.latency || selected.latencyFailed
           ? [

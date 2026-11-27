@@ -1625,7 +1625,10 @@ describe('renderSections exit action', () => {
 });
 
 describe('renderSections standalone Desync', () => {
-  async function render(active: boolean) {
+  async function render(
+    active: boolean,
+    { collapsed = false, latencyFailed = false } = {},
+  ) {
     installElementFactory();
     const { renderSections } = await import('../partials/renderSections');
     const onTestLatency = vi.fn();
@@ -1648,7 +1651,8 @@ describe('renderSections standalone Desync', () => {
                 code: 'YouTube',
                 displayName: 'YouTube',
                 type: 'Desync',
-                latency: 87,
+                latency: latencyFailed ? 0 : 87,
+                latencyFailed,
                 selected: true,
                 canCopyLink: false,
               },
@@ -1664,6 +1668,8 @@ describe('renderSections standalone Desync', () => {
       onShowTailscaleInfo: vi.fn(),
       onToggleExit,
       latencyFetching: false,
+      collapsible: true,
+      collapsed,
     }) as unknown as FakeNode;
     return {
       root,
@@ -1680,6 +1686,47 @@ describe('renderSections standalone Desync', () => {
       .split(' ')
       .includes(name);
   const event = () => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+
+  it.each([
+    { latencyFailed: false, value: '87ms', color: 'green' },
+    { latencyFailed: true, value: 'N/A', color: 'red' },
+  ])(
+    'keeps the Desync delay outcome in the folded header: $value',
+    async ({ latencyFailed, value, color }) => {
+      const { root, onTestLatency } = await render(true, {
+        collapsed: true,
+        latencyFailed,
+      });
+      const current = findNode(
+        root,
+        hasClass('fkp_dashboard-page__outbound-section__current'),
+      )!;
+      expect(current).toBeDefined();
+      expect(
+        findNode(
+          current,
+          hasClass('fkp_dashboard-page__outbound-section__current-name'),
+        )?.children,
+      ).toEqual(['Desync']);
+      expect(
+        findNode(
+          current,
+          hasClass(
+            `fkp_dashboard-page__outbound-grid__item__latency--${color}`,
+          ),
+        )?.children,
+      ).toEqual([value]);
+      expect(
+        findNode(root, hasClass('fkp_dashboard-page__outbound-grid')),
+      ).toBeUndefined();
+      const gauge = findNode(
+        root,
+        hasClass('dashboard-sections-grid-item-test-latency'),
+      )!;
+      (gauge.attrs.click as (event: unknown) => void)(event());
+      expect(onTestLatency).toHaveBeenCalledWith('YouTube');
+    },
+  );
 
   it('shows the actual outbound type and latency, tests it directly, and offers an IP check without proxy controls', async () => {
     const {

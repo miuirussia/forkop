@@ -5736,12 +5736,14 @@ function renderDefaultState({
     },
     renderChevronUpIcon24()
   ) : void 0;
-  const selected = section2.withTagSelect && (collapsed || section2.outbounds.length > 1) ? section2.outbounds.find((outbound) => outbound.selected) : void 0;
+  const selected = section2.withTagSelect && (collapsed || section2.outbounds.length > 1) ? section2.outbounds.find((outbound) => outbound.selected) : section2.action === "desync" && collapsed ? section2.outbounds[0] : void 0;
   const current = selected ? textE("span", { class: "fkp_dashboard-page__outbound-section__current" }, [
     textE(
       "span",
       { class: "fkp_dashboard-page__outbound-section__current-name" },
-      renderFlagEmojis(selected.displayName)
+      renderFlagEmojis(
+        section2.action === "desync" ? selected.type : selected.displayName
+      )
     ),
     ...selected.latency || selected.latencyFailed ? [
       textE(
