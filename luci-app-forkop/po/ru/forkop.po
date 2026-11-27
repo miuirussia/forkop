@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 09:51+0300\n"
-"PO-Revision-Date: 2026-11-27 09:51+0300\n"
+"POT-Creation-Date: 2026-11-27 13:50+0300\n"
+"PO-Revision-Date: 2026-11-27 13:50+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -221,9 +221,6 @@ msgstr "Активные"
 msgid "Active probes"
 msgstr "Активные проверки"
 
-msgid "Adaptive"
-msgstr "Адаптивный режим"
-
 msgid "Adaptive chooses strategies for future connections and retries only eligible initial TLS data within configured limits. Learning uses cache.db when available and otherwise stays in memory."
 msgstr "Адаптивный режим выбирает стратегии для следующих соединений и повторяет только допустимые начальные данные TLS в заданных пределах. Обучение сохраняется в cache.db, если файл кеша доступен, иначе остаётся в памяти."
 
@@ -231,7 +228,10 @@ msgid "Adaptive keys: max_attempts, max_concurrent, max_entries, ttl, timeout, m
 msgstr "Параметры Adaptive: max_attempts, max_concurrent, max_entries, ttl, timeout, max_buffer, network_id. Указывайте единицу времени, например 5s или 24h."
 
 msgid "Adaptive limits (JSON object)"
-msgstr "Ограничения Adaptive (объект JSON)"
+msgstr "Ограничения автоподбора (объект JSON)"
+
+msgid "Adaptive mode"
+msgstr "Адаптивный режим"
 
 msgid "Adaptive requires auto_tune=true or preset=auto"
 msgstr "Для Adaptive требуется auto_tune=true или preset=auto"
@@ -293,11 +293,14 @@ msgstr "Адрес %s недопустим"
 msgid "Addresses"
 msgstr "Адреса"
 
-msgid "Advanced parameters"
-msgstr "Расширенные параметры"
-
 msgid "Advanced settings"
 msgstr "Дополнительные параметры"
+
+msgid "Advanced TCP settings"
+msgstr "Дополнительные настройки TCP"
+
+msgid "Advanced UDP settings"
+msgstr "Дополнительные настройки UDP"
 
 msgid "Advertise routes"
 msgstr "Раздавать маршруты"
@@ -410,6 +413,12 @@ msgstr "Секция сравнения Autodetect"
 msgid "Autodetect is unavailable."
 msgstr "Autodetect недоступен."
 
+msgid "Automatic selection (auto)"
+msgstr "Автоматический подбор (auto)"
+
+msgid "Automatic strategy selection"
+msgstr "Автоматический подбор стратегии"
+
 msgid "Automatic TTL"
 msgstr "Автоматический TTL"
 
@@ -481,9 +490,6 @@ msgstr "Нельзя выбрать эту же секцию"
 
 msgid "Cannot verify Desync support: %s"
 msgstr "Не удалось проверить поддержку Desync: %s"
-
-msgid "Canonical options JSON"
-msgstr "Канонический JSON параметров"
 
 msgid "Carry the traffic over the TLS connection without the faster DTLS channel, for a network that drops or slows UDP"
 msgstr "Передавать трафик через соединение TLS без более быстрого канала DTLS — для сети, которая теряет или замедляет UDP"
@@ -788,6 +794,9 @@ msgstr "Текущая стратегия, причина переключени
 msgid "Currently unavailable"
 msgstr "Временно недоступно"
 
+msgid "Custom settings (custom)"
+msgstr "Свои настройки (custom)"
+
 msgid "Custom strategy copied to this form. Save the section and apply configuration to activate it."
 msgstr "Стратегия custom перенесена в форму. Для активации сохраните секцию и примените конфигурацию."
 
@@ -887,6 +896,9 @@ msgstr "Устройства"
 msgid "Diagnostic report"
 msgstr "Отчёт диагностики"
 
+msgid "Diagnostics"
+msgstr "Диагностика"
+
 msgid "Direct"
 msgstr "Напрямую"
 
@@ -901,6 +913,12 @@ msgstr "Отключить автостарт"
 
 msgid "Disable QUIC"
 msgstr "Отключить QUIC"
+
+msgid "Disabled"
+msgstr "Отключено"
+
+msgid "Disabled (none)"
+msgstr "Отключено (none)"
 
 msgid "Disables QUIC for compatibility and to fix video streaming"
 msgstr "Отключает QUIC для совместимости и исправления видеостриминга"
@@ -1013,17 +1031,14 @@ msgstr "Изменить"
 msgid "empty"
 msgstr "пусто"
 
-msgid "Empty fields inherit the preset. Select auto_tune=false to keep a manual strategy fixed. Positions accept byte offsets and markers such as sni, midsld+1, host+1, endhost-1, sniext+1 and extlen."
-msgstr "Пустые поля наследуют пресет. Установите auto_tune=false, чтобы зафиксировать ручную стратегию. Позиции задаются смещениями в байтах или маркерами: sni, midsld+1, host+1, endhost-1, sniext+1, extlen."
+msgid "Empty fields use the selected profile. To keep a fixed strategy, disable automatic selection in Adaptive mode."
+msgstr "Пустые поля используют значения профиля. Чтобы закрепить стратегию, отключите автоматический подбор в группе «Адаптивный режим»."
 
 msgid "Empty or duplicate parameter"
 msgstr "Пустой или повторяющийся параметр"
 
 msgid "Enable"
 msgstr "Включить"
-
-msgid "Enable Adaptive (auto_tune)"
-msgstr "Включить Adaptive (auto_tune)"
 
 msgid "Enable Autodetect"
 msgstr "Включить Autodetect"
@@ -1048,6 +1063,9 @@ msgstr "Включить YACD"
 
 msgid "Enable YACD WAN Access"
 msgstr "Включить доступ YACD WAN"
+
+msgid "Enabled"
+msgstr "Включено"
 
 msgid "Enter a test target (host:port or URL)"
 msgstr "Укажите цель проверки (хост:порт или URL)"
@@ -1197,19 +1215,31 @@ msgid "Failed to upload the file: %s"
 msgstr "Не удалось загрузить файл на роутер: %s"
 
 msgid "Fake HTTP Host"
-msgstr "Подставной HTTP Host"
+msgstr "Поддельный HTTP Host"
+
+msgid "Fake HTTP Host + segmentation (hostfakesplit)"
+msgstr "Поддельный HTTP Host и разбиение (hostfakesplit)"
 
 msgid "Fake packet repetitions"
-msgstr "Повторы подставных пакетов"
+msgstr "Повторы поддельных пакетов"
 
 msgid "Fake packet TTL"
-msgstr "TTL подставных пакетов"
+msgstr "TTL поддельных пакетов"
+
+msgid "Fake packets (fake)"
+msgstr "Поддельные пакеты (fake)"
+
+msgid "Fake packets + reordering (fake_disorder)"
+msgstr "Поддельные пакеты и перестановка (fake_disorder)"
+
+msgid "Fake packets + segmentation (fake_split)"
+msgstr "Поддельные пакеты и разбиение (fake_split)"
 
 msgid "Fake parameters require a fake TCP mode"
 msgstr "Параметрам подставных пакетов требуется TCP-режим с fake"
 
 msgid "Fake SNI"
-msgstr "Подставной SNI"
+msgstr "Поддельный SNI"
 
 msgid "Fake SNI pool (JSON array)"
 msgstr "Пул подставных SNI (массив JSON)"
@@ -1257,7 +1287,7 @@ msgid "Flow"
 msgstr "Flow"
 
 msgid "Fooling methods"
-msgstr "Методы fooling"
+msgstr "Методы маскировки пакетов (fooling)"
 
 msgid "For a field the server asks besides the login, as openconnect --form-entry takes it: FORM:NAME=VALUE"
 msgstr "Для поля, которое сервер спрашивает помимо логина, в формате openconnect --form-entry: ФОРМА:ИМЯ=ЗНАЧЕНИЕ"
@@ -1352,6 +1382,18 @@ msgstr "Размер фрагмента"
 msgid "From a file…"
 msgstr "Из файла…"
 
+msgid "Game traffic profile 1 (GT1)"
+msgstr "Игровой профиль 1 (GT1)"
+
+msgid "Game traffic profile 2 (GT2)"
+msgstr "Игровой профиль 2 (GT2)"
+
+msgid "Game traffic profile 3 (GT3)"
+msgstr "Игровой профиль 3 (GT3)"
+
+msgid "Game traffic profile 4 (GT4)"
+msgstr "Игровой профиль 4 (GT4)"
+
 msgid "Generate"
 msgstr "Сгенерировать"
 
@@ -1408,6 +1450,9 @@ msgstr "Для HeaderProtectionKey нужны S1-S4 от 12"
 
 msgid "Headers"
 msgstr "Заголовки"
+
+msgid "Hide"
+msgstr "Скрыть"
 
 msgid "Hide details"
 msgstr "Скрыть подробности"
@@ -1475,11 +1520,11 @@ msgstr "ifconfig: нужны два адреса"
 msgid "Import"
 msgstr "Импортировать"
 
-msgid "Import / export"
-msgstr "Импорт / экспорт"
-
 msgid "Import a JSON object or a key=value strategy. Import replaces the form strategy; explicit JSON fields override imported strategy values."
 msgstr "Импортируйте объект JSON или строку ключ=значение. Импорт заменяет стратегию в форме; явные поля JSON переопределяют значения импортированной стратегии."
+
+msgid "Import and export"
+msgstr "Импорт и экспорт"
 
 msgid "Import configuration"
 msgstr "Импорт конфигурации"
@@ -1512,7 +1557,7 @@ msgid "Inconclusive"
 msgstr "Не определено"
 
 msgid "Inherit preset"
-msgstr "Наследовать пресет"
+msgstr "Из выбранного профиля"
 
 msgid "insecure: also MD5 and short keys"
 msgstr "insecure: ещё MD5 и короткие ключи"
@@ -1766,9 +1811,6 @@ msgstr "URL для тестирования задержки"
 msgid "Learned destinations"
 msgstr "Изученные назначения"
 
-msgid "Learning and diagnostics"
-msgstr "Обучение и диагностика"
-
 msgid "Learning results cleared"
 msgstr "Результаты обучения очищены"
 
@@ -1850,9 +1892,6 @@ msgstr "Основной DNS"
 msgid "Main DNS Query Mode"
 msgstr "Режим опроса основного DNS"
 
-msgid "Manual strategy"
-msgstr "Ручная стратегия"
-
 msgid "Masking type"
 msgstr "Тип маскировки"
 
@@ -1918,6 +1957,12 @@ msgstr "MTU"
 
 msgid "Multiple fake repetitions require a fake TCP mode"
 msgstr "Для нескольких повторов подставных пакетов требуется TCP-режим с fake"
+
+msgid "Multiple reordered segments (multi_disorder)"
+msgstr "Перестановка нескольких сегментов (multi_disorder)"
+
+msgid "Multiple segments (multi_split)"
+msgstr "Разбиение на несколько сегментов (multi_split)"
 
 msgid "Multiplex"
 msgstr "Multiplex"
@@ -2237,6 +2282,9 @@ msgstr "Время ожидания истекло"
 msgid "OS"
 msgstr "ОС"
 
+msgid "Out-of-order segments (disorder)"
+msgstr "Перестановка сегментов (disorder)"
+
 msgid "Output Network Interface"
 msgstr "Выходной сетевой интерфейс"
 
@@ -2257,6 +2305,9 @@ msgstr "Параллельно — запрос всем сразу, быстр�
 
 msgid "Parallel checks"
 msgstr "Параллельные проверки"
+
+msgid "Parameters"
+msgstr "Параметры"
 
 msgid "Parameters after ? are not supported"
 msgstr "Параметры после ? не поддерживаются"
@@ -2360,11 +2411,8 @@ msgstr "Длина префикса от %d до %d"
 msgid "Prefixes: full:, keyword:, regex:"
 msgstr "Префиксы: full:, keyword:, regex:"
 
-msgid "Preset"
-msgstr "Пресет"
-
 msgid "Presets provide defaults; explicit options override them. Custom disables Adaptive. Normal section conditions, DNS and global QUIC blocking still apply."
-msgstr "Пресеты задают значения по умолчанию; явные параметры их переопределяют. Custom отключает Adaptive. Условия секции, DNS и глобальная блокировка QUIC действуют как обычно."
+msgstr "Профиль задаёт значения по умолчанию; заполненные поля их переопределяют. Профиль «Свои настройки» отключает автоматический подбор. Условия секции, DNS и глобальная блокировка QUIC действуют как обычно."
 
 msgid "Previous"
 msgstr "Назад"
@@ -2414,11 +2462,17 @@ msgstr "Публичный ключ"
 msgid "QR code"
 msgstr "QR-код"
 
+msgid "QUIC and STUN (auto)"
+msgstr "QUIC и STUN (auto)"
+
 msgid "QUIC desync is enabled by default in UDP modes quic and auto. False skips QUIC fake packets and resizing while auto mode still handles STUN. QUIC repetitions 1–16 override only QUIC series; 0 uses UDP repetitions."
 msgstr "Десинхронизация QUIC включена по умолчанию в режимах UDP quic и auto. False отключает подставные пакеты и изменение размера QUIC; режим auto продолжает обрабатывать STUN. Повторы QUIC от 1 до 16 задают только серии QUIC; 0 наследует число повторов UDP."
 
 msgid "QUIC fake repetitions (0 inherits UDP repetitions)"
 msgstr "Повторы подставных QUIC-пакетов (0 наследует повторы UDP)"
+
+msgid "QUIC only (quic)"
+msgstr "Только QUIC (quic)"
 
 msgid "QUIC parameters require UDP mode quic or auto"
 msgstr "Для параметров QUIC требуется режим UDP quic или auto"
@@ -2503,6 +2557,9 @@ msgstr "Удалить с настройками"
 
 msgid "Rename servers"
 msgstr "Переименование серверов"
+
+msgid "Reordering + urgent data (disoob)"
+msgstr "Перестановка и срочные данные (disoob)"
 
 msgid "Repetitions"
 msgstr "Повторы"
@@ -2807,6 +2864,9 @@ msgstr "Настройки не сохранены"
 msgid "Several servers give automatic failover. The protocol is set by a prefix: %s"
 msgstr "Несколько серверов дают автоматическое переключение при сбоях. Протокол задаётся префиксом: %s"
 
+msgid "Show"
+msgstr "Показать"
+
 msgid "Show a QR code"
 msgstr "Показать QR-код"
 
@@ -2878,6 +2938,9 @@ msgstr "Скорость"
 
 msgid "Split positions"
 msgstr "Позиции разбиения"
+
+msgid "Split positions accept byte offsets and markers: sni, midsld+1, host+1, endhost-1, sniext+1, extlen."
+msgstr "Позиции разбиения задаются смещением в байтах или маркерами: sni, midsld+1, host+1, endhost-1, sniext+1, extlen."
 
 msgid "Split positions have no effect in this TCP mode without real-segment transformation"
 msgstr "Позиции разбиения не действуют в этом режиме TCP без преобразования реальных сегментов"
@@ -2969,8 +3032,17 @@ msgstr "Размер стратегии превышает 32 КиБ"
 msgid "Strategy import or export"
 msgstr "Импорт или экспорт стратегии"
 
-msgid "Strategy tuner"
-msgstr "Подбор стратегий"
+msgid "Strategy JSON"
+msgstr "Стратегия в JSON"
+
+msgid "Strategy profile"
+msgstr "Профиль обхода DPI"
+
+msgid "Strategy testing"
+msgstr "Проверка стратегий"
+
+msgid "STUN only (stun)"
+msgstr "Только STUN (stun)"
 
 msgid "Subnets"
 msgstr "Подсети"
@@ -3038,6 +3110,9 @@ msgstr "Детали Tailscale"
 msgid "TAP (layer 2) is not supported, only TUN"
 msgstr "TAP (уровень 2) не поддерживается, только TUN"
 
+msgid "TCP and TLS"
+msgstr "TCP и TLS"
+
 msgid "TCP and UDP"
 msgstr "TCP и UDP"
 
@@ -3047,8 +3122,14 @@ msgstr "Режим TCP"
 msgid "TCP ports to monitor, one per entry. Default: 443."
 msgstr "TCP-порты для наблюдения, по одному в строке. По умолчанию — 443."
 
+msgid "TCP segmentation (split)"
+msgstr "Разбиение TCP (split)"
+
 msgid "TCP transformation parameters require an enabled TCP mode"
 msgstr "Для параметров преобразования TCP требуется включённый режим TCP"
+
+msgid "TCP urgent data (oob)"
+msgstr "Срочные данные TCP (oob)"
 
 msgid "TCP window scale"
 msgstr "Масштаб окна TCP"
@@ -3257,6 +3338,9 @@ msgstr "Шифры TLS"
 msgid "TLS only"
 msgstr "Только TLS"
 
+msgid "TLS record fragmentation (tlsrec)"
+msgstr "Разбиение записей TLS (tlsrec)"
+
 msgid "Token password"
 msgstr "Пароль токена"
 
@@ -3338,11 +3422,14 @@ msgstr "Туннель: %s"
 msgid "Type"
 msgstr "Тип"
 
+msgid "UDP and QUIC"
+msgstr "UDP и QUIC"
+
 msgid "UDP fake repetitions"
-msgstr "Повторы подставных UDP-пакетов"
+msgstr "Повторы поддельных UDP-пакетов"
 
 msgid "UDP fake TTL"
-msgstr "TTL подставных UDP-пакетов"
+msgstr "TTL поддельных UDP-пакетов"
 
 msgid "UDP mode"
 msgstr "Режим UDP"

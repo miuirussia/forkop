@@ -7246,7 +7246,7 @@ function hex(bytes) {
 }
 function extensionValue(der, oid) {
   const extensions = (signedFields(der) || []).find(
-    (field3) => field3.tag === 163
+    (field2) => field2.tag === 163
   );
   const list3 = extensions && children(der, extensions)[0];
   for (const extension of list3 ? children(der, list3) : []) {
@@ -7816,11 +7816,11 @@ function encodeQuery(params) {
     ([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(`${value}`)}`
   ).join("&");
 }
-function generateCredential(sectionId, protocol, field3) {
-  if (field3 === "uuid") {
+function generateCredential(sectionId, protocol, field2) {
+  if (field2 === "uuid") {
     return generateUuid();
   }
-  if (field3 === "password") {
+  if (field2 === "password") {
     const keyBytes = protocol === "shadowsocks" ? shadowsocksKeyBytes(getShadowsocksMethod(sectionId)) : 0;
     return keyBytes > 0 ? generatePresharedKey(keyBytes) : generatePassword();
   }
@@ -8323,11 +8323,11 @@ function buildTrustTunnelLink(sectionId, client, context) {
   });
 }
 function hasRequiredCredentials(sectionId, client) {
-  return credentialFields(getProtocol(sectionId)).filter((field3) => field3 !== "flow").every((field3) => {
-    if (field3 === "password" && !isAuthenticationEnabled(sectionId)) {
+  return credentialFields(getProtocol(sectionId)).filter((field2) => field2 !== "flow").every((field2) => {
+    if (field2 === "password" && !isAuthenticationEnabled(sectionId)) {
       return true;
     }
-    return !!client[field3];
+    return !!client[field2];
   });
 }
 function buildMieruLink(sectionId, client) {
@@ -17310,6 +17310,212 @@ var AutodetectTab = {
   `
 };
 
+// src/forkop/tabs/sections/desync/styles.ts
+var DesyncStyles = `
+.cbi-value-field > .fkp-desync,
+.fkp-desync {
+    display: block;
+    box-sizing: border-box;
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.fkp-desync [hidden] {
+    display: none !important;
+}
+
+.fkp-desync__tabs > .cbi-tabmenu {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 0 24px;
+    overflow: visible;
+}
+
+.fkp-desync__tabs > .cbi-tabmenu > li {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.fkp-desync__tabs > .cbi-tabmenu > li > a {
+    height: auto;
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.fkp-desync__group {
+    min-width: 0;
+    margin: 24px 0;
+}
+
+.fkp-desync .fkp-desync__heading {
+    margin: 0 0 12px;
+    font-size: 1em;
+    font-weight: 600;
+    color: inherit;
+}
+
+.fkp-desync .fkp-desync__panel {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    border-top: 1px solid var(--border-color-low, #8886);
+    border-radius: 0;
+    padding: 0;
+}
+
+.fkp-desync .fkp-desync__panel > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-sizing: border-box;
+    min-height: 44px;
+    padding: 12px 4px;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.fkp-desync__panel > summary::marker {
+    content: '';
+}
+
+.fkp-desync__panel > summary::-webkit-details-marker {
+    display: none;
+}
+
+.fkp-desync__title {
+    min-width: 0;
+}
+
+.fkp-desync .fkp-desync__toggle {
+    flex: 0 0 auto;
+    min-width: 6em;
+    margin: 0;
+    pointer-events: none;
+    text-align: center;
+    font-weight: normal;
+}
+
+.fkp-desync__panel > summary .fkp-desync__hide,
+.fkp-desync__panel[open] > summary .fkp-desync__show {
+    display: none;
+}
+
+.fkp-desync__panel[open] > summary .fkp-desync__hide {
+    display: inline;
+}
+
+.fkp-desync .fkp-desync__panel > summary:focus-visible {
+    outline: 2px solid var(--primary-color-medium, #0075db);
+    outline-offset: -2px;
+}
+
+.fkp-desync__body {
+    display: block;
+    min-width: 0;
+    padding: 0;
+}
+
+.fkp-desync__fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    align-items: start;
+    gap: 16px 24px;
+}
+
+.fkp-desync .fkp-desync__field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    margin: 0;
+    white-space: normal;
+}
+
+.fkp-desync__preset {
+    max-width: 26rem;
+}
+
+.fkp-desync .fkp-desync__field > :is(input, select, textarea),
+.fkp-desync__body > textarea {
+    box-sizing: border-box;
+    width: 100% !important;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.fkp-desync .fkp-desync__field > select {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.fkp-desync textarea {
+    resize: vertical;
+}
+
+.fkp-desync p {
+    margin: 0 0 16px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.fkp-desync__fields + p {
+    margin-top: 16px;
+}
+
+.fkp-desync__fields + .fkp-desync__field {
+    margin-top: 16px;
+}
+
+.fkp-desync small {
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.fkp-desync .fkp-desync__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0;
+}
+
+.fkp-desync__actions > .cbi-button {
+    min-height: 44px;
+    max-width: 100%;
+    margin: 0;
+    white-space: normal;
+}
+
+.fkp-desync .fkp-desync__error,
+.fkp-desync .fkp-desync__failure {
+    color: var(--error-color-high, #b42318);
+    color: light-dark(#b42318, #ff8a80);
+}
+
+.fkp-desync .fkp-desync__error:empty,
+.fkp-desync [role="status"]:empty {
+    display: none;
+}
+
+.fkp-desync .fkp-desync__field > [aria-invalid="true"] {
+    border-color: var(--error-color-high, #b42318);
+    border-color: light-dark(#b42318, #ff8a80);
+    outline-color: var(--error-color-high, #b42318);
+    outline-color: light-dark(#b42318, #ff8a80);
+}
+
+.fkp-desync__table {
+    max-width: 100%;
+    overflow-x: auto;
+}
+`;
+
 // src/styles.ts
 var GlobalStyles = `
 ${AutodetectTab.styles}
@@ -17319,6 +17525,7 @@ ${MonitoringTab.styles}
 ${LogsTab.styles}
 ${ComponentsTab.styles}
 ${PartialStyles}
+${DesyncStyles}
 
 
 /* The theme draws h2 small in its lowest text colour, nearly black on black in its dark variant. */
@@ -18883,7 +19090,7 @@ function arrangeGeodataGroups(section2) {
     const fields = new Map(
       Array.from(
         body.querySelectorAll(":scope > [data-name]"),
-        (field3) => [field3.dataset.name, field3]
+        (field2) => [field2.dataset.name, field2]
       )
     );
     const sources = fields.get("_dat_sources");
@@ -18906,7 +19113,7 @@ function arrangeGeodataGroups(section2) {
       _("Save & Apply before downloading newly added or changed sources")
     );
     const listSettings = [...fields.values()].filter(
-      (field3) => field3 !== sources && field3 !== storage && field3 !== datRoute && field3 !== datAction && field3 !== listAction
+      (field2) => field2 !== sources && field2 !== storage && field2 !== datRoute && field2 !== datAction && field2 !== listAction
     );
     body.classList.replace("cbi-section-node", "fkp-geodata");
     body.replaceChildren(
@@ -19777,7 +19984,14 @@ function renderDesyncDiagnostics(snapshot) {
                       score.last_reason || "\u2014",
                       entry.updated || "\u2014"
                     ].map(
-                      (text8) => textE("td", { style: "overflow-wrap:anywhere" }, text8)
+                      (text8, index) => textE(
+                        "td",
+                        {
+                          style: "overflow-wrap:anywhere",
+                          class: index === 3 && (score.failure ?? 0) > 0 ? "fkp-desync__failure" : ""
+                        },
+                        text8
+                      )
                     )
                   )
                 )
@@ -19829,9 +20043,102 @@ function summarizeDesyncResults(probes) {
   });
 }
 
+// src/forkop/tabs/sections/desync/ui.ts
+function desyncField(label, control) {
+  return textE("label", { class: "fkp-desync__field" }, [
+    textE("span", {}, label),
+    control
+  ]);
+}
+function desyncGroup(label, children2) {
+  return textE("section", { class: "fkp-desync__group" }, [
+    textE("h4", { class: "fkp-desync__heading" }, label),
+    textE("div", { class: "fkp-desync__body" }, children2)
+  ]);
+}
+function desyncPanel(label, children2) {
+  return textE("details", { class: "fkp-desync__panel" }, [
+    textE("summary", {}, [
+      textE("span", { class: "fkp-desync__title" }, label),
+      textE(
+        "span",
+        { class: "btn cbi-button fkp-desync__toggle", "aria-hidden": "true" },
+        [
+          textE("span", { class: "fkp-desync__show" }, _("Show")),
+          textE("span", { class: "fkp-desync__hide" }, _("Hide"))
+        ]
+      )
+    ]),
+    textE("div", { class: "fkp-desync__body" }, children2)
+  ]);
+}
+function desyncActions(children2) {
+  return textE("div", { class: "fkp-desync__actions" }, children2);
+}
+function desyncTabs(id, tabs) {
+  const panes = tabs.map(
+    ({ key, content }) => textE(
+      "div",
+      {
+        id: `${id}-${key}-pane`,
+        role: "tabpanel",
+        "aria-labelledby": `${id}-${key}-tab`
+      },
+      content
+    )
+  );
+  const links = tabs.map(
+    ({ key, label }, index) => textE(
+      "a",
+      {
+        id: `${id}-${key}-tab`,
+        href: `#${id}-${key}-pane`,
+        role: "tab",
+        "aria-controls": `${id}-${key}-pane`,
+        click: (event) => {
+          event.preventDefault();
+          select(index);
+        },
+        keydown: (event) => {
+          const next = event.key === "ArrowRight" ? (index + 1) % tabs.length : event.key === "ArrowLeft" ? (index + tabs.length - 1) % tabs.length : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : void 0;
+          if (next === void 0) return;
+          event.preventDefault();
+          select(next);
+          links[next].focus();
+        }
+      },
+      label
+    )
+  );
+  const items = links.map((link) => textE("li", { role: "presentation" }, link));
+  function select(index) {
+    links.forEach((link, i) => {
+      link.setAttribute("aria-selected", String(i === index));
+      link.setAttribute("tabindex", i === index ? "0" : "-1");
+      items[i].setAttribute(
+        "class",
+        i === index ? "cbi-tab" : "cbi-tab-disabled"
+      );
+      panes[i].hidden = i !== index;
+    });
+  }
+  select(0);
+  return textE("div", { class: "fkp-desync__tabs" }, [
+    textE(
+      "ul",
+      { class: "cbi-tabmenu", role: "tablist", "aria-label": _("Desync") },
+      items
+    ),
+    ...panes
+  ]);
+}
+
 // src/forkop/tabs/sections/desync/tools.ts
 function renderDesyncTools(section2, read, apply, capabilities) {
-  const error = textE("p", { role: "alert" });
+  const error = textE("p", {
+    role: "alert",
+    class: "fkp-desync__error"
+  });
   const diagnostics = textE("pre", {
     style: "white-space:pre-wrap;overflow-wrap:anywhere"
   });
@@ -19839,6 +20146,7 @@ function renderDesyncTools(section2, read, apply, capabilities) {
   function showDiagnostics(snapshot) {
     learning.replaceChildren(renderDesyncDiagnostics(snapshot));
     diagnostics.textContent = JSON.stringify(snapshot, null, 2);
+    rawDiagnostics.hidden = false;
   }
   const diagnosticStatus = textE("p", { "aria-live": "polite" });
   const diagnosticLabels = textE(
@@ -19900,11 +20208,11 @@ function renderDesyncTools(section2, read, apply, capabilities) {
   const budget = numeric("60", "1", "120");
   const bytes = numeric("65536", "1024", "1048576");
   const status = textE("p", { role: "status", "aria-live": "polite" });
-  const results = textE("div", { style: "overflow-x:auto" });
+  const results = textE("div", { class: "fkp-desync__table" });
   let job;
   let pending = false;
   let timer;
-  const root = textE("div");
+  const root = textE("div", { class: "fkp-desync__tools" });
   const poll = async () => {
     if (!job || job.state !== "running") return;
     if (!root.isConnected) {
@@ -19927,6 +20235,10 @@ function renderDesyncTools(section2, read, apply, capabilities) {
       failed: _("Failed")
     }[job.state] || job.state;
     status.textContent = `${state}: ${job.completed ?? job.results?.length ?? 0}/${job.total ?? "?"}${job.error ? ` \u2014 ${job.error}` : ""}`;
+    status.setAttribute(
+      "class",
+      job.state === "failed" || job.error ? "fkp-desync__failure" : ""
+    );
     start.disabled = pending || job.state === "running";
     cancel.disabled = pending || job.state !== "running";
     results.replaceChildren(
@@ -19987,6 +20299,7 @@ function renderDesyncTools(section2, read, apply, capabilities) {
             const valid = validateDesync(options, capabilities);
             if (valid !== true) throw new Error(valid);
             apply(options);
+            status.setAttribute("class", "");
             status.textContent = _(
               "Custom strategy copied to this form. Save the section and apply configuration to activate it."
             );
@@ -19998,10 +20311,20 @@ function renderDesyncTools(section2, read, apply, capabilities) {
               { style: "overflow-wrap:anywhere;max-width:22em" },
               JSON.stringify(item.options)
             ),
-            textE("td", {}, item.error || check(item.success)),
-            textE("td", {}, check(item.tls)),
-            textE("td", {}, check(item.http)),
-            textE("td", {}, check(item.quic)),
+            textE(
+              "td",
+              {
+                class: item.error || !item.success ? "fkp-desync__failure" : ""
+              },
+              item.error || check(item.success)
+            ),
+            ...[item.tls, item.http, item.quic].map(
+              (value) => textE(
+                "td",
+                { class: value === false ? "fkp-desync__failure" : "" },
+                check(value)
+              )
+            ),
             textE("td", {}, metric(item.latency_ms, " ms")),
             textE("td", {}, metric(item.stability, "%")),
             textE("td", {}, metric(item.throughput_bps, " B/s")),
@@ -20057,6 +20380,7 @@ function renderDesyncTools(section2, read, apply, capabilities) {
           }
           pending = true;
           start.disabled = true;
+          status.setAttribute("class", "");
           status.textContent = _("Starting isolated strategy tests\u2026");
           try {
             update(
@@ -20107,63 +20431,50 @@ function renderDesyncTools(section2, read, apply, capabilities) {
     },
     _("Cancel tests")
   );
+  const rawDiagnostics = desyncGroup(_("Raw diagnostics JSON"), [diagnostics]);
+  rawDiagnostics.hidden = true;
+  const diagnosticView = textE("div", {}, [
+    diagnosticLabels,
+    desyncActions([refresh, clear]),
+    diagnosticStatus,
+    learning,
+    rawDiagnostics
+  ]);
   root.append(
-    textE("details", {}, [
-      textE("summary", {}, _("Learning and diagnostics")),
-      diagnosticLabels,
-      refresh,
-      " ",
-      clear,
-      diagnosticStatus,
-      learning,
-      textE("details", {}, [
-        textE("summary", {}, _("Raw diagnostics JSON")),
-        diagnostics
-      ])
+    textE(
+      "p",
+      {},
+      _(
+        "Tests use isolated connections. Active sections keep their configuration. Speed is measured only for suitable download targets; unavailable metrics are shown as not tested."
+      )
+    ),
+    textE("div", { class: "fkp-desync__fields" }, [
+      desyncField(_("Test target"), target2),
+      desyncField(_("Protocol"), protocol)
     ]),
-    textE("details", {}, [
-      textE("summary", {}, _("Strategy tuner")),
+    desyncField(
+      _("Candidates (JSON array; empty uses protocol defaults)"),
+      candidates
+    ),
+    desyncActions([useCurrent]),
+    desyncGroup(_("Test limits"), [
+      textE("div", { class: "fkp-desync__fields" }, [
+        desyncField(_("Timeout per probe (seconds)"), timeout),
+        desyncField(_("Repetitions"), repetitions),
+        desyncField(_("Total time limit (seconds)"), budget),
+        desyncField(_("Download limit (bytes)"), bytes)
+      ]),
       textE(
         "p",
         {},
-        _(
-          "Tests use isolated connections. Active sections keep their configuration. Speed is measured only for suitable download targets; unavailable metrics are shown as not tested."
-        )
-      ),
-      field2(_("Test target"), target2),
-      field2(_("Protocol"), protocol),
-      field2(
-        _("Candidates (JSON array; empty uses protocol defaults)"),
-        candidates
-      ),
-      useCurrent,
-      textE("details", {}, [
-        textE("summary", {}, _("Test limits")),
-        field2(_("Timeout per probe (seconds)"), timeout),
-        field2(_("Repetitions"), repetitions),
-        field2(_("Total time limit (seconds)"), budget),
-        field2(_("Download limit (bytes)"), bytes),
-        textE(
-          "p",
-          {},
-          _("At most 8 candidates and 24 probes, one connection at a time.")
-        )
-      ]),
-      start,
-      " ",
-      cancel,
-      status,
-      results
+        _("At most 8 candidates and 24 probes, one connection at a time.")
+      )
     ]),
-    error
+    desyncActions([start, cancel]),
+    status,
+    results
   );
-  return root;
-}
-function field2(label, control) {
-  return textE("label", { style: "display:block;margin:0.65em 0" }, [
-    textE("span", { style: "display:block" }, label),
-    control
-  ]);
+  return { error, diagnostics: diagnosticView, testing: root };
 }
 function numeric(value, min, max) {
   return textE("input", {
@@ -20192,23 +20503,58 @@ function validTarget(value, protocol) {
 
 // src/forkop/tabs/sections/desync/widget.ts
 function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
-  const error = textE("p", { role: "alert", tabindex: "-1" });
+  const errorId2 = `desync-error-${sectionId}`;
+  const error = textE("p", {
+    id: errorId2,
+    class: "fkp-desync__error",
+    role: "alert",
+    tabindex: "-1"
+  });
+  const choiceLabels = {
+    auto: _("Automatic selection (auto)"),
+    custom: _("Custom settings (custom)"),
+    none: _("Disabled (none)"),
+    split: _("TCP segmentation (split)"),
+    disorder: _("Out-of-order segments (disorder)"),
+    tlsrec: _("TLS record fragmentation (tlsrec)"),
+    fake: _("Fake packets (fake)"),
+    fake_split: _("Fake packets + segmentation (fake_split)"),
+    oob: _("TCP urgent data (oob)"),
+    multi_split: _("Multiple segments (multi_split)"),
+    fake_disorder: _("Fake packets + reordering (fake_disorder)"),
+    multi_disorder: _("Multiple reordered segments (multi_disorder)"),
+    disoob: _("Reordering + urgent data (disoob)"),
+    hostfakesplit: _("Fake HTTP Host + segmentation (hostfakesplit)"),
+    quic: _("QUIC only (quic)"),
+    stun: _("STUN only (stun)"),
+    GT1: _("Game traffic profile 1 (GT1)"),
+    GT2: _("Game traffic profile 2 (GT2)"),
+    GT3: _("Game traffic profile 3 (GT3)"),
+    GT4: _("Game traffic profile 4 (GT4)"),
+    true: _("Enabled"),
+    false: _("Disabled")
+  };
   const controls = /* @__PURE__ */ new Map();
   function read() {
     return importDesync(source.value);
   }
-  function report2(reason) {
-    error.textContent = reason instanceof Error ? reason.message : String(reason);
+  function report2(reason, fieldKey) {
+    const message2 = reason instanceof Error ? reason.message : String(reason);
+    error.textContent = message2;
+    const key = fieldKey || message2.split(":", 1)[0];
+    for (const [name, control] of controls) {
+      control.setAttribute("aria-invalid", String(name === key));
+    }
   }
   function sync() {
     try {
       const options = read();
       for (const [key, control] of controls) {
         const value = options[key];
-        control.value = value === void 0 ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
+        control.value = value === void 0 ? key === "preset" ? "auto" : "" : typeof value === "object" ? JSON.stringify(value) : String(value);
       }
       const valid = validateDesync(options, capabilities);
-      error.textContent = valid === true ? "" : valid;
+      report2(valid === true ? "" : valid);
     } catch (reason) {
       report2(reason);
     }
@@ -20221,15 +20567,20 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
   }
   function row2(key, label, kind = "text", choices) {
     const control = choices || kind === "boolean" ? textE("select", { class: "cbi-input-select" }, [
-      textE("option", { value: "" }, _("Inherit preset")),
+      ...key === "preset" ? [] : [textE("option", { value: "" }, _("Inherit preset"))],
       ...(choices || ["true", "false"]).map(
-        (value) => textE("option", { value }, value)
+        (value) => textE(
+          "option",
+          { value },
+          key === "udp_mode" && value === "auto" ? _("QUIC and STUN (auto)") : choiceLabels[value] || value
+        )
       )
     ]) : kind === "json" ? textE("textarea", { rows: 2, class: "cbi-input-textarea" }) : textE("input", {
       type: kind === "number" ? "number" : "text",
       class: "cbi-input-text"
     });
     control.setAttribute("aria-label", label);
+    control.setAttribute("aria-describedby", errorId2);
     controls.set(key, control);
     control.addEventListener("change", () => {
       try {
@@ -20246,45 +20597,50 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
         }
         set(options);
       } catch (reason) {
-        report2(reason);
+        report2(reason, key);
       }
     });
     const unavailable = capabilities.unsupported?.[key] || (capabilities.parameters && !capabilities.parameters.includes(key) ? _("Unsupported by the installed core") : "");
-    return textE("label", { style: "display:block;margin:0.65em 0" }, [
-      textE("span", { style: "display:block" }, label),
-      control,
-      ...unavailable ? [textE("small", { style: "display:block" }, unavailable)] : capabilities.requirements?.[key] ? [
-        textE(
-          "small",
-          { style: "display:block" },
-          capabilities.requirements[key]
-        )
-      ] : []
-    ]);
+    const field2 = desyncField(label, control);
+    if (unavailable || capabilities.requirements?.[key]) {
+      field2.append(
+        textE("small", {}, unavailable || capabilities.requirements[key])
+      );
+    }
+    return field2;
   }
-  const preset = row2("preset", _("Preset"), "text", DESYNC_PRESETS);
-  const manual = textE("details", {}, [
-    textE("summary", {}, _("Manual strategy")),
+  const fields = (children2) => textE("div", { class: "fkp-desync__fields" }, children2);
+  const preset = textE(
+    "div",
+    { class: "fkp-desync__preset" },
+    row2("preset", _("Strategy profile"), "text", DESYNC_PRESETS)
+  );
+  const manual = desyncGroup(_("TCP and TLS"), [
     textE(
       "p",
       {},
       _(
-        "Empty fields inherit the preset. Select auto_tune=false to keep a manual strategy fixed. Positions accept byte offsets and markers such as sni, midsld+1, host+1, endhost-1, sniext+1 and extlen."
+        "Empty fields use the selected profile. To keep a fixed strategy, disable automatic selection in Adaptive mode."
       )
     ),
-    row2("mode", _("TCP mode"), "text", DESYNC_MODES),
-    row2("delay", _("Delay (for example 100ms)")),
-    row2("fake_sni", _("Fake SNI")),
-    row2("fake_host", _("Fake HTTP Host")),
-    row2("repeats", _("Fake packet repetitions"), "number"),
-    row2("ttl", _("Fake packet TTL"), "number"),
-    row2("udp_mode", _("UDP mode"), "text", ["none", "quic", "stun", "auto"]),
-    row2("udp_repeats", _("UDP fake repetitions"), "number"),
-    row2("udp_ttl", _("UDP fake TTL"), "number"),
-    row2("split_pos", _("Split positions"))
+    fields([
+      row2("mode", _("TCP mode"), "text", DESYNC_MODES),
+      row2("split_pos", _("Split positions")),
+      row2("delay", _("Delay (for example 100ms)")),
+      row2("fake_sni", _("Fake SNI")),
+      row2("fake_host", _("Fake HTTP Host")),
+      row2("repeats", _("Fake packet repetitions"), "number"),
+      row2("ttl", _("Fake packet TTL"), "number")
+    ]),
+    textE(
+      "p",
+      {},
+      _(
+        "Split positions accept byte offsets and markers: sni, midsld+1, host+1, endhost-1, sniext+1, extlen."
+      )
+    )
   ]);
-  const advanced = textE("details", {}, [
-    textE("summary", {}, _("Advanced parameters")),
+  const advancedTcp = desyncGroup(_("Advanced TCP settings"), [
     textE(
       "p",
       {},
@@ -20292,43 +20648,41 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
         "Unsupported settings are rejected with a reason. Desync requires its own direct socket and cannot connect through another outbound."
       )
     ),
-    row2("fooling", _("Fooling methods")),
-    row2("tlsrec_first", _("Split TLS records first"), "boolean"),
-    row2("seqovl", _("Sequence overlap (bytes)"), "number"),
-    row2("autottl", _("Automatic TTL"), "boolean"),
-    row2("fake_payload", _("Fake TCP payload (base64)")),
-    row2("fake_sni_pool", _("Fake SNI pool (JSON array)"), "json"),
-    row2("ipfrag", _("IP fragment size"), "number"),
-    row2("syndata", _("SYN data (base64)")),
-    row2("wsize", _("TCP window size"), "number"),
-    row2("wscale", _("TCP window scale"), "number"),
-    row2("udp_fake_payload", _("Fake UDP payload (base64)")),
-    row2("udp_out_range", _("UDP packet range (inclusive)")),
-    row2("udp_keep_socket", _("Keep UDP socket"), "boolean"),
-    textE(
-      "p",
-      {},
-      _(
-        "True sends fake packets through the retained UDP session socket. False opens a temporary raw injector for each fake series on Linux with CAP_NET_RAW. Both preserve the same source address and port; the session socket receives replies."
-      )
-    ),
-    row2("quic_desync", _("Enable QUIC desync"), "boolean"),
-    row2(
-      "quic_repeats",
-      _("QUIC fake repetitions (0 inherits UDP repetitions)"),
-      "number"
-    ),
+    fields([
+      row2("fooling", _("Fooling methods")),
+      row2("tlsrec_first", _("Split TLS records first"), "boolean"),
+      row2("seqovl", _("Sequence overlap (bytes)"), "number"),
+      row2("autottl", _("Automatic TTL"), "boolean"),
+      row2("fake_payload", _("Fake TCP payload (base64)")),
+      row2("fake_sni_pool", _("Fake SNI pool (JSON array)"), "json"),
+      row2("ipfrag", _("IP fragment size"), "number"),
+      row2("syndata", _("SYN data (base64)")),
+      row2("wsize", _("TCP window size"), "number"),
+      row2("wscale", _("TCP window scale"), "number")
+    ])
+  ]);
+  const udp = desyncGroup(_("UDP and QUIC"), [
+    fields([
+      row2("udp_mode", _("UDP mode"), "text", ["none", "quic", "stun", "auto"]),
+      row2("udp_repeats", _("UDP fake repetitions"), "number"),
+      row2("udp_ttl", _("UDP fake TTL"), "number"),
+      row2("quic_desync", _("Enable QUIC desync"), "boolean"),
+      row2(
+        "quic_repeats",
+        _("QUIC fake repetitions (0 inherits UDP repetitions)"),
+        "number"
+      ),
+      row2("udplen", _("UDP padding length"), "number")
+    ]),
     textE(
       "p",
       {},
       _(
         "QUIC desync is enabled by default in UDP modes quic and auto. False skips QUIC fake packets and resizing while auto mode still handles STUN. QUIC repetitions 1\u201316 override only QUIC series; 0 uses UDP repetitions."
       )
-    ),
-    row2("udplen", _("UDP padding length"), "number")
+    )
   ]);
-  const adaptive = textE("details", {}, [
-    textE("summary", {}, _("Adaptive")),
+  const adaptive = desyncGroup(_("Adaptive mode"), [
     textE(
       "p",
       {},
@@ -20336,7 +20690,23 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
         "Adaptive chooses strategies for future connections and retries only eligible initial TLS data within configured limits. Learning uses cache.db when available and otherwise stays in memory."
       )
     ),
-    row2("auto_tune", _("Enable Adaptive (auto_tune)"), "boolean"),
+    fields([row2("auto_tune", _("Automatic strategy selection"), "boolean")])
+  ]);
+  const advancedUdp = desyncGroup(_("Advanced UDP settings"), [
+    fields([
+      row2("udp_fake_payload", _("Fake UDP payload (base64)")),
+      row2("udp_out_range", _("UDP packet range (inclusive)")),
+      row2("udp_keep_socket", _("Keep UDP socket"), "boolean")
+    ]),
+    textE(
+      "p",
+      {},
+      _(
+        "True sends fake packets through the retained UDP session socket. False opens a temporary raw injector for each fake series on Linux with CAP_NET_RAW. Both preserve the same source address and port; the session socket receives replies."
+      )
+    )
+  ]);
+  const advancedAdaptive = desyncGroup(_("Adaptive mode"), [
     row2("adaptive", _("Adaptive limits (JSON object)"), "json"),
     textE(
       "p",
@@ -20387,8 +20757,7 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
     },
     label
   );
-  const transfer = textE("details", {}, [
-    textE("summary", {}, _("Import / export")),
+  const transfer = desyncGroup(_("Import and export"), [
     textE(
       "p",
       {},
@@ -20397,28 +20766,40 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
       )
     ),
     exchange,
-    textE("div", {}, [
+    desyncActions([
       importButton,
-      " ",
       exportButton(_("Export JSON"), (value) => JSON.stringify(value, null, 2)),
-      " ",
       exportButton(_("Export string"), exportDesync)
     ]),
-    textE("details", {}, [
-      textE("summary", {}, _("Canonical options JSON")),
-      sourceNode
-    ])
+    desyncGroup(_("Strategy JSON"), [sourceNode])
   ]);
   source.addEventListener("input", sync);
   sync();
-  return textE("div", {}, [
+  const tools = renderDesyncTools(sectionId, read, set, capabilities);
+  const parameters = textE("div", {}, [
     preset,
     manual,
-    advanced,
+    udp,
     adaptive,
-    transfer,
+    desyncPanel(_("Advanced settings"), [
+      advancedTcp,
+      advancedUdp,
+      advancedAdaptive,
+      transfer
+    ])
+  ]);
+  return textE("div", { class: "fkp-desync" }, [
     error,
-    renderDesyncTools(sectionId, read, set, capabilities)
+    tools.error,
+    desyncTabs(`desync-${sectionId}`, [
+      { key: "parameters", label: _("Parameters"), content: parameters },
+      {
+        key: "diagnostics",
+        label: _("Diagnostics"),
+        content: tools.diagnostics
+      },
+      { key: "testing", label: _("Strategy testing"), content: tools.testing }
+    ])
   ]);
 }
 
@@ -21430,16 +21811,16 @@ function configureTextareaOption(option2, analyzer) {
 // src/forkop/cbi/validation.ts
 var boundMaps = /* @__PURE__ */ new WeakSet();
 var errorId = 0;
-function renderFieldErrors(field3) {
+function renderFieldErrors(field2) {
   const invalid = Array.from(
-    field3.querySelectorAll(".cbi-input-invalid[data-tooltip]")
+    field2.querySelectorAll(".cbi-input-invalid[data-tooltip]")
   );
   const messages = [
     ...new Set(
       invalid.map((node) => node.getAttribute("data-tooltip")?.trim()).filter(Boolean)
     )
   ];
-  let error = field3.querySelector(".fkp-field-error");
+  let error = field2.querySelector(".fkp-field-error");
   if (!error && !messages.length) return;
   if (!error) {
     error = document.createElement("div");
@@ -21447,9 +21828,9 @@ function renderFieldErrors(field3) {
     error.className = "fkp-field-error";
     error.setAttribute("aria-live", "polite");
     error.setAttribute("aria-atomic", "true");
-    (field3.querySelector(".cbi-value-field") || field3).appendChild(error);
+    (field2.querySelector(".cbi-value-field") || field2).appendChild(error);
   }
-  field3.querySelectorAll(`[aria-errormessage="${error.id}"]`).forEach((node) => {
+  field2.querySelectorAll(`[aria-errormessage="${error.id}"]`).forEach((node) => {
     if (!invalid.includes(node)) {
       node.removeAttribute("aria-invalid");
       node.removeAttribute("aria-errormessage");
@@ -21470,10 +21851,10 @@ function bindInlineValidation(root, map) {
   if (boundMaps.has(root)) return;
   boundMaps.add(root);
   const update = (event) => {
-    const field3 = event.target.closest(
+    const field2 = event.target.closest(
       "[data-field]"
     );
-    if (field3 && root.contains(field3)) renderFieldErrors(field3);
+    if (field2 && root.contains(field2)) renderFieldErrors(field2);
   };
   root.addEventListener("validation-failure", update);
   root.addEventListener("validation-success", update);
@@ -21488,8 +21869,8 @@ function reportRefusedSave(error, dialog) {
   const invalidField = dialog?.querySelector(".cbi-input-invalid");
   const message2 = error instanceof Error ? error.message : `${error ?? ""}`;
   const reason = invalidField?.getAttribute("data-tooltip")?.trim();
-  const field3 = invalidField?.closest("[data-field]");
-  if (field3) renderFieldErrors(field3);
+  const field2 = invalidField?.closest("[data-field]");
+  if (field2) renderFieldErrors(field2);
   invalidField?.focus();
   showToast(reason || message2.trim() || _("Settings not saved"), "error", 6e3);
 }
@@ -23456,12 +23837,12 @@ function applyAdvanced(endpoint, tls, settings) {
     settings.openvpn_peer_fingerprint
   ).map((value) => value.replace(/:/g, "").toLowerCase());
   if (fingerprints.length) tls.peer_fingerprint = fingerprints;
-  for (const [key, field3] of [
+  for (const [key, field2] of [
     ["certificate_profile", "openvpn_certificate_profile"],
     ["version_min", "openvpn_tls_version_min"],
     ["cipher", "openvpn_tls_cipher"]
   ]) {
-    if (trimmed(settings[field3])) tls[key] = trimmed(settings[field3]);
+    if (trimmed(settings[field2])) tls[key] = trimmed(settings[field2]);
   }
   const ciphers = normalizeOptionValues(settings.openvpn_data_ciphers);
   if (ciphers.length) endpoint.data_ciphers = ciphers;
@@ -24277,16 +24658,16 @@ function readNetworkManager(state, input) {
   if (secrets.key_pass) tls.client_key_password = secrets.key_pass;
   if (secrets.mca_key_pass) tls.mca_key_password = secrets.mca_key_pass;
   Object.entries(secrets).forEach(([key, value]) => {
-    const field3 = /^form:([^:]+):(.+)$/.exec(key);
-    if (!field3 || !value) return;
-    const name = field3[2].toLowerCase();
+    const field2 = /^form:([^:]+):(.+)$/.exec(key);
+    if (!field2 || !value) return;
+    const name = field2[2].toLowerCase();
     if (name === "username") endpoint.username = value;
     else if (name === "password") endpoint.password = value;
     else if (name === "group_list") endpoint.auth_group = value;
     else
       pushTo(endpoint, "form_entries", {
-        form_id: field3[1],
-        name: field3[2],
+        form_id: field2[1],
+        name: field2[2],
         value
       });
   });
@@ -24787,12 +25168,12 @@ function applyAdvanced2(endpoint, tls, settings) {
     tls.system_trust_disabled = true;
   }
   if (settings.openconnect_no_udp === "1") endpoint.no_udp = true;
-  for (const [key, field3] of [
+  for (const [key, field2] of [
     ["reported_os", "openconnect_reported_os"],
     ["version", "openconnect_version"],
     ["local_hostname", "openconnect_local_hostname"]
   ]) {
-    if (trimmed2(settings[field3])) endpoint[key] = trimmed2(settings[field3]);
+    if (trimmed2(settings[field2])) endpoint[key] = trimmed2(settings[field2]);
   }
   if (trimmed2(settings.openconnect_user_agent)) {
     endpoint.user_agent = text7(settings.openconnect_user_agent);
@@ -24847,12 +25228,12 @@ function openConnectEndpoint(settings) {
       secret: tokenSecret(mode, settings.openconnect_token_secret)
     };
     if (mode === "stoken") {
-      for (const [key, field3] of [
+      for (const [key, field2] of [
         ["pin", "openconnect_token_pin"],
         ["password", "openconnect_token_password"],
         ["device_id", "openconnect_token_device_id"]
       ]) {
-        if (trimmed2(settings[field3])) token[key] = trimmed2(settings[field3]);
+        if (trimmed2(settings[field2])) token[key] = trimmed2(settings[field2]);
       }
     }
     endpoint.token = token;
@@ -26337,47 +26718,47 @@ function addServerFilterOptions(itemSection, parentSectionForItem, options = {})
   ].forEach(
     ([key, storageKey, label, description, validator, visibleModes]) => {
       const isList = storageKey.endsWith("_outbounds") || storageKey === "exclude_types";
-      const field3 = itemSection.option(
+      const field2 = itemSection.option(
         isList ? form.DynamicList : form.Value,
         key,
         label,
         description
       );
       (visibleModes || []).forEach(
-        (mode) => field3.depends("server_filter_mode", mode)
+        (mode) => field2.depends("server_filter_mode", mode)
       );
-      field3.rmempty = true;
+      field2.rmempty = true;
       if (key !== storageKey) {
-        field3.ucioption = storageKey;
-        field3.retain = true;
+        field2.ucioption = storageKey;
+        field2.retain = true;
         const mode = (visibleModes || [])[0];
         if (mode) {
           if (!sharedFields[mode]) {
             sharedFields[mode] = {};
           }
-          sharedFields[mode][storageKey] = field3;
+          sharedFields[mode][storageKey] = field2;
         }
       }
       if (storageKey === "exclude_types") {
         const choices = options.groupContext ? groupTypeChoices() : providerTypeChoices();
-        field3.load = function(itemId) {
+        field2.load = function(itemId) {
           const values = normalizeOptionValues(
             optionMapValue(this, itemId, storageKey)
           );
           refreshOptionChoices(this, coreFilterTypeChoices(choices, values));
           return values;
         };
-        field3.placeholder = _("-- Select --");
+        field2.placeholder = _("-- Select --");
       }
       if (storageKey.endsWith("_outbounds")) {
-        field3.load = function(itemId) {
+        field2.load = function(itemId) {
           return normalizeOptionValues(
             optionMapValue(this, itemId, storageKey)
           );
         };
-        field3.placeholder = _("-- Select --");
+        field2.placeholder = _("-- Select --");
         configureLiveDynamicListChoices(
-          field3,
+          field2,
           (itemId) => typeof options.ownerId === "function" ? currentSubscriptionOutboundNameChoices(
             parentSectionForItem(itemId),
             options.ownerId()
@@ -26386,7 +26767,7 @@ function addServerFilterOptions(itemSection, parentSectionForItem, options = {})
         );
       }
       if (validator) {
-        field3.validate = function(_itemId, value) {
+        field2.validate = function(_itemId, value) {
           return validator(value);
         };
       }
@@ -27071,9 +27452,9 @@ function canonicalField(key) {
   return CANONICAL_FIELDS[compact] || compact;
 }
 function addValue(values, key, value) {
-  const field3 = canonicalField(key);
-  if (!field3) return;
-  (values[field3] || (values[field3] = [])).push(value);
+  const field2 = canonicalField(key);
+  if (!field2) return;
+  (values[field2] || (values[field2] = [])).push(value);
 }
 function firstValue(values, key) {
   return values[key]?.[0]?.trim() || "";
@@ -30208,9 +30589,9 @@ function showTunnelImportModal(parentMap, fields, openvpn, openconnect) {
             if (!files.length) return;
             const found = files.find((file) => CONFIGURATION_FILE.test(file.name)) || files.find((file) => importedFormat(file.content.trim()));
             files.filter((file) => file !== found).forEach((file) => attachments[file.name] = file.content);
-            const field3 = configuration.getUIElement("settings");
-            if (found) field3?.setValue(found.content.trim());
-            const input = `${field3?.getValue() ?? ""}`.trim();
+            const field2 = configuration.getUIElement("settings");
+            if (found) field2?.setValue(found.content.trim());
+            const input = `${field2?.getValue() ?? ""}`.trim();
             const result = configuration.validate("settings", input);
             configuration.triggerValidation("settings");
             if (result === true) return save();
@@ -31679,32 +32060,32 @@ function validateClientName(sectionId, value) {
   }
   return hasControlCharacters(name) ? message.noControlCharacters() : true;
 }
-function validateClientCredential(sectionId, field3, value) {
-  if (field3 === "uuid") {
+function validateClientCredential(sectionId, field2, value) {
+  if (field2 === "uuid") {
     return `${value || ""}`.trim() ? validateUuid(sectionId, value) : message.required();
   }
-  if (field3 === "password") {
+  if (field2 === "password") {
     return getProtocol(sectionId) === "shadowsocks" ? validateShadowsocksPassword(sectionId, value) : validateRequiredText(sectionId, value);
   }
   return true;
 }
 function visibleClientFields(sectionId) {
   const protocol = getProtocol(sectionId);
-  return credentialFields(protocol).filter((field3) => {
-    if (field3 === "password") {
+  return credentialFields(protocol).filter((field2) => {
+    if (field2 === "password") {
       return isAuthenticationEnabled(sectionId);
     }
-    if (field3 === "flow") {
+    if (field2 === "flow") {
       return supportsVisionFlow(sectionId);
     }
     return true;
   });
 }
-function clientCredentialLabel(sectionId, field3) {
-  if (field3 === "uuid") {
+function clientCredentialLabel(sectionId, field2) {
+  if (field2 === "uuid") {
     return _("UUID");
   }
-  if (field3 === "flow") {
+  if (field2 === "flow") {
     return _("Flow");
   }
   return getProtocol(sectionId) === "shadowsocks" && isShadowsocks2022(getShadowsocksMethod(sectionId)) ? _("Key") : _("Password");
@@ -31716,11 +32097,11 @@ function clientSettingsDefaults(sectionId, inputValue, existing, listOption) {
     return defaults;
   }
   defaults.name = `${inputValue || ""}`.trim() || generateClientName(sectionId, listOption);
-  visibleClientFields(sectionId).forEach((field3) => {
-    if (field3 === "flow") {
+  visibleClientFields(sectionId).forEach((field2) => {
+    if (field2 === "flow") {
       return;
     }
-    defaults[field3] = generateCredential(sectionId, protocol, field3);
+    defaults[field2] = generateCredential(sectionId, protocol, field2);
   });
   return defaults;
 }
@@ -31768,14 +32149,14 @@ function validateClientsOnSave(sectionId, values, listOption) {
       return message.item(name, message.nameTaken());
     }
     seen.add(name.toLowerCase());
-    for (const field3 of visibleClientFields(sectionId)) {
-      if (field3 === "flow") {
+    for (const field2 of visibleClientFields(sectionId)) {
+      if (field2 === "flow") {
         continue;
       }
       const result = validateClientCredential(
         sectionId,
-        field3,
-        `${settings[field3] || ""}`
+        field2,
+        `${settings[field2] || ""}`
       );
       if (result !== true) {
         return message.item(name, message.fixSettings());
@@ -31873,12 +32254,12 @@ function addRoutingOptions(section2) {
 // src/forkop/tabs/servers/clientDialog.ts
 function addClientCredentialOptions(sectionId, itemSection) {
   const protocol = getProtocol(sectionId);
-  visibleClientFields(sectionId).forEach((field3) => {
-    if (field3 === "flow") {
+  visibleClientFields(sectionId).forEach((field2) => {
+    if (field2 === "flow") {
       const flow = itemSection.option(
         form.ListValue,
         "flow",
-        clientCredentialLabel(sectionId, field3)
+        clientCredentialLabel(sectionId, field2)
       );
       flow.value("", _("None"));
       flow.value("xtls-rprx-vision", "xtls-rprx-vision");
@@ -31887,14 +32268,14 @@ function addClientCredentialOptions(sectionId, itemSection) {
     }
     const credential = itemSection.option(
       form.Value,
-      field3,
-      clientCredentialLabel(sectionId, field3)
+      field2,
+      clientCredentialLabel(sectionId, field2)
     );
-    credential.password = field3 !== "uuid";
-    credential.validate = (_id, value) => validateClientCredential(sectionId, field3, value);
+    credential.password = field2 !== "uuid";
+    credential.validate = (_id, value) => validateClientCredential(sectionId, field2, value);
     addGenerateButton(
       credential,
-      () => generateCredential(sectionId, protocol, field3)
+      () => generateCredential(sectionId, protocol, field2)
     );
   });
 }
@@ -32883,9 +33264,9 @@ function analyzeStaticHosts(text8) {
   const annotations = [];
   const errors = [];
   let offset = 0;
-  const reject = (field3, reason) => {
-    annotations.push({ start: field3.start, end: field3.end, message: reason });
-    errors.push(`${field3.value}: ${reason}`);
+  const reject = (field2, reason) => {
+    annotations.push({ start: field2.start, end: field2.end, message: reason });
+    errors.push(`${field2.value}: ${reason}`);
   };
   for (const line of value.split("\n")) {
     const fields = lineFields(line, offset);
@@ -33204,11 +33585,11 @@ function addAutodetectOptions(section2) {
       max: 100
     }
   ];
-  for (const field3 of fields) {
-    o = section2.option(form.Value, field3.key, field3.title);
-    o.default = `${field3.value}`;
-    o.datatype = `range(${field3.min},${field3.max})`;
-    o.validate = required(wholeNumberField(field3.min, field3.max));
+  for (const field2 of fields) {
+    o = section2.option(form.Value, field2.key, field2.title);
+    o.default = `${field2.value}`;
+    o.datatype = `range(${field2.min},${field2.max})`;
+    o.validate = required(wholeNumberField(field2.min, field2.max));
     o.depends("enable_autodetect", "1");
     o.retain = true;
   }

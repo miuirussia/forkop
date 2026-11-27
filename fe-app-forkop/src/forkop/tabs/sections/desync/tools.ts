@@ -1,5 +1,6 @@
 import { renderDesyncDiagnostics, type DesyncDiagnostics } from './diagnostics';
 import { summarizeDesyncResults } from './results';
+import { desyncActions, desyncField as field, desyncGroup } from './ui';
 import { E } from '../../../../helpers/element';
 import { desyncApi, type DesyncJob, type DesyncResult } from './api';
 import {
@@ -16,7 +17,10 @@ export function renderDesyncTools(
   apply: (options: DesyncOptions) => void,
   capabilities: DesyncCapabilities,
 ) {
-  const error = E('p', { role: 'alert' });
+  const error = E('p', {
+    role: 'alert',
+    class: 'fkp-desync__error',
+  });
   const diagnostics = E('pre', {
     style: 'white-space:pre-wrap;overflow-wrap:anywhere',
   });
@@ -24,6 +28,7 @@ export function renderDesyncTools(
   function showDiagnostics(snapshot: DesyncDiagnostics) {
     learning.replaceChildren(renderDesyncDiagnostics(snapshot));
     diagnostics.textContent = JSON.stringify(snapshot, null, 2);
+    rawDiagnostics.hidden = false;
   }
   const diagnosticStatus = E('p', { 'aria-live': 'polite' });
   const diagnosticLabels = E(
@@ -86,11 +91,11 @@ export function renderDesyncTools(
   const budget = numeric('60', '1', '120');
   const bytes = numeric('65536', '1024', '1048576');
   const status = E('p', { role: 'status', 'aria-live': 'polite' });
-  const results = E('div', { style: 'overflow-x:auto' });
+  const results = E('div', { class: 'fkp-desync__table' });
   let job: DesyncJob | undefined;
   let pending = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const root = E('div');
+  const root = E('div', { class: 'fkp-desync__tools' });
   const poll = async () => {
     if (!job || job.state !== 'running') return;
     if (!root.isConnected) {
@@ -115,6 +120,10 @@ export function renderDesyncTools(
         failed: _('Failed'),
       }[job.state] || job.state;
     status.textContent = `${state}: ${job.completed ?? job.results?.length ?? 0}/${job.total ?? '?'}${job.error ? ` — ${job.error}` : ''}`;
+    status.setAttribute(
+      'class',
+      job.state === 'failed' || job.error ? 'fkp-desync__failure' : '',
+    );
     start.disabled = pending || job.state === 'running';
     cancel.disabled = pending || job.state !== 'running';
     results.replaceChildren(
@@ -184,6 +193,7 @@ export function renderDesyncTools(
             const valid = validateDesync(options, capabilities);
             if (valid !== true) throw new Error(valid);
             apply(options);
+            status.setAttribute('class', '');
             status.textContent = _(
               'Custom strategy copied to this form. Save the section and apply configuration to activate it.',
             );
@@ -195,10 +205,20 @@ export function renderDesyncTools(
               { style: 'overflow-wrap:anywhere;max-width:22em' },
               JSON.stringify(item.options),
             ),
-            E('td', {}, item.error || check(item.success)),
-            E('td', {}, check(item.tls)),
-            E('td', {}, check(item.http)),
-            E('td', {}, check(item.quic)),
+            E(
+              'td',
+              {
+                class: item.error || !item.success ? 'fkp-desync__failure' : '',
+              },
+              item.error || check(item.success),
+            ),
+            ...[item.tls, item.http, item.quic].map((value) =>
+              E(
+                'td',
+                { class: value === false ? 'fkp-desync__failure' : '' },
+                check(value),
+              ),
+            ),
             E('td', {}, metric(item.latency_ms, ' ms')),
             E('td', {}, metric(item.stability, '%')),
             E('td', {}, metric(item.throughput_bps, ' B/s')),
@@ -263,6 +283,7 @@ export function renderDesyncTools(
           }
           pending = true;
           start.disabled = true;
+          status.setAttribute('class', '');
           status.textContent = _('Starting isolated strategy tests…');
           try {
             update(
@@ -317,64 +338,52 @@ export function renderDesyncTools(
     },
     _('Cancel tests'),
   );
+  const rawDiagnostics = desyncGroup(_('Raw diagnostics JSON'), [diagnostics]);
+  rawDiagnostics.hidden = true;
+  const diagnosticView = E('div', {}, [
+    diagnosticLabels,
+    desyncActions([refresh, clear]),
+    diagnosticStatus,
+    learning,
+    rawDiagnostics,
+  ]);
   root.append(
-    E('details', {}, [
-      E('summary', {}, _('Learning and diagnostics')),
-      diagnosticLabels,
-      refresh,
-      ' ',
-      clear,
-      diagnosticStatus,
-      learning,
-      E('details', {}, [
-        E('summary', {}, _('Raw diagnostics JSON')),
-        diagnostics,
-      ]),
-    ]),
-    E('details', {}, [
-      E('summary', {}, _('Strategy tuner')),
-      E(
-        'p',
-        {},
-        _(
-          'Tests use isolated connections. Active sections keep their configuration. Speed is measured only for suitable download targets; unavailable metrics are shown as not tested.',
-        ),
+    E(
+      'p',
+      {},
+      _(
+        'Tests use isolated connections. Active sections keep their configuration. Speed is measured only for suitable download targets; unavailable metrics are shown as not tested.',
       ),
+    ),
+    E('div', { class: 'fkp-desync__fields' }, [
       field(_('Test target'), target),
       field(_('Protocol'), protocol),
-      field(
-        _('Candidates (JSON array; empty uses protocol defaults)'),
-        candidates,
-      ),
-      useCurrent,
-      E('details', {}, [
-        E('summary', {}, _('Test limits')),
+    ]),
+    field(
+      _('Candidates (JSON array; empty uses protocol defaults)'),
+      candidates,
+    ),
+    desyncActions([useCurrent]),
+    desyncGroup(_('Test limits'), [
+      E('div', { class: 'fkp-desync__fields' }, [
         field(_('Timeout per probe (seconds)'), timeout),
         field(_('Repetitions'), repetitions),
         field(_('Total time limit (seconds)'), budget),
         field(_('Download limit (bytes)'), bytes),
-        E(
-          'p',
-          {},
-          _('At most 8 candidates and 24 probes, one connection at a time.'),
-        ),
       ]),
-      start,
-      ' ',
-      cancel,
-      status,
-      results,
+      E(
+        'p',
+        {},
+        _('At most 8 candidates and 24 probes, one connection at a time.'),
+      ),
     ]),
-    error,
+    desyncActions([start, cancel]),
+    status,
+    results,
   );
-  return root;
+  return { error, diagnostics: diagnosticView, testing: root };
 }
-function field(label: string, control: HTMLElement) {
-  return E('label', { style: 'display:block;margin:0.65em 0' }, [
-    E('span', { style: 'display:block' }, label),
-    control,
-  ]);
-}
+
 function numeric(value: string, min: string, max: string) {
   return E('input', {
     type: 'number',

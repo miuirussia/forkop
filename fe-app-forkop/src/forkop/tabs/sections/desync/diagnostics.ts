@@ -104,8 +104,18 @@ export function renderDesyncDiagnostics(snapshot: DesyncDiagnostics) {
                             : `${Math.round(score.latency_ms * 100) / 100} ms`,
                           score.last_reason || '—',
                           entry.updated || '—',
-                        ].map((text) =>
-                          E('td', { style: 'overflow-wrap:anywhere' }, text),
+                        ].map((text, index) =>
+                          E(
+                            'td',
+                            {
+                              style: 'overflow-wrap:anywhere',
+                              class:
+                                index === 3 && (score.failure ?? 0) > 0
+                                  ? 'fkp-desync__failure'
+                                  : '',
+                            },
+                            text,
+                          ),
                         ),
                       ),
                   ),

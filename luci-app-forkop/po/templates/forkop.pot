@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 09:51+0300\n"
-"PO-Revision-Date: 2026-11-27 09:51+0300\n"
+"POT-Creation-Date: 2026-11-27 13:50+0300\n"
+"PO-Revision-Date: 2026-11-27 13:50+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -293,10 +293,6 @@ msgid "Active probes"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
-msgid "Adaptive"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "Adaptive chooses strategies for future connections and retries only eligible initial TLS data within configured limits. Learning uses cache.db when available and otherwise stays in memory."
 msgstr ""
 
@@ -306,6 +302,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "Adaptive limits (JSON object)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Adaptive mode"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
@@ -393,12 +393,17 @@ msgid "Addresses"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
-msgid "Advanced parameters"
-msgstr ""
-
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "Advanced settings"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Advanced TCP settings"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Advanced UDP settings"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/form/identity.ts
@@ -561,6 +566,14 @@ msgid "Autodetect is unavailable."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Automatic selection (auto)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Automatic strategy selection"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "Automatic TTL"
 msgstr ""
 
@@ -658,10 +671,6 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/form.ts
 msgid "Cannot verify Desync support: %s"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
-msgid "Canonical options JSON"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -1103,6 +1112,10 @@ msgstr ""
 msgid "Currently unavailable"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Custom settings (custom)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 msgid "Custom strategy copied to this form. Save the section and apply configuration to activate it."
 msgstr ""
@@ -1196,6 +1209,7 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/actions.ts
 #: fe-app-forkop/src/forkop/tabs/sections/desync/form.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/ui.ts
 msgid "Desync"
 msgstr ""
 
@@ -1242,6 +1256,10 @@ msgstr ""
 msgid "Diagnostic report"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Diagnostics"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/monitoring/initController.ts
 #: fe-app-forkop/src/forkop/tabs/sections/fallback.ts
 #: fe-app-forkop/src/forkop/tabs/servers/constants.ts
@@ -1264,6 +1282,14 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/traffic.ts
 msgid "Disable QUIC"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Disabled"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Disabled (none)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/traffic.ts
@@ -1427,7 +1453,7 @@ msgid "empty"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
-msgid "Empty fields inherit the preset. Select auto_tune=false to keep a manual strategy fixed. Positions accept byte offsets and markers such as sni, midsld+1, host+1, endhost-1, sniext+1 and extlen."
+msgid "Empty fields use the selected profile. To keep a fixed strategy, disable automatic selection in Adaptive mode."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
@@ -1437,10 +1463,6 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/sections/form.ts
 #: fe-app-forkop/src/forkop/tabs/servers/form/identity.ts
 msgid "Enable"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
-msgid "Enable Adaptive (auto_tune)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
@@ -1473,6 +1495,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/traffic.ts
 msgid "Enable YACD WAN Access"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Enabled"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
@@ -1684,11 +1710,27 @@ msgid "Fake HTTP Host"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake HTTP Host + segmentation (hostfakesplit)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "Fake packet repetitions"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "Fake packet TTL"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake packets (fake)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake packets + reordering (fake_disorder)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake packets + segmentation (fake_split)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
@@ -1893,6 +1935,22 @@ msgstr ""
 msgid "From a file…"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Game traffic profile 1 (GT1)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Game traffic profile 2 (GT2)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Game traffic profile 3 (GT3)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Game traffic profile 4 (GT4)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/servers/controls.ts
 msgid "Generate"
 msgstr ""
@@ -1970,6 +2028,10 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/headers.ts
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/options.ts
 msgid "Headers"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/ui.ts
+msgid "Hide"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/partials/renderCheckSection.ts
@@ -2063,11 +2125,11 @@ msgid "Import"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
-msgid "Import / export"
+msgid "Import a JSON object or a key=value strategy. Import replaces the form strategy; explicit JSON fields override imported strategy values."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
-msgid "Import a JSON object or a key=value strategy. Import replaces the form strategy; explicit JSON fields override imported strategy values."
+msgid "Import and export"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
@@ -2460,10 +2522,6 @@ msgid "Learned destinations"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
-msgid "Learning and diagnostics"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 msgid "Learning results cleared"
 msgstr ""
 
@@ -2576,10 +2634,6 @@ msgstr ""
 msgid "Main DNS Query Mode"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
-msgid "Manual strategy"
-msgstr ""
-
 #: fe-app-forkop/src/forkop/tabs/sections/links.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "Masking type"
@@ -2670,6 +2724,14 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
 msgid "Multiple fake repetitions require a fake TCP mode"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Multiple reordered segments (multi_disorder)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Multiple segments (multi_split)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/form/security.ts
@@ -3120,6 +3182,10 @@ msgstr ""
 msgid "OS"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Out-of-order segments (disorder)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/settings/form/network.ts
 msgid "Output Network Interface"
 msgstr ""
@@ -3148,6 +3214,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
 msgid "Parallel checks"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Parameters"
 msgstr ""
 
 #: fe-app-forkop/src/helpers/parseOpenConnectConfig.ts
@@ -3289,10 +3359,6 @@ msgstr ""
 msgid "Prefixes: full:, keyword:, regex:"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
-msgid "Preset"
-msgstr ""
-
 #: fe-app-forkop/src/forkop/tabs/sections/desync/form.ts
 msgid "Presets provide defaults; explicit options override them. Custom disables Adaptive. Normal section conditions, DNS and global QUIC blocking still apply."
 msgstr ""
@@ -3367,11 +3433,19 @@ msgid "QR code"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "QUIC and STUN (auto)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "QUIC desync is enabled by default in UDP modes quic and auto. False skips QUIC fake packets and resizing while auto mode still handles STUN. QUIC repetitions 1–16 override only QUIC series; 0 uses UDP repetitions."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "QUIC fake repetitions (0 inherits UDP repetitions)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "QUIC only (quic)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
@@ -3486,6 +3560,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/overrides.ts
 msgid "Rename servers"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Reordering + urgent data (disoob)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
@@ -3920,6 +3998,10 @@ msgstr ""
 msgid "Several servers give automatic failover. The protocol is set by a prefix: %s"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/ui.ts
+msgid "Show"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/servers/details.ts
 msgid "Show a QR code"
 msgstr ""
@@ -4014,6 +4096,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "Split positions"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Split positions accept byte offsets and markers: sni, midsld+1, host+1, endhost-1, sniext+1, extlen."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
@@ -4140,8 +4226,20 @@ msgstr ""
 msgid "Strategy import or export"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
-msgid "Strategy tuner"
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Strategy JSON"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Strategy profile"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Strategy testing"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "STUN only (stun)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
@@ -4236,6 +4334,10 @@ msgstr ""
 msgid "TAP (layer 2) is not supported, only TUN"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "TCP and TLS"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/servers/form/protocol.ts
 msgid "TCP and UDP"
 msgstr ""
@@ -4248,8 +4350,16 @@ msgstr ""
 msgid "TCP ports to monitor, one per entry. Default: 443."
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "TCP segmentation (split)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
 msgid "TCP transformation parameters require an enabled TCP mode"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "TCP urgent data (oob)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
@@ -4531,6 +4641,10 @@ msgstr ""
 msgid "TLS only"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "TLS record fragmentation (tlsrec)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 msgid "Token password"
 msgstr ""
@@ -4646,6 +4760,10 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 #: fe-app-forkop/src/forkop/tabs/monitoring/connectionList.ts
 msgid "Type"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "UDP and QUIC"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
