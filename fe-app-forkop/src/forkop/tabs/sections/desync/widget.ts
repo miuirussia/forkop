@@ -378,7 +378,13 @@ export function renderDesyncEditor(
     sync();
   });
   sync();
-  const tools = renderDesyncTools(sectionId, read, set, capabilities);
+  const tools = renderDesyncTools(
+    sectionId,
+    read,
+    set,
+    capabilities,
+    choiceLabels,
+  );
   const parameters = E('div', {}, [
     preset,
     manual,

@@ -1,6 +1,11 @@
 import { renderDesyncDiagnostics, type DesyncDiagnostics } from './diagnostics';
 import { summarizeDesyncResults } from './results';
-import { desyncActions, desyncField as field, desyncGroup } from './ui';
+import {
+  desyncActions,
+  desyncField as field,
+  desyncGroup,
+  desyncPanel,
+} from './ui';
 import { E } from '../../../../helpers/element';
 import { desyncApi, type DesyncJob, type DesyncResult } from './api';
 import {
@@ -16,6 +21,7 @@ export function renderDesyncTools(
   read: () => DesyncOptions,
   apply: (options: DesyncOptions) => void,
   capabilities: DesyncCapabilities,
+  strategyLabels: Record<string, string>,
 ) {
   const error = E('p', {
     role: 'alert',
@@ -93,7 +99,7 @@ export function renderDesyncTools(
   const budget = numeric('60', '1', '120');
   const bytes = numeric('65536', '1024', '1048576');
   const status = E('p', { role: 'status', 'aria-live': 'polite' });
-  const results = E('div', { class: 'fkp-desync__table' });
+  const results = E('div', { class: 'fkp-desync__results' });
   let job: DesyncJob | undefined;
   let pending = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -169,77 +175,72 @@ export function renderDesyncTools(
   }
   function renderResults(items: DesyncResult[]) {
     const metric = (value: unknown, suffix = '') =>
-      typeof value === 'number' ? `${value}${suffix}` : '—';
+      typeof value === 'number' ? `${value}${suffix}` : _('Not measured');
     const check = (value: unknown) =>
       typeof value === 'boolean'
         ? value
           ? _('Success')
           : _('Failed')
         : _('Not tested');
-    const headers = [
-      _('Strategy'),
-      _('Result'),
-      'TLS',
-      'HTTP',
-      'QUIC',
-      _('Latency'),
-      _('Stability'),
-      _('Speed'),
-      _('Action'),
-    ];
-    return E('table', { class: 'table' }, [
-      E(
-        'thead',
-        {},
-        E(
-          'tr',
-          {},
-          headers.map((text) => E('th', { scope: 'col' }, text)),
-        ),
-      ),
-      E(
-        'tbody',
-        {},
-        items.map((item) => {
-          const choose = button(_('Apply as custom'), async () => {
-            const options = customDesync(item.options);
-            const valid = validateDesync(options, capabilities);
-            if (valid !== true) throw new Error(valid);
-            apply(options);
-            status.setAttribute('class', '');
-            status.textContent = _(
-              'Custom strategy copied to this form. Save the section and apply configuration to activate it.',
-            );
-          });
-          choose.disabled = !item.success;
-          return E('tr', {}, [
-            E(
-              'td',
-              { style: 'overflow-wrap:anywhere;max-width:22em' },
-              JSON.stringify(item.options),
-            ),
-            E(
-              'td',
-              {
-                class: item.error || !item.success ? 'fkp-desync__failure' : '',
-              },
+    const measurement = (label: string, value: string, failed = false) =>
+      E('div', {}, [
+        E('dt', {}, label),
+        E('dd', { class: failed ? 'fkp-desync__failure' : '' }, value),
+      ]);
+    return E(
+      'ul',
+      { class: 'fkp-desync__result-list' },
+      items.map((item) => {
+        const choose = button(_('Use this strategy'), async () => {
+          const options = customDesync(item.options);
+          const valid = validateDesync(options, capabilities);
+          if (valid !== true) throw new Error(valid);
+          apply(options);
+          status.setAttribute('class', '');
+          status.textContent = _(
+            'Custom strategy copied to this form. Save the section and apply configuration to activate it.',
+          );
+        });
+        choose.disabled = !item.success;
+        const name = String(
+          item.options.preset && item.options.preset !== 'custom'
+            ? item.options.preset
+            : item.options.mode || 'custom',
+        );
+        return E('li', { class: 'fkp-desync__result' }, [
+          E(
+            'h5',
+            { class: 'fkp-desync__result-title' },
+            strategyLabels[name] || name,
+          ),
+          E('dl', { class: 'fkp-desync__metrics' }, [
+            measurement(
+              _('Result'),
               item.error || check(item.success),
+              !!item.error || !item.success,
             ),
-            ...[item.tls, item.http, item.quic].map((value) =>
-              E(
-                'td',
-                { class: value === false ? 'fkp-desync__failure' : '' },
-                check(value),
+            ...(['tls', 'http', 'quic'] as const).map((protocol) =>
+              measurement(
+                protocol.toUpperCase(),
+                check(item[protocol]),
+                item[protocol] === false,
               ),
             ),
-            E('td', {}, metric(item.latency_ms, ' ms')),
-            E('td', {}, metric(item.stability, '%')),
-            E('td', {}, metric(item.throughput_bps, ' B/s')),
-            E('td', {}, choose),
-          ]);
-        }),
-      ),
-    ]);
+            measurement(_('Latency'), metric(item.latency_ms, ' ms')),
+            measurement(_('Successful probes'), metric(item.stability, '%')),
+            measurement(_('Speed'), metric(item.throughput_bps, ' B/s')),
+          ]),
+          desyncPanel(_('Strategy settings (JSON)'), [
+            E(
+              'pre',
+              { class: 'fkp-desync__result-json' },
+              JSON.stringify(item.options, null, 2),
+            ),
+          ]),
+          desyncActions([choose]),
+        ]);
+      }),
+    );
   }
   const start = E(
     'button',

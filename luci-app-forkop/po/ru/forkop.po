@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 13:50+0300\n"
-"PO-Revision-Date: 2026-11-27 13:50+0300\n"
+"POT-Creation-Date: 2026-11-27 15:08+0300\n"
+"PO-Revision-Date: 2026-11-27 15:08+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -361,9 +361,6 @@ msgstr "Любой на пути до сервера сможет выдать �
 
 msgid "Applies WARP+ to the profile account"
 msgstr "Применяет WARP+ к аккаунту профиля"
-
-msgid "Apply as custom"
-msgstr "Применить как custom"
 
 msgid "applying..."
 msgstr "применяет настройки..."
@@ -2159,6 +2156,9 @@ msgstr "Не используется"
 msgid "Not installed"
 msgstr "Не установлено"
 
+msgid "Not measured"
+msgstr "Не измерено"
+
 msgid "not running"
 msgstr "не запущен"
 
@@ -2960,9 +2960,6 @@ msgstr "Ключи SSH-сервера"
 msgid "SSO and SAML through the sing-box dashboard, which the tunnel waits for at every connection"
 msgstr "SSO и SAML через панель sing-box: туннель будет ждать входа при каждом подключении"
 
-msgid "Stability"
-msgstr "Устойчивость"
-
 msgid "Stall threshold (seconds)"
 msgstr "Порог зависания, секунды"
 
@@ -3038,6 +3035,9 @@ msgstr "Стратегия в JSON"
 msgid "Strategy profile"
 msgstr "Профиль обхода DPI"
 
+msgid "Strategy settings (JSON)"
+msgstr "Параметры стратегии (JSON)"
+
 msgid "Strategy testing"
 msgstr "Проверка стратегий"
 
@@ -3073,6 +3073,9 @@ msgstr "Подписки успешно обновлены"
 
 msgid "Success"
 msgstr "Успешно"
+
+msgid "Successful probes"
+msgstr "Успешные проверки"
 
 msgid "Support"
 msgstr "Поддержка"
@@ -3589,6 +3592,9 @@ msgstr "Использовать подсети, анонсированные д
 
 msgid "Use the tunnel's DNS for the domains its server declares. Add those domains to the section so that devices reach them through the tunnel"
 msgstr "Использовать DNS туннеля для доменов, которые объявляет его сервер. Добавьте эти домены в секцию, чтобы устройства ходили к ним через туннель"
+
+msgid "Use this strategy"
+msgstr "Использовать стратегию"
 
 msgid "User name"
 msgstr "Имя пользователя"

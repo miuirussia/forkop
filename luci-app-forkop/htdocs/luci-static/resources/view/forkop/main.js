@@ -17542,9 +17542,62 @@ var DesyncStyles = `
     outline-color: light-dark(#b42318, #ff8a80);
 }
 
-.fkp-desync__table {
+.fkp-desync .fkp-desync__result-list {
+    display: grid;
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.fkp-desync .fkp-desync__result {
+    min-width: 0;
+    margin: 0;
+    padding: 16px;
+    border: 1px solid var(--border-color-low, #8886);
+    border-radius: 8px;
+    list-style: none;
+}
+
+.fkp-desync .fkp-desync__result-title {
+    margin: 0 0 16px;
+    font-size: 1em;
+    font-weight: 600;
+    color: inherit;
+    overflow-wrap: anywhere;
+}
+
+.fkp-desync .fkp-desync__metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+    gap: 16px 24px;
+    margin: 0 0 16px;
+}
+
+.fkp-desync__metrics > div {
+    min-width: 0;
+}
+
+.fkp-desync .fkp-desync__metrics dt {
+    margin: 0 0 4px;
+    font-size: 0.875em;
+    font-weight: normal;
+}
+
+.fkp-desync .fkp-desync__metrics dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.fkp-desync .fkp-desync__result-json {
+    box-sizing: border-box;
     max-width: 100%;
-    overflow-x: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.fkp-desync__result > .fkp-desync__actions {
+    margin-bottom: 0;
 }
 `;
 
@@ -20165,7 +20218,7 @@ function desyncTabs(id, tabs) {
 }
 
 // src/forkop/tabs/sections/desync/tools.ts
-function renderDesyncTools(section2, read, apply, capabilities) {
+function renderDesyncTools(section2, read, apply, capabilities, strategyLabels) {
   const error = textE("p", {
     role: "alert",
     class: "fkp-desync__error"
@@ -20239,7 +20292,7 @@ function renderDesyncTools(section2, read, apply, capabilities) {
   const budget = numeric("60", "1", "120");
   const bytes = numeric("65536", "1024", "1048576");
   const status = textE("p", { role: "status", "aria-live": "polite" });
-  const results = textE("div", { class: "fkp-desync__table" });
+  const results = textE("div", { class: "fkp-desync__results" });
   let job;
   let pending = false;
   let timer;
@@ -20309,72 +20362,64 @@ function renderDesyncTools(section2, read, apply, capabilities) {
     return node;
   }
   function renderResults(items) {
-    const metric = (value, suffix = "") => typeof value === "number" ? `${value}${suffix}` : "\u2014";
+    const metric = (value, suffix = "") => typeof value === "number" ? `${value}${suffix}` : _("Not measured");
     const check = (value) => typeof value === "boolean" ? value ? _("Success") : _("Failed") : _("Not tested");
-    const headers = [
-      _("Strategy"),
-      _("Result"),
-      "TLS",
-      "HTTP",
-      "QUIC",
-      _("Latency"),
-      _("Stability"),
-      _("Speed"),
-      _("Action")
-    ];
-    return textE("table", { class: "table" }, [
-      textE(
-        "thead",
-        {},
-        textE(
-          "tr",
-          {},
-          headers.map((text8) => textE("th", { scope: "col" }, text8))
-        )
-      ),
-      textE(
-        "tbody",
-        {},
-        items.map((item) => {
-          const choose = button(_("Apply as custom"), async () => {
-            const options = customDesync(item.options);
-            const valid = validateDesync(options, capabilities);
-            if (valid !== true) throw new Error(valid);
-            apply(options);
-            status.setAttribute("class", "");
-            status.textContent = _(
-              "Custom strategy copied to this form. Save the section and apply configuration to activate it."
-            );
-          });
-          choose.disabled = !item.success;
-          return textE("tr", {}, [
-            textE(
-              "td",
-              { style: "overflow-wrap:anywhere;max-width:22em" },
-              JSON.stringify(item.options)
+    const measurement = (label, value, failed2 = false) => textE("div", {}, [
+      textE("dt", {}, label),
+      textE("dd", { class: failed2 ? "fkp-desync__failure" : "" }, value)
+    ]);
+    return textE(
+      "ul",
+      { class: "fkp-desync__result-list" },
+      items.map((item) => {
+        const choose = button(_("Use this strategy"), async () => {
+          const options = customDesync(item.options);
+          const valid = validateDesync(options, capabilities);
+          if (valid !== true) throw new Error(valid);
+          apply(options);
+          status.setAttribute("class", "");
+          status.textContent = _(
+            "Custom strategy copied to this form. Save the section and apply configuration to activate it."
+          );
+        });
+        choose.disabled = !item.success;
+        const name = String(
+          item.options.preset && item.options.preset !== "custom" ? item.options.preset : item.options.mode || "custom"
+        );
+        return textE("li", { class: "fkp-desync__result" }, [
+          textE(
+            "h5",
+            { class: "fkp-desync__result-title" },
+            strategyLabels[name] || name
+          ),
+          textE("dl", { class: "fkp-desync__metrics" }, [
+            measurement(
+              _("Result"),
+              item.error || check(item.success),
+              !!item.error || !item.success
             ),
-            textE(
-              "td",
-              {
-                class: item.error || !item.success ? "fkp-desync__failure" : ""
-              },
-              item.error || check(item.success)
-            ),
-            ...[item.tls, item.http, item.quic].map(
-              (value) => textE(
-                "td",
-                { class: value === false ? "fkp-desync__failure" : "" },
-                check(value)
+            ...["tls", "http", "quic"].map(
+              (protocol2) => measurement(
+                protocol2.toUpperCase(),
+                check(item[protocol2]),
+                item[protocol2] === false
               )
             ),
-            textE("td", {}, metric(item.latency_ms, " ms")),
-            textE("td", {}, metric(item.stability, "%")),
-            textE("td", {}, metric(item.throughput_bps, " B/s")),
-            textE("td", {}, choose)
-          ]);
-        })
-      )
-    ]);
+            measurement(_("Latency"), metric(item.latency_ms, " ms")),
+            measurement(_("Successful probes"), metric(item.stability, "%")),
+            measurement(_("Speed"), metric(item.throughput_bps, " B/s"))
+          ]),
+          desyncPanel(_("Strategy settings (JSON)"), [
+            textE(
+              "pre",
+              { class: "fkp-desync__result-json" },
+              JSON.stringify(item.options, null, 2)
+            )
+          ]),
+          desyncActions([choose])
+        ]);
+      })
+    );
   }
   const start = textE(
     "button",
@@ -20852,7 +20897,13 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
     sync();
   });
   sync();
-  const tools = renderDesyncTools(sectionId, read, set, capabilities);
+  const tools = renderDesyncTools(
+    sectionId,
+    read,
+    set,
+    capabilities,
+    choiceLabels
+  );
   const parameters = textE("div", {}, [
     preset,
     manual,

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 13:50+0300\n"
-"PO-Revision-Date: 2026-11-27 13:50+0300\n"
+"POT-Creation-Date: 2026-11-27 15:08+0300\n"
+"PO-Revision-Date: 2026-11-27 15:08+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -153,6 +153,7 @@ msgstr ""
 msgid "%s: needs a value"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 #: fe-app-forkop/src/helpers/parseOpenConnectConfig.ts
 #: fe-app-forkop/src/helpers/parseOpenVPNConfig.ts
 msgid "%s: needs a whole number"
@@ -274,7 +275,6 @@ msgstr ""
 msgid "Accurate latency measurement"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 #: fe-app-forkop/src/forkop/tabs/sections/form.ts
 msgid "Action"
 msgstr ""
@@ -491,10 +491,6 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "Applies WARP+ to the profile account"
-msgstr ""
-
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
-msgid "Apply as custom"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/helpers/serviceStatusDisplay.ts
@@ -2824,6 +2820,7 @@ msgstr ""
 msgid "No active connections"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts
 #: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
 msgid "No active Desync outbound. Save and apply the section first."
 msgstr ""
@@ -3008,6 +3005,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/helpers/singBoxVersion.ts
 msgid "Not installed"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Not measured"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/service.ts
@@ -4126,10 +4127,6 @@ msgstr ""
 msgid "SSO and SAML through the sing-box dashboard, which the tunnel waits for at every connection"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
-msgid "Stability"
-msgstr ""
-
 #: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
 msgid "Stall threshold (seconds)"
 msgstr ""
@@ -4214,7 +4211,6 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
-#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 msgid "Strategy"
 msgstr ""
 
@@ -4232,6 +4228,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "Strategy profile"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Strategy settings (JSON)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
@@ -4281,6 +4281,10 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
 #: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 msgid "Success"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Successful probes"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts
@@ -4992,6 +4996,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "Use the tunnel's DNS for the domains its server declares. Add those domains to the section so that devices reach them through the tunnel"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Use this strategy"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/clients.ts

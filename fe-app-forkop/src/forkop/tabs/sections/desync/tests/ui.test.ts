@@ -387,7 +387,7 @@ describe('Desync editor and tuner', () => {
     expect(source.value).toBe(before);
     expect(nodes(root).some((node) => node.textContent === '50%')).toBe(true);
     control(root, 'Adaptive limits (JSON object)').change('{');
-    button(root, 'Apply as custom').click();
+    button(root, 'Use this strategy').click();
     await settle();
     expect(validateDesyncEditor(source as unknown as Node)).toBe(true);
     expect(control(root, 'Adaptive limits (JSON object)').value).toBe('');
@@ -396,6 +396,52 @@ describe('Desync editor and tuner', () => {
       mode: 'split',
       auto_tune: false,
     });
+  });
+  it('labels every result metric and keeps raw strategy settings in closed details', async () => {
+    const { root } = editor();
+    const options = {
+      preset: 'split',
+      mode: 'split',
+      split_pos: 'midsld',
+      auto_tune: false,
+    };
+    vi.mocked(desyncApi.start).mockResolvedValue({
+      id: '1-2-3',
+      state: 'completed',
+      results: [
+        { options, success: true, protocol: 'tls', latency_ms: 726.65 },
+      ],
+    });
+    field(root, 'Test target').value = 'example.org:443';
+    button(root, 'Find a strategy').click();
+    await settle();
+    const card = nodes(root).find(
+      (node) => node.attrs.class === 'fkp-desync__result',
+    )!;
+    expect(nodes(card).find((node) => node.tag === 'h5')?.textContent).toBe(
+      'TCP segmentation (split)',
+    );
+    const metrics = nodes(card).filter((node) => node.tag === 'dt');
+    const values = nodes(card).filter((node) => node.tag === 'dd');
+    expect(
+      Object.fromEntries(
+        metrics.map((node, i) => [node.textContent, values[i].textContent]),
+      ),
+    ).toEqual({
+      Result: 'Success',
+      TLS: 'Success',
+      HTTP: 'Not tested',
+      QUIC: 'Not tested',
+      Latency: '726.65 ms',
+      'Successful probes': '100%',
+      Speed: 'Not measured',
+    });
+    const details = nodes(card).find((node) => node.tag === 'details')!;
+    expect(details.attrs.open).toBeUndefined();
+    expect(nodes(details).find((node) => node.tag === 'pre')?.textContent).toBe(
+      JSON.stringify(options, null, 2),
+    );
+    expect(button(card, 'Use this strategy').disabled).toBe(false);
   });
   it('continues polling when cancellation is acknowledged before the worker stops', async () => {
     const { root } = editor();
@@ -589,13 +635,13 @@ describe('Desync editor and tuner', () => {
     expect(status.attrs.class).toBe('fkp-desync__failure');
     expect(status.textContent).toContain('Connection timed out');
     const failures = nodes(root).filter(
-      (node) => node.tag === 'td' && node.attrs.class === 'fkp-desync__failure',
+      (node) => node.tag === 'dd' && node.attrs.class === 'fkp-desync__failure',
     );
     expect(failures.map((node) => node.textContent)).toEqual([
       'TLS handshake failed',
       'Failed',
     ]);
-    expect(button(root, 'Apply as custom').disabled).toBe(true);
+    expect(button(root, 'Use this strategy').disabled).toBe(true);
   });
   it('closes a running tuner when the dialog is detached', async () => {
     const { root } = editor();
