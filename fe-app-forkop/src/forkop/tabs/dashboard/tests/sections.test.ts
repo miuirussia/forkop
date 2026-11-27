@@ -1161,6 +1161,37 @@ describe('the Desync details dialog', () => {
     expect(raw.attrs.open).toBe('');
   });
 
+  it('keeps refresh errors and expanded JSON with the results, outside the persistent actions', async () => {
+    mocks.desyncDiagnostics.mockResolvedValueOnce(snapshot);
+    const dialog = await openDesyncDetails();
+    await vi.advanceTimersByTimeAsync(0);
+    const results = find(dialog, 'Desync details')!;
+    const raw = findByClass(results, 'fkp-desync__panel')!;
+    expect(raw).not.toBeNull();
+    raw.attrs.open = '';
+
+    mocks.desyncDiagnostics.mockRejectedValueOnce(new Error('Offline'));
+    click(dialog, 'Refresh diagnostics');
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(findByClass(results, 'fkp-desync__error')?.textContent).toBe(
+      'Offline',
+    );
+    expect(textOf(results)).toContain('86');
+    expect(raw.attrs.open).toBe('');
+    expect(findByClass(raw, 'fkp-desync__result-json')?.textContent).toBe(
+      JSON.stringify(snapshot, null, 2),
+    );
+    for (const label of [
+      'Refresh diagnostics',
+      'Clear learning results',
+      'Close',
+    ]) {
+      expect(find(dialog, label)?.disabled).not.toBe(true);
+      expect(find(results, label)).toBeUndefined();
+    }
+  });
+
   it('shows load failures and allows a retry', async () => {
     mocks.desyncDiagnostics
       .mockRejectedValueOnce(new Error('Offline'))

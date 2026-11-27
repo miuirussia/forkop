@@ -10647,9 +10647,23 @@ function showDesyncDetailsModal(section2, name) {
   const error = textE("p", { role: "alert", class: "fkp-desync__error" });
   const status = textE("p", { role: "status" });
   const learning = textE("div");
-  const json = textE("pre", { class: "fkp-desync__result-json" });
+  const json = textE("pre", {
+    class: "fkp-desync__result-json",
+    tabindex: 0,
+    "aria-label": _("Raw diagnostics JSON")
+  });
   const raw = desyncPanel(_("Raw diagnostics JSON"), [json]);
   raw.hidden = true;
+  const results = textE(
+    "div",
+    {
+      class: "fkp-desync__learning",
+      tabindex: 0,
+      role: "region",
+      "aria-label": _("Desync details")
+    },
+    [error, status, learning, raw]
+  );
   let pending = false;
   const refresh = textE(
     "button",
@@ -10702,10 +10716,7 @@ function showDesyncDetailsModal(section2, name) {
           _("Current strategy, switch reason and learning statistics")
         ),
         desyncActions([refresh, clear]),
-        error,
-        status,
-        learning,
-        raw,
+        results,
         textE("div", { class: "fkp_dashboard-page__urltest-details__footer" }, [
           textE(
             "button",
@@ -10718,7 +10729,8 @@ function showDesyncDetailsModal(section2, name) {
           )
         ])
       ])
-    )
+    ),
+    "fkp-desync-modal"
   );
   void load();
 }
@@ -18016,6 +18028,56 @@ var DesyncStyles = `
     min-width: 0;
 }
 
+#modal_overlay:has(> .modal.fkp-desync-modal) {
+    box-sizing: border-box;
+    align-items: center;
+    padding: 16px;
+    overflow: hidden;
+}
+
+#modal_overlay > .modal.fkp-desync-modal {
+    display: flex;
+    box-sizing: border-box;
+    flex-direction: column;
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    margin: 0 auto;
+    overflow: hidden;
+}
+
+.fkp-desync-modal > .fkp_dashboard-page__urltest-details,
+.fkp-desync-modal .fkp-desync {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.fkp-desync-modal .fkp-desync > :not(.fkp-desync__learning) {
+    flex: 0 0 auto;
+}
+
+.fkp-desync-modal .fkp-desync__learning {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+}
+
+.fkp-desync-modal .fkp-desync__learning:focus-visible,
+.fkp-desync-modal .fkp-desync__result-json:focus-visible {
+    outline: 2px solid var(--primary-color-medium, #0075db);
+    outline-offset: -2px;
+}
+
+.fkp-desync-modal .fkp-desync__result-json {
+    max-height: min(24vh, 12rem);
+    max-height: min(24dvh, 12rem);
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+}
+
 .fkp-desync__outbound + .fkp-desync__outbound {
     margin-top: 32px;
 }
@@ -18104,6 +18166,10 @@ var DesyncStyles = `
 }
 
 @container (max-width: 30rem) {
+    .fkp-desync-modal .fkp-desync__overview {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .fkp-desync .fkp-desync__destination-header {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -18118,6 +18184,22 @@ var DesyncStyles = `
 
     .fkp-desync__strategy-metrics > :first-child {
         grid-column: 1 / -1;
+    }
+}
+
+@media (max-height: 600px) {
+    .fkp-desync-modal .fkp-desync > p:not([role]) {
+        display: none;
+    }
+
+    .fkp-desync-modal .fkp-desync__actions {
+        margin: 8px 0;
+    }
+
+    .fkp-desync-modal .fkp-desync__result-json {
+        max-height: 16vh;
+        max-height: 16dvh;
+        margin: 0;
     }
 }
 `;

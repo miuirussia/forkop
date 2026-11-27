@@ -7,9 +7,24 @@ export function showDesyncDetailsModal(section: string, name: string) {
   const error = E('p', { role: 'alert', class: 'fkp-desync__error' });
   const status = E('p', { role: 'status' });
   const learning = E('div');
-  const json = E('pre', { class: 'fkp-desync__result-json' });
+  const json = E('pre', {
+    class: 'fkp-desync__result-json',
+    tabindex: 0,
+    'aria-label': _('Raw diagnostics JSON'),
+  });
   const raw = desyncPanel(_('Raw diagnostics JSON'), [json]);
   raw.hidden = true;
+  // Errors and expanded JSON share the results budget, leaving actions visible.
+  const results = E(
+    'div',
+    {
+      class: 'fkp-desync__learning',
+      tabindex: 0,
+      role: 'region',
+      'aria-label': _('Desync details'),
+    },
+    [error, status, learning, raw],
+  );
   let pending = false;
 
   const refresh = E(
@@ -66,10 +81,7 @@ export function showDesyncDetailsModal(section: string, name: string) {
           _('Current strategy, switch reason and learning statistics'),
         ),
         desyncActions([refresh, clear]),
-        error,
-        status,
-        learning,
-        raw,
+        results,
         E('div', { class: 'fkp_dashboard-page__urltest-details__footer' }, [
           E(
             'button',
@@ -83,6 +95,7 @@ export function showDesyncDetailsModal(section: string, name: string) {
         ]),
       ]),
     ),
+    'fkp-desync-modal',
   );
   void load();
 }
