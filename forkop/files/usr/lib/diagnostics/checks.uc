@@ -212,9 +212,15 @@ function rule_names_domain(rule, domain) {
 }
 
 function check_section(config) {
-    for (let rule in config?.route?.rules ?? [])
-        if (rule_names_domain(rule, IP_DOMAIN) && common.as_string(rule.outbound) != "")
-            return common.as_string(rule.outbound);
+    for (let rule in config?.route?.rules ?? []) {
+        if (rule_names_domain(rule, IP_DOMAIN) && common.as_string(rule.outbound) != "") {
+            // Connection sections expose a selector; direct socket exits have no proxy to compare.
+            for (let outbound in config?.outbounds ?? [])
+                if (outbound.tag == rule.outbound && outbound.type == "selector")
+                    return common.as_string(rule.outbound);
+            return "";
+        }
+    }
     return "";
 }
 

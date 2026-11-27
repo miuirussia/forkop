@@ -1196,9 +1196,10 @@ function add_service_mixed_proxy_inbound(config, tag_name, listen_port, outbound
     });
 }
 
-function first_outbound_section(sections) {
+// Desync uses the direct public address, so it cannot validate a proxy exit.
+function first_connection_section(sections) {
     for (let section in sections) {
-        if (connections.is_connections_action(option(section, "action", "")))
+        if (option(section, "action", "") == "connection")
             return section;
     }
     return null;
@@ -1451,7 +1452,7 @@ function section_domain_resolver_tag(section) {
 
 function section_dns_query_options(config, section) {
     let result = { server: section_domain_resolver_tag(section) };
-    if (!connections.is_connections_action(option(section, "action", "")))
+    if (!connections.is_outbound_action(option(section, "action", "")))
         return result;
 
     let tag_name = outbound_tag(section[".name"]);
@@ -1493,14 +1494,14 @@ function add_section_domain_resolver(config, section) {
         option(settings, "dns_main_fallback_strategy", "parallel"),
         target.outbound,
         false,
-        connections.is_connections_action(option(section, "action", ""))
+        connections.is_outbound_action(option(section, "action", ""))
     );
     if (unsupported != "")
         runtime_generate_unsupported(unsupported);
 }
 
 function section_has_outbound_domain_resolver(section) {
-    if (!connections.is_connections_action(option(section, "action", "")))
+    if (!connections.is_outbound_action(option(section, "action", "")))
         return false;
     // Providers refresh in the core and may contain explicit remote-DNS links.
     if (length(connections.subscription_items(section)) > 0)
@@ -1664,8 +1665,8 @@ function shared_section_dns_exclusions() {
 function add_section_dns_matcher_rule(config, section, matchers, rewrite_ttl) {
     let server = section_dns_server(section);
     let action = option(section, "action", "");
-    let exclusions = connections.is_connections_action(action) || action == "bypass" ? shared_section_dns_exclusions() : [];
-    let real_queries = connections.is_connections_action(action) || action == "bypass"
+    let exclusions = connections.is_outbound_action(action) || action == "bypass" ? shared_section_dns_exclusions() : [];
+    let real_queries = connections.is_outbound_action(action) || action == "bypass"
         ? section_dns_query_options(config, section) : null;
     for (let device_matchers in device_matcher_variants(section, "source_ip_cidr", true)) {
         let identity = { ...matchers, ...device_matchers };
@@ -1906,7 +1907,7 @@ function add_fully_routed_ips_rules(config, section, static_hosts) {
             add_device_dns_rules(config, dns_lookup_matchers(dns_matchers), server_tag, rewrite_ttl);
     }
     // Whole-device connection routing leaves unmatched DNS to the router in Router mode.
-    else if (connections.is_connections_action(action) && unmatched_server != runtime_constants.DNSMASQ_DNS_SERVER_TAG) {
+    else if (connections.is_outbound_action(action) && unmatched_server != runtime_constants.DNSMASQ_DNS_SERVER_TAG) {
         let query_options = section_dns_query_options(config, section);
         for (let dns_matchers in device_matcher_variants(section, "fully_routed_ips", true)) {
             // Whole-device capture already sees real public addresses and preserves LAN addresses.
@@ -1925,7 +1926,7 @@ function add_fully_routed_ips_rules(config, section, static_hosts) {
         runtime_generate_unsupported(target.unsupported);
 
     for (let device_matchers in device_matcher_variants(section, "fully_routed_ips", false)) {
-        if (connections.is_connections_action(action))
+        if (connections.is_outbound_action(action))
             add_section_lookup_dns_rules(config, section, device_matchers, rewrite_ttl);
         let route_rule = { action: target.action };
         if (target.outbound)
@@ -1980,9 +1981,9 @@ function add_combined_route_for_section(config, section, static_hosts) {
     let ip_cidr = destinations.ip_cidr;
     let rule_set_tags = [];
     let section_name = section[".name"];
-    let is_connection = connections.is_connections_action(option(section, "action", ""));
+    let routes_to_outbound = connections.is_outbound_action(option(section, "action", ""));
 
-    if (!is_connection)
+    if (!routes_to_outbound)
         add_fully_routed_ips_rules(config, section, static_hosts);
 
     for (let community in connections.community_lists(section))
@@ -2040,7 +2041,7 @@ function add_combined_route_for_section(config, section, static_hosts) {
     }
 
     // Explicit DNS rules take precedence over this section's whole-device fallback.
-    if (is_connection)
+    if (routes_to_outbound)
         add_fully_routed_ips_rules(config, section, static_hosts);
 
     for (let route_rule in route_rules)
@@ -2064,7 +2065,7 @@ function add_outbound_for_section(config, section) {
         });
         add_section_domain_resolver(config, section);
     }
-    else if (connections.is_connections_action(action)) {
+    else if (action == "connection") {
         add_connections_outbound(config, section);
         add_section_domain_resolver(config, section);
     }
@@ -2090,7 +2091,7 @@ function add_route_for_section(config, section, static_hosts) {
 }
 
 function add_service_route_rules(config, sections) {
-    let first = first_outbound_section(sections);
+    let first = first_connection_section(sections);
     if (first != null) {
         push_section_route_rule(config, first, {
             action: "route",
@@ -2120,7 +2121,7 @@ function enabled_sections() {
 function runtime_sections(sections) {
     let result = [];
     for (let section in sections)
-        if (!connections.is_connections_action(option(section, "action", "")) || connections.has_connection_sources(section))
+        if (!connections.is_outbound_action(option(section, "action", "")) || connections.has_outbound(section))
             push(result, section);
     return result;
 }
@@ -2165,7 +2166,7 @@ function server_route_rule(sections, routing_mode, routing_section_name, label) 
 
 // Place forced server lookups at their section's DNS priority, before lower sections.
 function add_server_section_dns_rules(config, servers, section, static_hosts) {
-    if (!connections.is_connections_action(option(section, "action", "")))
+    if (!connections.is_outbound_action(option(section, "action", "")))
         return;
     let name = section[".name"];
     let rewrite_ttl = int_option(runtime_settings(), "dns_rewrite_ttl", "60");

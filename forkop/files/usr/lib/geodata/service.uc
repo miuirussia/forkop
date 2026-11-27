@@ -46,7 +46,7 @@ function download(source, path) {
         return;
     }
     let section = uci.get_all("forkop", via);
-    if (section == null || !require("config.connections").is_connections_action(section.action) || !common.bool_option(section, "enabled", true))
+    if (section == null || !require("config.connections").is_outbound_action(section.action) || !common.bool_option(section, "enabled", true))
         die("Geodata download section is unavailable");
     let detour = require("singbox.constants").outbound_tag(require("config.connections").section_display_name(via));
     let file = fs.open(path, "w");

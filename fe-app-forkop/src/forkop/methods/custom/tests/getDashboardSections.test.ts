@@ -250,7 +250,13 @@ describe('getDashboardSections', () => {
       const result = await getDashboardSections();
       expect(result.success).toBe(true);
       expect(result.data).toMatchObject([
-        { action: 'desync', withTagSelect: false, outbounds: [] },
+        {
+          action: 'desync',
+          withTagSelect: false,
+          unavailableMessage:
+            'No active Desync outbound. Save and apply the section first.',
+          outbounds: [],
+        },
       ]);
     },
   );

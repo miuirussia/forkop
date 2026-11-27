@@ -268,8 +268,8 @@ function outbound_section(sections, label, target_name) {
     let target = find_section(sections, target_name);
     let reason = target == null ? "section '" + target_name + "', which does not exist"
         : !section_enabled(target) ? "section '" + section_label(target) + "', which is disabled"
-        : !connections.is_connections_action(rule_action(target)) ? "section '" + section_label(target) + "', whose action is '" + rule_action(target) + "'"
-        : !connections.has_connection_sources(target) ? "section '" + section_label(target) + "', which has no servers"
+        : !connections.is_outbound_action(rule_action(target)) ? "section '" + section_label(target) + "', whose action is '" + rule_action(target) + "'"
+        : !connections.has_outbound(target) ? "section '" + section_label(target) + "', which has no servers"
         : null;
     if (reason != null)
         fail_validation(label + " points to " + reason + ". Select an enabled Connection section with servers or a Desync section");
@@ -303,7 +303,7 @@ function section_cascades(section) {
 
 function cascade_neighbours(sections, name) {
     let section = find_section(sections, name);
-    if (section == null || !section_enabled(section) || !connections.is_connections_action(rule_action(section)))
+    if (section == null || !section_enabled(section) || !connections.is_outbound_action(rule_action(section)))
         return [];
     let result = map(section_cascades(section), (item) => item.target);
     for (let tunnel in connections.tunnel_items(section)) {
@@ -330,7 +330,7 @@ function cascade_reaches(sections, from, to) {
 
 function validate_cascades(sections) {
     for (let section in sections) {
-        if (!section_enabled(section) || !connections.is_connections_action(rule_action(section)))
+        if (!section_enabled(section) || !connections.is_outbound_action(rule_action(section)))
             continue;
         let name = section_name(section);
         for (let item in section_cascades(section)) {
@@ -1130,9 +1130,8 @@ function validate_rule(section, sections, context) {
         if (problem != "") fail_validation(problem);
         // A desync socket is always opened by its own direct dialer. Leaving stale
         // connection children active would promise a cascade the engine cannot honor.
-        if (length(connections.connection_link_items(section)) || length(connections.subscription_items(section)) ||
-            length(connections.interfaces(section)) || length(connections.outbound_jsons(section)) ||
-            length(connections.tunnels(section)) || length(connections.urltests(section)) || length(connections.fallback_groups(section)) ||
+        if (connections.has_connection_sources(section) ||
+            length(connections.urltests(section)) || length(connections.fallback_groups(section)) ||
             option(section, "detour_section", "") != "" || option(section, "detour", "") != "")
             fail_validation("Desync section '" + section_label(section) + "' owns its direct socket and cannot contain connection sources or cascades");
         if (capabilities != null)
@@ -1210,7 +1209,7 @@ function validate_rule(section, sections, context) {
     }
 
     validate_common_rule_references(section);
-    if (connections.is_connections_action(action) && !connections.has_connection_sources(section))
+    if (connections.is_outbound_action(action) && !connections.has_outbound(section))
         core_exec.log("warn", "Section '" + section_label(section) + "' has no servers and is skipped");
 }
 
@@ -1750,7 +1749,7 @@ function validate_core_features(settings, sections, servers, core_tags) {
     }
 
     for (let section in sections) {
-        if (!section_enabled(section) || !connections.is_connections_action(rule_action(section)))
+        if (!section_enabled(section) || !connections.is_outbound_action(rule_action(section)))
             continue;
         for (let tunnel_id in connections.tunnels(section)) {
             let tunnel = connections.tunnel_child(section, tunnel_id);
@@ -1780,7 +1779,7 @@ function validate_core_features(settings, sections, servers, core_tags) {
             continue;
         if (rule_action(section) == "dns")
             push(dns_servers, ...dns_setting_values(section, "dns_server"));
-        if (!connections.is_connections_action(rule_action(section)))
+        if (!connections.is_outbound_action(rule_action(section)))
             continue;
         for (let interface_name in connections.interfaces(section))
             if (connections.interface_domain_resolver_enabled(section, interface_name))
@@ -1887,9 +1886,9 @@ function service_exists(service) {
 function connection_sections_proxy_nothing() {
     let wanted = false;
     for (let section in sections_by_type("section")) {
-        if (!section_enabled(section) || !connections.is_connections_action(rule_action(section)))
+        if (!section_enabled(section) || !connections.is_outbound_action(rule_action(section)))
             continue;
-        if (connections.has_connection_sources(section))
+        if (connections.has_outbound(section))
             return false;
         wanted = true;
     }

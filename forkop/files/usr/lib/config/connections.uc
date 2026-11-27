@@ -205,7 +205,8 @@ function child_values(parent, type_name, value_key) {
     return result;
 }
 
-function is_connections_action(action) {
+// Both actions own a routable outbound; only connection owns a list of sources.
+function is_outbound_action(action) {
     return as_string(action) in [ "connection", "desync" ];
 }
 
@@ -468,11 +469,16 @@ function has_dns_matchers(section) {
 }
 
 function has_connection_sources(section) {
-    return option(section, "action", "") == "desync" || length(connection_link_items(section)) > 0 ||
+    return length(connection_link_items(section)) > 0 ||
         length(subscription_items(section)) > 0 ||
         length(interfaces(section)) > 0 ||
         length(outbound_jsons(section)) > 0 ||
         length(tunnels(section)) > 0;
+}
+
+function has_outbound(section) {
+    let action = option(section, "action", "");
+    return action == "desync" || (action == "connection" && has_connection_sources(section));
 }
 
 function cascade_section(item) {
@@ -756,7 +762,7 @@ return {
     device_matchers,
     excluded_devices,
     load,
-    is_connections_action,
+    is_outbound_action,
     connection_link_items,
     subscription_items,
     subscription_source,
@@ -774,6 +780,7 @@ return {
     rule_sets_with_subnets,
     has_dns_matchers,
     has_connection_sources,
+    has_outbound,
     cascade_section,
     subscription_update_enabled,
     subscription_update_interval,

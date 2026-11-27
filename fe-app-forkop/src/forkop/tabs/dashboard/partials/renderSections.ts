@@ -590,37 +590,37 @@ function renderDefaultState({
     : undefined;
 
   // Keep the current connection visible when its card is folded away.
-  const selected =
-    section.withTagSelect && (collapsed || section.outbounds.length > 1)
-      ? section.outbounds.find((outbound) => outbound.selected)
-      : section.action === 'desync' && collapsed
-        ? section.outbounds[0]
-        : undefined;
-  const current = selected
-    ? E('span', { class: 'fkp_dashboard-page__outbound-section__current' }, [
-        E(
-          'span',
-          { class: 'fkp_dashboard-page__outbound-section__current-name' },
-          renderFlagEmojis(
-            section.action === 'desync' ? selected.type : selected.displayName,
+  const selected = section.withTagSelect
+    ? section.outbounds.find((outbound) => outbound.selected)
+    : section.outbounds[0];
+  const showCurrent =
+    collapsed || (section.withTagSelect && section.outbounds.length > 1);
+  const current =
+    selected && showCurrent
+      ? E('span', { class: 'fkp_dashboard-page__outbound-section__current' }, [
+          E(
+            'span',
+            { class: 'fkp_dashboard-page__outbound-section__current-name' },
+            renderFlagEmojis(
+              section.withTagSelect ? selected.displayName : selected.type,
+            ),
           ),
-        ),
-        ...(selected.latency || selected.latencyFailed
-          ? [
-              E(
-                'span',
-                {
-                  class: latencyClassName(
-                    selected.latency,
-                    selected.latencyFailed,
-                  ),
-                },
-                selected.latencyFailed ? _('N/A') : `${selected.latency}ms`,
-              ),
-            ]
-          : []),
-      ])
-    : undefined;
+          ...(selected.latency || selected.latencyFailed
+            ? [
+                E(
+                  'span',
+                  {
+                    class: latencyClassName(
+                      selected.latency,
+                      selected.latencyFailed,
+                    ),
+                  },
+                  selected.latencyFailed ? _('N/A') : `${selected.latency}ms`,
+                ),
+              ]
+            : []),
+        ])
+      : undefined;
 
   // The whole header folds; its buttons keep their clicks, and a click ending a text selection is ignored.
   const headerFold = collapsible
@@ -693,14 +693,12 @@ function renderDefaultState({
       : [
           E('div', { class: 'fkp_dashboard-page__outbound-grid' }, [
             ...metadataNodes,
-            ...(section.action === 'desync' && !outbounds.length
+            ...(section.unavailableMessage && !outbounds.length
               ? [
                   E(
                     'p',
                     { role: 'status', style: 'grid-column: 1 / -1' },
-                    _(
-                      'No active Desync outbound. Save and apply the section first.',
-                    ),
+                    section.unavailableMessage,
                   ),
                 ]
               : []),

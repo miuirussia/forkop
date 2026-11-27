@@ -45,4 +45,18 @@ t.test("connection link cascade keeps its protocol and uses the standalone desyn
     t.ok(node, "a native link still dials through the selected exit");
 });
 
+t.test("the public IP check skips standalone Desync and uses the first connection section", () => {
+    let config = build({});
+    t.eq(sb.route_rule(config, (r) => r.action == "route" && r.domain == c.CHECK_PROXY_IP_DOMAIN), null,
+        "Desync alone does not create a public IP exit check");
+
+    fixture.seed({ settings: fixture.settings(), section: [
+        { ".name": "dpi", label: "YouTube", action: "desync" },
+        { ".name": "off", action: "connection", enabled: "0" },
+        { ".name": "proxy", label: "Secured", action: "connection" }
+    ], connection_link: fixture.links("proxy", [ "socks://example.org:1080#one" ]) });
+    config = generator.build({ service_address: "192.168.1.1" });
+    t.eq(sb.route_rule(config, (r) => r.action == "route" && r.domain == c.CHECK_PROXY_IP_DOMAIN).outbound, "Secured");
+});
+
 t.done();

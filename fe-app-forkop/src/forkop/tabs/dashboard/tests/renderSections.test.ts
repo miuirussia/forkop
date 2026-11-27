@@ -1645,6 +1645,9 @@ describe('renderSections standalone Desync', () => {
         displayName: 'YouTube',
         action: 'desync',
         withTagSelect: false,
+        unavailableMessage: active
+          ? undefined
+          : 'No active Desync outbound. Save and apply the section first.',
         outbounds: active
           ? [
               {

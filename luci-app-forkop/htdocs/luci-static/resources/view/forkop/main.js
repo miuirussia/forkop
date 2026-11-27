@@ -2387,7 +2387,7 @@ function getConnectionTunnels(section2) {
 function getJsonOutbounds(section2) {
   return getListValues(section2.outbound_jsons);
 }
-function isConnectionAction(action) {
+function isOutboundAction(action) {
   return action === "connection" || action === "desync";
 }
 function hasSubscriptionSources(section2) {
@@ -2947,7 +2947,7 @@ async function getDashboardSections() {
   );
   const providers = clashProviders.success ? clashProviders.data?.providers || {} : {};
   const activeSections = configSections.filter(
-    (section2) => section2.enabled !== "0" && isConnectionAction(section2.action)
+    (section2) => section2.enabled !== "0" && isOutboundAction(section2.action)
   );
   const data = activeSections.map((section2) => {
     const displayName = getDisplayName(section2);
@@ -2965,6 +2965,7 @@ async function getDashboardSections() {
         sectionName,
         displayName,
         action: sectionAction,
+        unavailableMessage: active ? void 0 : _("No active Desync outbound. Save and apply the section first."),
         outbounds: active ? [
           {
             code: displayName,
@@ -2977,7 +2978,7 @@ async function getDashboardSections() {
         ] : []
       };
     }
-    if (isConnectionAction(sectionAction) && shouldUseProxyGroup(section2)) {
+    if (shouldUseProxyGroup(section2)) {
       const subscriptionSourceCount = getSubscriptionSourceCount(section2);
       const subscriptionEnabled = subscriptionSourceCount > 0;
       const subscriptionTags = getSectionSubscriptionTags(section2, providers);
@@ -5736,13 +5737,14 @@ function renderDefaultState({
     },
     renderChevronUpIcon24()
   ) : void 0;
-  const selected = section2.withTagSelect && (collapsed || section2.outbounds.length > 1) ? section2.outbounds.find((outbound) => outbound.selected) : section2.action === "desync" && collapsed ? section2.outbounds[0] : void 0;
-  const current = selected ? textE("span", { class: "fkp_dashboard-page__outbound-section__current" }, [
+  const selected = section2.withTagSelect ? section2.outbounds.find((outbound) => outbound.selected) : section2.outbounds[0];
+  const showCurrent = collapsed || section2.withTagSelect && section2.outbounds.length > 1;
+  const current = selected && showCurrent ? textE("span", { class: "fkp_dashboard-page__outbound-section__current" }, [
     textE(
       "span",
       { class: "fkp_dashboard-page__outbound-section__current-name" },
       renderFlagEmojis(
-        section2.action === "desync" ? selected.type : selected.displayName
+        section2.withTagSelect ? selected.displayName : selected.type
       )
     ),
     ...selected.latency || selected.latencyFailed ? [
@@ -5820,13 +5822,11 @@ function renderDefaultState({
     ...collapsed ? [] : [
       textE("div", { class: "fkp_dashboard-page__outbound-grid" }, [
         ...metadataNodes,
-        ...section2.action === "desync" && !outbounds.length ? [
+        ...section2.unavailableMessage && !outbounds.length ? [
           textE(
             "p",
             { role: "status", style: "grid-column: 1 / -1" },
-            _(
-              "No active Desync outbound. Save and apply the section first."
-            )
+            section2.unavailableMessage
           )
         ] : [],
         ...outbounds.map((outbound) => renderOutbound(outbound))

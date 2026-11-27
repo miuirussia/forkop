@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 15:08+0300\n"
-"PO-Revision-Date: 2026-11-27 15:08+0300\n"
+"POT-Creation-Date: 2026-11-27 16:03+0300\n"
+"PO-Revision-Date: 2026-11-27 16:03+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -2820,7 +2820,7 @@ msgstr ""
 msgid "No active connections"
 msgstr ""
 
-#: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts
+#: fe-app-forkop/src/forkop/methods/custom/getDashboardSections.ts
 #: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
 msgid "No active Desync outbound. Save and apply the section first."
 msgstr ""

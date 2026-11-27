@@ -257,7 +257,8 @@ t.test("network bootstrap checks the upstream addresses and reports missing netw
 
 t.test("the router's own traffic is checked the way a client's goes, and the exit through the first section", () => {
     fixture.seed({ settings: { config_path: dir + "/config.json" } });
-    write_config({ route: { rules: [ { action: "sniff" }, { action: "route", inbound: [ "tproxy-in" ], outbound: "Main", domain: "ip.podkop.fyi" } ] } });
+    write_config({ outbounds: [ { type: "selector", tag: "Main", outbounds: [ "Main/Node" ] } ],
+        route: { rules: [ { action: "sniff" }, { action: "route", inbound: [ "tproxy-in" ], outbound: "Main", domain: "ip.podkop.fyi" } ] } });
     let lookups = dns_replies([ [ /^fakeip\.podkop\.fyi@resolv\.conf$/, records("A", "198.18.0.7") ] ]);
     let asked = parallel([
         [ /^uclient-fetch -q -O - --timeout=6 https:\/\/fakeip\.podkop\.fyi\/check$/, "{\"fakeip\": true, \"IP\": \"203.0.113.5\"}" ],
@@ -278,6 +279,22 @@ t.test("the router's own traffic is checked the way a client's goes, and the exi
     dns_replies([ [ /^fakeip\.podkop\.fyi@/, (name) => ({ "fakeip.podkop.fyi": { CNAME: [ "fake.example.net" ] }, "fake.example.net": { A: [ "198.18.0.9" ] } }) ] ]);
     parallel([ [ /fakeip\.podkop\.fyi\/check/, "" ] ]);
     t.eq(checks.traffic().router.dns_fakeip, true, "the address a CNAME leads to is the answer");
+    stub.restore();
+});
+
+t.test("a public IP rule pointing at Desync is not probed, including an existing generated configuration", () => {
+    fixture.seed({ settings: { config_path: dir + "/config.json" } });
+    write_config({
+        outbounds: [ { type: "desync", tag: "YouTube" }, { type: "socks", tag: "Secured" } ],
+        route: { rules: [ { action: "route", outbound: "YouTube", domain: "ip.podkop.fyi" } ] }
+    });
+    let lookups = dns_replies([ [ /^fakeip\.podkop\.fyi@resolv\.conf$/, records("A", "198.18.0.7") ] ]);
+    let asked = parallel([ [ /fakeip\.podkop\.fyi\/check/, '{"fakeip":true,"IP":"203.0.113.5"}' ] ]);
+    t.eq(checks.traffic(), {
+        router: { excluded: false, dns_fakeip: true, answered: true, fakeip: true, ip: "203.0.113.5" },
+        exit: null
+    });
+    t.eq([ length(lookups), length(asked) ], [ 1, 1 ], "the router capture check still runs without probing a Desync exit");
     stub.restore();
 });
 

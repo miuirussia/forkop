@@ -263,7 +263,7 @@ function getJsonOutbounds(section: Forkop.ConfigSection) {
   return getListValues(section.outbound_jsons);
 }
 
-function isConnectionAction(action?: string) {
+function isOutboundAction(action?: string) {
   return action === 'connection' || action === 'desync';
 }
 
@@ -1057,7 +1057,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
     ? clashProviders.data?.providers || {}
     : {};
   const activeSections = configSections.filter(
-    (section) => section.enabled !== '0' && isConnectionAction(section.action),
+    (section) => section.enabled !== '0' && isOutboundAction(section.action),
   );
   const data = activeSections.map((section) => {
     const displayName = getDisplayName(section);
@@ -1081,6 +1081,9 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
         sectionName,
         displayName,
         action: sectionAction,
+        unavailableMessage: active
+          ? undefined
+          : _('No active Desync outbound. Save and apply the section first.'),
         outbounds: active
           ? [
               {
@@ -1096,7 +1099,7 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
       };
     }
 
-    if (isConnectionAction(sectionAction) && shouldUseProxyGroup(section)) {
+    if (shouldUseProxyGroup(section)) {
       const subscriptionSourceCount = getSubscriptionSourceCount(section);
       const subscriptionEnabled = subscriptionSourceCount > 0;
       const subscriptionTags = getSectionSubscriptionTags(section, providers);

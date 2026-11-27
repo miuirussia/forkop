@@ -192,6 +192,7 @@ export namespace Forkop {
     sectionName: string;
     displayName: string;
     action?: ConfigSection['action'];
+    unavailableMessage?: string;
     proxyConfigType?: ProxyConfigType;
     subscriptionSourceCount?: number;
     subscriptionProviderTags?: string[];
