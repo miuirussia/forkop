@@ -29,10 +29,14 @@ function read(id) {
 function write(job) {
     if (!common.write_file_atomic(dir(job.id) + "/job.json", sprintf("%J\n", job))) die("Cannot save Desync job");
 }
-function section(name) {
+function validate_section_name(name) {
     if (type(name) != "string" || !match(name, /^[A-Za-z0-9_]+$/)) die("Invalid Desync section");
+}
+function section(name, allow_absent) {
+    validate_section_name(name);
     uci.reset();
     let value = uci.get_all("forkop", name);
+    if (value == null && allow_absent) return null;
     if (value?.[".type"] != "section" || value.action != "desync") die("Select a Desync section");
     return value;
 }
@@ -54,7 +58,10 @@ function capabilities() {
 function api(method, request) {
     let path = "/desync";
     if (request.section != null && request.section != "") {
-        let value = section(request.section);
+        let value = section(request.section, method == "GET");
+        // An unsaved form has no running outbound. Keep this response scoped:
+        // omitting its outbound filter would expose unrelated sections instead.
+        if (value == null) return { outbounds: {} };
         connections.load();
         let name = connections.section_display_name(value), encoded = "";
         for (let i = 0; i < length(name); i++) {
@@ -84,7 +91,8 @@ function probe_request(request) {
     for (let key in keys(request))
         if (index([ "section", "target", "protocol", "candidates", "timeout", "repetitions", "max_duration", "max_bytes", "concurrency" ], key) < 0)
             die("Unknown Desync probe option " + key);
-    section(request.section);
+    // Probes use form candidates, not a saved outbound. The section is only a job label.
+    validate_section_name(request.section);
     let protocol = request.protocol ?? "tls";
     if (index([ "tls", "http", "quic" ], protocol) < 0) die("Probe protocol must be tls, http or quic");
     let target = request.target;
@@ -185,6 +193,7 @@ function probe_dns(settings) {
 function start(request) {
     let caps = support();
     let value = probe_request(request);
+    uci.reset();
     let settings = uci.get_all("forkop", "settings") ?? {};
     value.dns_servers = probe_dns(settings);
     value.bind_interface = common.option(settings, "output_network_interface", "");
@@ -245,7 +254,7 @@ function stop_all() {
 // Apply is still required; never commit another page's pending configuration.
 function apply_custom(request, session) {
     support();
-    section(request.section);
+    validate_section_name(request.section);
     if (type(session) != "string" || session == "") die("Applying a strategy requires an authenticated UCI session");
     strategy.validate(request.options, true);
     let options = { ...strategy.options({ desync_options: sprintf("%J", request.options) }), auto_tune: false };
@@ -257,7 +266,7 @@ function apply_custom(request, session) {
     if (bus == null) die("Cannot connect to UCI");
     let args = { config: "forkop", section: request.section, ubus_rpc_session: session };
     let current = bus.call("uci", "get", args)?.values;
-    if (bus.error() || current?.action != "desync") die("The session no longer contains this Desync section");
+    if (bus.error() || current?.[".type"] != "section" || current.action != "desync") die("The session no longer contains this Desync section");
     let result = bus.call("uci", "set", { ...args, values: { desync_options: sprintf("%J", options), desync_strategy: "" } });
     if (result == null || bus.error()) die("Could not stage Desync strategy");
     if (current.desync_strategy != null) {

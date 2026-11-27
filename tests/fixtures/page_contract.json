@@ -243,7 +243,7 @@
       "with_vmess",
       "with_wireguard"
     ],
-    "desync": { "required_version": "1.14.4-r18", "capabilities": null },
+    "desync": { "required_version": "1.14.4-r19", "capabilities": null },
     "features": {
       "desync": { "available": false, "tags": [] },
       "clash_api": {

@@ -3,7 +3,7 @@ import { FORKOP_UCI_PACKAGE } from '../../../../constants';
 import { desyncApi } from './api';
 import { importDesync, loadDesync, validateDesync } from './model';
 import type { DesyncCapabilities } from './model';
-import { renderDesyncEditor } from './widget';
+import { renderDesyncEditor, validateDesyncEditor } from './widget';
 
 export function addDesyncOptions(section: CBISection) {
   let capabilities: Promise<DesyncCapabilities> | undefined;
@@ -54,6 +54,8 @@ export function addDesyncOptions(section: CBISection) {
   };
   option.validate = required(function (sectionId: string, value: string) {
     try {
+      const draft = validateDesyncEditor(this.getUIElement?.(sectionId)?.node);
+      if (draft !== true) return draft;
       return validateDesync(
         importDesync(value),
         support.get(sectionId) || {
@@ -66,6 +68,8 @@ export function addDesyncOptions(section: CBISection) {
     }
   });
   option.write = function (sectionId: string, value: unknown) {
+    const draft = validateDesyncEditor(this.getUIElement?.(sectionId)?.node);
+    if (draft !== true) throw new Error(draft);
     const options = importDesync(String(value || '{}'));
     const valid = validateDesync(options, support.get(sectionId));
     if (valid !== true) throw new Error(valid);

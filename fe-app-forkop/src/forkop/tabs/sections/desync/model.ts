@@ -476,15 +476,15 @@ export function validateDesync(
       fail('delay', _('Delay requires an enabled TCP mode'));
     if (
       !fakeMode &&
-      [
+      ([
         'fake_sni',
         'fake_host',
         'fake_payload',
         'fake_sni_pool',
         'fooling',
-        'ttl',
         'autottl',
-      ].some(enabled)
+      ].some(enabled) ||
+        (enabled('ttl') && !enabled('syndata')))
     )
       fail('mode', _('Fake parameters require a fake TCP mode'));
     if (

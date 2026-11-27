@@ -6,10 +6,12 @@ vi.mock('../api', () => ({
     cancel: vi.fn(),
     diagnostics: vi.fn(),
     clear: vi.fn(),
+    capabilities: vi.fn(),
   },
 }));
 import { desyncApi } from '../api';
-import { renderDesyncEditor } from '../widget';
+import { renderDesyncEditor, validateDesyncEditor } from '../widget';
+import { addDesyncOptions } from '../form';
 import { bindInlineValidation } from '../../../../cbi/validation';
 
 class NodeStub {
@@ -19,6 +21,7 @@ class NodeStub {
   disabled = false;
   hidden = false;
   isConnected = true;
+  validity = { badInput: false };
   listeners = new Map<string, Array<() => void>>();
   constructor(
     readonly tag: string,
@@ -26,10 +29,16 @@ class NodeStub {
     children: unknown = [],
   ) {
     this.value = String(attrs.value || '');
-    this.disabled = Boolean(attrs.disabled);
+    // LuCI serializes every non-null attribute, including disabled=false.
+    this.disabled = attrs.disabled != null;
     this.append(...(Array.isArray(children) ? children : [children]));
     if (tag === 'select')
-      this.value = (this.children[0] as NodeStub)?.value || '';
+      this.value =
+        (
+          this.children.find(
+            (child) => child instanceof NodeStub && !child.disabled,
+          ) as NodeStub
+        )?.value || '';
   }
   append(...children: unknown[]) {
     this.children.push(...(children as Array<NodeStub | string>));
@@ -109,7 +118,7 @@ function field(root: NodeStub, label: string) {
   );
   return row?.children[1] as NodeStub;
 }
-function editor() {
+function editor(protocols = ['tls', 'http', 'quic']) {
   const source = new NodeStub('textarea', {
     value:
       '{"preset":"auto","auto_tune":true,"adaptive":{"max_attempts":2},"seqovl":0}',
@@ -118,7 +127,7 @@ function editor() {
     source as unknown as Node,
     source as unknown as HTMLTextAreaElement,
     's1',
-    { supported: true, protocols: ['tls', 'http', 'quic'] },
+    { supported: true, protocols },
   ) as unknown as NodeStub;
   return { root, source };
 }
@@ -143,6 +152,29 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe('Desync editor and tuner', () => {
+  it.each([
+    {
+      protocols: ['tls', 'http', 'quic'],
+      disabled: [false, false, false],
+      selected: 'tls',
+    },
+    {
+      protocols: ['tls', 'http'],
+      disabled: [false, false, true],
+      selected: 'tls',
+    },
+    { protocols: ['http'], disabled: [true, false, true], selected: 'http' },
+  ])(
+    'keeps advertised protocols selectable with LuCI boolean attributes: $protocols',
+    ({ protocols, disabled, selected }) => {
+      const { root } = editor(protocols);
+      const protocol = field(root, 'Protocol');
+      expect(
+        protocol.children.map((child) => (child as NodeStub).disabled),
+      ).toEqual(disabled);
+      expect(protocol.value).toBe(selected);
+    },
+  );
   it('keeps editor and tool errors visible after modal validation', async () => {
     const { root } = editor();
     const alerts = nodes(root).filter((node) => node.attrs.role === 'alert');
@@ -354,8 +386,11 @@ describe('Desync editor and tuner', () => {
     expect(desyncApi.progress).toHaveBeenCalledWith('1-2-3');
     expect(source.value).toBe(before);
     expect(nodes(root).some((node) => node.textContent === '50%')).toBe(true);
+    control(root, 'Adaptive limits (JSON object)').change('{');
     button(root, 'Apply as custom').click();
     await settle();
+    expect(validateDesyncEditor(source as unknown as Node)).toBe(true);
+    expect(control(root, 'Adaptive limits (JSON object)').value).toBe('');
     expect(JSON.parse(source.value)).toEqual({
       preset: 'custom',
       mode: 'split',
@@ -381,6 +416,51 @@ describe('Desync editor and tuner', () => {
     expect(desyncApi.progress).toHaveBeenCalledWith('1-2-3');
     expect(button(root, 'Find a strategy').disabled).toBe(false);
   });
+  it('keeps one polling loop after a failed cancellation request', async () => {
+    const { root } = editor();
+    const running = { id: '1-2-3', state: 'running' as const, results: [] };
+    vi.mocked(desyncApi.start).mockResolvedValue(running);
+    vi.mocked(desyncApi.progress).mockResolvedValue(running);
+    vi.mocked(desyncApi.cancel).mockRejectedValue(new Error('Offline'));
+    field(root, 'Test target').value = 'example.org:443';
+    button(root, 'Find a strategy').click();
+    await settle();
+    button(root, 'Cancel tests').click();
+    await settle();
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(desyncApi.progress).toHaveBeenCalledTimes(1);
+  });
+  it('does not replace a new job with an older in-flight progress reply', async () => {
+    const { root } = editor();
+    const first = { id: '1-2-3', state: 'running' as const, results: [] };
+    const second = { id: '4-5-6', state: 'running' as const, results: [] };
+    let resolveOld!: (job: typeof first) => void;
+    const oldProgress = new Promise<typeof first>((resolve) => {
+      resolveOld = resolve;
+    });
+    vi.mocked(desyncApi.start)
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second);
+    vi.mocked(desyncApi.progress)
+      .mockImplementationOnce(() => oldProgress)
+      .mockResolvedValue({ ...second, state: 'completed' });
+    vi.mocked(desyncApi.cancel).mockResolvedValue({
+      ...first,
+      state: 'cancelled',
+    });
+    field(root, 'Test target').value = 'example.org:443';
+    button(root, 'Find a strategy').click();
+    await settle();
+    await vi.advanceTimersByTimeAsync(1000);
+    button(root, 'Cancel tests').click();
+    await settle();
+    button(root, 'Find a strategy').click();
+    await settle();
+    resolveOld(first);
+    await settle();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(desyncApi.progress).toHaveBeenLastCalledWith(second.id);
+  });
   it('does not replace the strategy on an invalid import', () => {
     const { root, source } = editor();
     const before = source.value;
@@ -393,6 +473,83 @@ describe('Desync editor and tuner', () => {
           node.attrs.role === 'alert' && node.textContent.includes('mode'),
       ),
     ).toBe(true);
+  });
+  it('refuses malformed JSON drafts in LuCI validation and writes until they are repaired', async () => {
+    const source = Object.assign(new NodeStub('textarea'), {
+      tagName: 'TEXTAREA',
+    });
+    const writes = vi.fn();
+    vi.stubGlobal('uci', { get: vi.fn(), set: writes, unset: vi.fn() });
+    vi.mocked(desyncApi.capabilities).mockResolvedValue({ supported: true });
+    const option = {
+      renderWidget: () => source,
+      depends: vi.fn(),
+      getUIElement: () => ({ node: source }),
+    } as unknown as CBIOption;
+    addDesyncOptions({ taboption: () => option } as unknown as CBISection);
+    source.value = String(await option.load('s1'));
+    const root = (await option.renderWidget(
+      's1',
+      '0',
+      source.value,
+    )) as unknown as NodeStub;
+    const adaptive = control(root, 'Adaptive limits (JSON object)');
+    adaptive.change('{"max_attempts":');
+    expect(option.validate('s1', source.value)).toContain('adaptive:');
+    expect(() => option.write('s1', source.value)).toThrow('adaptive:');
+    expect(writes).not.toHaveBeenCalled();
+    control(root, 'TCP mode').change('multi_split');
+    expect(adaptive.value).toBe('{"max_attempts":');
+    expect(adaptive.attrs['aria-invalid']).toBe('true');
+    expect(option.validate('s1', source.value)).toContain('adaptive:');
+    adaptive.change('{"max_attempts":3}');
+    expect(option.validate('s1', source.value)).toBe(true);
+    option.write('s1', source.value);
+    expect(writes).toHaveBeenCalledWith(
+      'forkop',
+      's1',
+      'desync_options',
+      expect.stringContaining('"max_attempts":3'),
+    );
+  });
+  it('keeps malformed numeric input distinct from an intentionally empty override', () => {
+    const { root, source } = editor();
+    control(root, 'TCP mode').change('fake');
+    const ttl = control(root, 'Fake packet TTL');
+    ttl.change('64');
+    ttl.validity.badInput = true;
+    ttl.value = '';
+    ttl.dispatchEvent(new Event('input'));
+    expect(JSON.parse(source.value).ttl).toBe(64);
+    expect(validateDesyncEditor(source as unknown as Node)).toContain('ttl:');
+    control(root, 'Delay (for example 100ms)').change('100ms');
+    expect(ttl.value).toBe('');
+    expect(ttl.attrs['aria-invalid']).toBe('true');
+    ttl.validity.badInput = false;
+    ttl.change('65');
+    expect(validateDesyncEditor(source as unknown as Node)).toBe(true);
+    expect(JSON.parse(source.value).ttl).toBe(65);
+    ttl.change('');
+    expect(JSON.parse(source.value)).not.toHaveProperty('ttl');
+  });
+  it('blocks exports of stale values and resets drafts on explicit strategy replacement', () => {
+    const { root, source } = editor();
+    const adaptive = control(root, 'Adaptive limits (JSON object)');
+    adaptive.value = '{';
+    adaptive.dispatchEvent(new Event('input'));
+    button(root, 'Export JSON').click();
+    expect(control(root, 'Strategy import or export').value).toBe('');
+    control(root, 'Strategy import or export').value =
+      '{"preset":"custom","mode":"split","auto_tune":false}';
+    button(root, 'Import strategy').click();
+    expect(validateDesyncEditor(source as unknown as Node)).toBe(true);
+    expect(adaptive.value).toBe('');
+    adaptive.change('{');
+    source.value = '{"preset":"auto","adaptive":{"max_attempts":4}}';
+    source.dispatchEvent(new Event('input'));
+    expect(validateDesyncEditor(source as unknown as Node)).toBe(true);
+    expect(adaptive.value).toBe('{"max_attempts":4}');
+    expect(adaptive.attrs['aria-invalid']).toBe('false');
   });
   it('marks an invalid setting and clears its error after correction', () => {
     const { root } = editor();

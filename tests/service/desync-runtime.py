@@ -84,7 +84,7 @@ require("fixture").seed(json(fs.readfile(root+"/fixture.json")));
 let features=require("singbox.features");
 features.paths.binary=getenv("FORKOP_DESYNC_RUNTIME_CORE");
 // Development binaries may have no release ldflag; all capabilities/checks remain real.
-features.version=()=>"1.14.4-r18";
+features.version=()=>require("core.constants").SB_REQUIRED_VERSION;
 features.desync_capabilities=()=>json(require("core.exec").output([features.paths.binary,"desync","capabilities"]));
 require("core.constants").FORKOP_BIN=root+"/forkop";
 require("service.desync").paths.jobs=root+"/jobs";

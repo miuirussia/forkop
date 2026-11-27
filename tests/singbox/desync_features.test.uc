@@ -13,11 +13,13 @@ function core(version, caps, status) {
 }
 
 t.test("an older core cannot claim Desync support with a build tag", () => {
-    core("1.14.4-r17", { capability: "forkop-desync-v1" });
-    t.eq(features.available("desync", [ "with_desync" ]), false);
-    t.eq(features.desync_capabilities(), null);
-    t.eq(length(stub.calls()), 1, "no unsupported CLI invocation on an old release");
-    stub.restore();
+    for (let version in [ "1.14.4-r17", "1.14.4-r18" ]) {
+        core(version, { capability: "forkop-desync-v1" });
+        t.eq(features.available("desync", [ "with_desync" ]), false);
+        t.eq(features.desync_capabilities(), null);
+        t.eq(length(stub.calls()), 1, "no unsupported CLI invocation on an old release");
+        stub.restore();
+    }
 });
 
 t.test("a newer upstream version does not impersonate a Forkop release", () => {
@@ -27,9 +29,9 @@ t.test("a newer upstream version does not impersonate a Forkop release", () => {
     stub.restore();
 });
 
-t.test("r18 asks the capability CLI once per binary and exposes the actual report", () => {
+t.test("r19 asks the capability CLI once per binary and exposes the actual report", () => {
     let caps = { capability: "forkop-desync-v1", supported: true, unsupported: { some_option: "kernel reason" } };
-    core("1.14.4-r18", caps);
+    core("1.14.4-r19", caps);
     t.ok(features.available("desync"));
     t.eq(features.desync_capabilities(), caps);
     t.eq(features.report().desync.capabilities, caps);
@@ -38,11 +40,11 @@ t.test("r18 asks the capability CLI once per binary and exposes the actual repor
 });
 
 t.test("explicit capability denial or malformed JSON is refused; absent CLI keeps the release guard", () => {
-    core("1.14.4-r18", { capability: "forkop-desync-v1", supported: false });
+    core("1.14.4-r19", { capability: "forkop-desync-v1", supported: false });
     t.eq(features.available("desync"), false);
-    core("1.14.4-r18", { capability: "unrelated" });
+    core("1.14.4-r19", { capability: "unrelated" });
     t.eq(features.available("desync"), false);
-    core("1.14.4-r18", null, 1);
+    core("1.14.4-r19", null, 1);
     t.eq(features.available("desync"), true);
     t.eq(features.desync_capabilities(), null);
     stub.restore();

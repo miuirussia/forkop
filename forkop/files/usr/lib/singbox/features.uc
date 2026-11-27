@@ -7,7 +7,7 @@ let exec = require("core.exec");
 let url = require("core.url");
 let singbox_constants = require("singbox.constants");
 let core_version = require("core.version");
-const DESYNC_REQUIRED_VERSION = "1.14.4-r18";
+const DESYNC_REQUIRED_VERSION = "1.14.4-r19";
 
 let paths = {
     binary: "/usr/bin/sing-box"

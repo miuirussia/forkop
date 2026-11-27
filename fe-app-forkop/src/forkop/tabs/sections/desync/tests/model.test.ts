@@ -48,6 +48,35 @@ describe('canonical desync strategies', () => {
     expect(importDesync(exportDesync(value))).toEqual(value);
     expect(importDesync(JSON.stringify(value))).toEqual(value);
   });
+  it.each([
+    '0',
+    '0s',
+    '0ms',
+    '0us',
+    '0µs',
+    '0ns',
+    '0.1ns',
+    '0.0000001ms',
+    '0.6ns0.6ns',
+    '0h0m0s0ms0us0µs0ns',
+    '100µs',
+    '0.25us',
+    '999ms1000µs',
+    '1s',
+  ])(
+    'accepts and preserves core-supported delay %s through form interchange',
+    (delay) => {
+      const value = {
+        preset: 'custom',
+        mode: 'split',
+        auto_tune: false,
+        delay,
+      };
+      expect(validateDesync(value)).toBe(true);
+      expect(importDesync(exportDesync(value))).toEqual(value);
+      expect(loadDesync(JSON.stringify(value))).toEqual(value);
+    },
+  );
   it('accepts existing comma-separated pools and semantic markers', () => {
     const value = importDesync(
       'mode=fake_split fake_sni_pool="a.example,b.example" split_pos=sniext+1,midsld-2,endhost-1,extlen,host+1,1',
@@ -255,6 +284,45 @@ describe('canonical desync strategies', () => {
       ).toBe(true);
     },
   );
+  it.each(['split', 'multi_split', 'tlsrec', 'none'])(
+    'allows a Linux SYN-data TTL independently of TCP mode %s',
+    (mode) => {
+      const value = {
+        preset: 'custom',
+        mode,
+        syndata: 'YWJj',
+        ttl: 8,
+        auto_tune: false,
+      };
+      expect(
+        validateDesync(value, { supported: true, platform: 'linux' }),
+      ).toBe(true);
+      expect(importDesync(exportDesync(value))).toEqual(value);
+    },
+  );
+  it.each([undefined, ''])(
+    'keeps TTL fake-only without a SYN payload (%s)',
+    (syndata) => {
+      const value = {
+        mode: 'split',
+        ttl: 8,
+        ...(syndata === undefined ? {} : { syndata }),
+      };
+      expect(validateDesync(value)).toContain('Fake parameters');
+    },
+  );
+  it.each([
+    { fake_sni: 'example.org' },
+    { fake_host: 'example.org' },
+    { fake_payload: 'YWJj' },
+    { fake_sni_pool: ['example.org'] },
+    { fooling: 'badseq' },
+    { autottl: true },
+  ])('keeps other fake-only settings rejected with SYN data: %j', (fake) => {
+    expect(
+      validateDesync({ mode: 'split', syndata: 'YWJj', ttl: 8, ...fake }),
+    ).toContain('Fake parameters');
+  });
   it('uses actual platform and value-specific capability reasons without forbidding socket retention', () => {
     expect(
       validateDesync({ udp_mode: 'auto', quic_desync: false, udplen: 32 }),

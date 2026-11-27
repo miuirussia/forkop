@@ -3,7 +3,7 @@ let d = require("config.desync");
 let v = require("validation");
 let fixture = require("fixture");
 
-const CONTEXT = { sing_box_version: "1.14.4-r18" };
+const CONTEXT = { sing_box_version: "1.14.4-r19" };
 function section(options) { return { ".name": "dpi", action: "desync", desync_options: sprintf("%J", options ?? {}) }; }
 
 t.test("UCI import folds into canonical JSON with explicit false and zero taking precedence", () => {
@@ -32,11 +32,28 @@ t.test("unknown keys, socket fields, duplicate tokens and invalid values are ref
         t.contains(t.throws(() => d.import_strategy(text)).message, "Desync:", text);
 });
 
-t.test("Desync requires r18 and respects an authoritative capability refusal", () => {
-    v.refuses({ section: [ section() ] }, "requires sing-box-forkop 1.14.4-r18", { sing_box_version: "1.14.4-r17" });
+t.test("Desync durations keep form-supported units and zero while enforcing core limits", () => {
+    for (let delay in [ "0", "0s", "0ms", "0us", "0µs", "0ns", "0.1ns", "0.0000001ms", "0.6ns0.6ns",
+        "0h0m0s0ms0us0µs0ns", "100µs", "0.25us", "999ms1000µs", "1s" ]) {
+        let options = { preset: "custom", mode: "split", auto_tune: false, delay };
+        t.eq(d.options({ desync_options: sprintf("%J", options) }), options, delay);
+        t.eq(d.import_strategy(d.export_strategy(options)), options, delay);
+    }
+    for (let limits in [ { timeout: "1000000µs", ttl: "60000000µs" }, { timeout: "0.6s0.4s", ttl: "1m" },
+        { timeout: "60s", ttl: "168h" }, { ttl: "1d" } ])
+        t.eq(d.validate({ preset: "auto", adaptive: limits }), { preset: "auto", adaptive: limits });
+    for (let delay in [ "", "-1ns", "2s", "1s1ns", "1000001µs", "1d", "1s!", "1.s", 0 ])
+        t.contains(t.throws(() => d.validate({ delay })).message, "Desync:", sprintf("%J", delay));
+    for (let limits in [ { timeout: "0s" }, { timeout: "0.1ns" }, { timeout: "0.9999999999s" },
+        { timeout: "60s1ns" }, { ttl: "0ms" }, { ttl: "59s" }, { ttl: "168h1ns" } ])
+        t.contains(t.throws(() => d.validate({ preset: "auto", adaptive: limits })).message, "Desync:", sprintf("%J", limits));
+});
+
+t.test("Desync requires r19 and respects an authoritative capability refusal", () => {
+    v.refuses({ section: [ section() ] }, "requires sing-box-forkop 1.14.4-r19", { sing_box_version: "1.14.4-r17" });
     v.accepts({ section: [ section() ] }, CONTEXT);
     v.refuses({ section: [ section() ] }, "does not advertise", { ...CONTEXT, desync_capabilities: { supported: false } });
-    t.eq(d.support_problem("1.14.4-r18", { capability: "forkop-desync-v1", supported: true }), "");
+    t.eq(d.support_problem("1.14.4-r19", { capability: "forkop-desync-v1", supported: true }), "");
 });
 
 t.test("standalone Desync needs no server; links and subscriptions can use it as their direct exit", () => {

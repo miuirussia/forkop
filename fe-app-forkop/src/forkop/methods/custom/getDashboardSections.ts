@@ -1065,6 +1065,37 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
     const sectionAction = section.action;
     const proxyConfigType = getSectionProxyConfigType(section);
 
+    if (sectionAction === 'desync') {
+      const runtime = proxies.find(
+        (proxy) => proxy.code === displayName,
+      )?.value;
+      const active =
+        runtime &&
+        runtime.type === 'Desync' &&
+        runtime.all == null &&
+        runtime.now == null &&
+        runtime.groups == null;
+      return {
+        withTagSelect: false,
+        code: displayName,
+        sectionName,
+        displayName,
+        action: sectionAction,
+        outbounds: active
+          ? [
+              {
+                code: displayName,
+                displayName,
+                latency: runtime.history?.[0]?.delay ?? 0,
+                type: 'Desync',
+                selected: true,
+                canCopyLink: false,
+              },
+            ]
+          : [],
+      };
+    }
+
     if (isConnectionAction(sectionAction) && shouldUseProxyGroup(section)) {
       const subscriptionSourceCount = getSubscriptionSourceCount(section);
       const subscriptionEnabled = subscriptionSourceCount > 0;

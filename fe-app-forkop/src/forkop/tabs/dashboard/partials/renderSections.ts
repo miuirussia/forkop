@@ -311,10 +311,10 @@ function renderDefaultState({
   onRefreshExit,
   onCopyExitAddress,
 }: IRenderSectionsProps) {
+  const latencyTarget = sectionLatencyTarget(section);
   function testLatency() {
-    const target = sectionLatencyTarget(section);
-    if (target) {
-      onTestLatency(target.tag);
+    if (latencyTarget) {
+      onTestLatency(latencyTarget.tag);
     }
   }
 
@@ -536,7 +536,7 @@ function renderDefaultState({
         )
       : undefined;
   const exitAction =
-    onToggleExit && sectionLatencyTarget(section)
+    onToggleExit && latencyTarget
       ? E(
           'button',
           {
@@ -661,7 +661,7 @@ function renderDefaultState({
               title: _('Test latency'),
               'aria-label': _('Test latency'),
               'aria-busy': latencyFetching ? 'true' : undefined,
-              disabled: latencyFetching ? true : undefined,
+              disabled: latencyFetching || !latencyTarget ? true : undefined,
               click: (event: MouseEvent) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -689,6 +689,17 @@ function renderDefaultState({
       : [
           E('div', { class: 'fkp_dashboard-page__outbound-grid' }, [
             ...metadataNodes,
+            ...(section.action === 'desync' && !outbounds.length
+              ? [
+                  E(
+                    'p',
+                    { role: 'status', style: 'grid-column: 1 / -1' },
+                    _(
+                      'No active Desync outbound. Save and apply the section first.',
+                    ),
+                  ),
+                ]
+              : []),
             ...outbounds.map((outbound) => renderOutbound(outbound)),
           ]),
         ]),

@@ -1623,3 +1623,136 @@ describe('renderSections exit action', () => {
     ).toBeUndefined();
   });
 });
+
+describe('renderSections standalone Desync', () => {
+  async function render(active: boolean) {
+    installElementFactory();
+    const { renderSections } = await import('../partials/renderSections');
+    const onTestLatency = vi.fn();
+    const onTestOutboundLatency = vi.fn();
+    const onChooseOutbound = vi.fn();
+    const onCopyOutbound = vi.fn();
+    const onToggleExit = vi.fn();
+    const root = renderSections({
+      loading: false,
+      failed: false,
+      section: {
+        code: 'YouTube',
+        sectionName: 'youtube',
+        displayName: 'YouTube',
+        action: 'desync',
+        withTagSelect: false,
+        outbounds: active
+          ? [
+              {
+                code: 'YouTube',
+                displayName: 'YouTube',
+                type: 'Desync',
+                latency: 87,
+                selected: true,
+                canCopyLink: false,
+              },
+            ]
+          : [],
+      },
+      onTestLatency,
+      onTestOutboundLatency,
+      onChooseOutbound,
+      onCopyOutbound,
+      onShowUrlTestInfo: vi.fn(),
+      onShowFallbackInfo: vi.fn(),
+      onShowTailscaleInfo: vi.fn(),
+      onToggleExit,
+      latencyFetching: false,
+    }) as unknown as FakeNode;
+    return {
+      root,
+      onTestLatency,
+      onTestOutboundLatency,
+      onChooseOutbound,
+      onCopyOutbound,
+      onToggleExit,
+    };
+  }
+
+  const hasClass = (name: string) => (node: FakeNode) =>
+    String(node.attrs.class || '')
+      .split(' ')
+      .includes(name);
+  const event = () => ({ preventDefault: vi.fn(), stopPropagation: vi.fn() });
+
+  it('shows the actual outbound type and latency, tests it directly, and offers an IP check without proxy controls', async () => {
+    const {
+      root,
+      onTestLatency,
+      onTestOutboundLatency,
+      onChooseOutbound,
+      onCopyOutbound,
+      onToggleExit,
+    } = await render(true);
+    const row = findNode(
+      root,
+      hasClass('fkp_dashboard-page__outbound-grid__item'),
+    )!;
+    expect(
+      findNode(row, hasClass('fkp_dashboard-page__outbound-grid__item__type'))
+        ?.children,
+    ).toEqual(['Desync']);
+    expect(
+      findNode(
+        row,
+        hasClass('fkp_dashboard-page__outbound-grid__item__latency-value'),
+      )?.children,
+    ).toEqual(['87ms']);
+    expect(
+      hasClass('fkp_dashboard-page__outbound-grid__item--selectable')(row),
+    ).toBe(false);
+    expect(
+      findNode(row, (node) => node.attrs['aria-label'] === 'Copy proxy link'),
+    ).toBeUndefined();
+    (row.attrs.click as () => void)();
+    expect(onChooseOutbound).not.toHaveBeenCalled();
+    expect(onCopyOutbound).not.toHaveBeenCalled();
+
+    const latency = findNode(
+      row,
+      hasClass('fkp_dashboard-page__outbound-grid__item__latency'),
+    )!;
+    (latency.attrs.click as (event: unknown) => void)(event());
+    expect(onTestOutboundLatency).toHaveBeenCalledWith('proxy', 'YouTube');
+    const gauge = findNode(
+      root,
+      hasClass('dashboard-sections-grid-item-test-latency'),
+    )!;
+    expect(gauge.attrs.disabled).toBeUndefined();
+    (gauge.attrs.click as (event: unknown) => void)(event());
+    expect(onTestLatency).toHaveBeenCalledWith('YouTube');
+    const exit = findNode(
+      root,
+      hasClass('fkp_dashboard-page__outbound-section__exit'),
+    )!;
+    (exit.attrs.click as (event: unknown) => void)(event());
+    expect(onToggleExit).toHaveBeenCalledOnce();
+  });
+
+  it('explains a not-applied Desync section and disables probes until a runtime outbound exists', async () => {
+    const { root, onTestLatency, onTestOutboundLatency } = await render(false);
+    expect(
+      findNode(root, hasClass('fkp_dashboard-page__outbound-grid__item')),
+    ).toBeUndefined();
+    expect(
+      findNode(root, (node) => node.attrs.role === 'status')?.children,
+    ).toEqual(['No active Desync outbound. Save and apply the section first.']);
+    expect(
+      findNode(root, hasClass('fkp_dashboard-page__outbound-section__exit')),
+    ).toBeUndefined();
+    const gauge = findNode(
+      root,
+      hasClass('dashboard-sections-grid-item-test-latency'),
+    )!;
+    expect(gauge.attrs.disabled).toBe(true);
+    (gauge.attrs.click as (event: unknown) => void)(event());
+    expect(onTestLatency).not.toHaveBeenCalled();
+    expect(onTestOutboundLatency).not.toHaveBeenCalled();
+  });
+});

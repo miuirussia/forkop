@@ -40,6 +40,7 @@ import {
 } from '../clashApi';
 import { getDashboardSections } from '../getDashboardSections';
 import { ClashAPI, Forkop } from '../../../types';
+import { sectionLatencyTarget } from '../../../tabs/dashboard/sectionLatencyTarget';
 
 function proxy(
   type: string,
@@ -186,13 +187,24 @@ describe('getDashboardSections', () => {
     vi.stubGlobal('fetch', undefined);
   });
 
-  it('keeps standalone Desync sections visible as direct outbounds', async () => {
+  it('shows the real standalone Desync outbound without selector or link controls', async () => {
     mocks.getConfigSections.mockResolvedValue([
       section({ action: 'desync' }),
-      section({ '.name': 'disabled', action: 'desync', enabled: '0' }),
+      section({
+        '.name': 'disabled',
+        label: 'Hidden',
+        action: 'desync',
+        enabled: '0',
+      }),
     ]);
-    setClashProxies({ Office: proxy('Desync') });
-    expect(await getDashboardSections()).toMatchObject({
+    setClashProxies({
+      Office: proxy('Desync', {
+        history: [{ time: '2026-11-27T12:00:00Z', delay: 87 }],
+      }),
+      Hidden: proxy('Desync'),
+    });
+    const result = await getDashboardSections();
+    expect(result).toMatchObject({
       success: true,
       data: [
         {
@@ -200,11 +212,85 @@ describe('getDashboardSections', () => {
           sectionName: 'main',
           action: 'desync',
           withTagSelect: false,
-          outbounds: [],
+          outbounds: [
+            {
+              code: 'Office',
+              displayName: 'Office',
+              latency: 87,
+              type: 'Desync',
+              selected: true,
+              canCopyLink: false,
+            },
+          ],
         },
       ],
     });
+    expect(sectionLatencyTarget(result.data[0])).toEqual({
+      type: 'proxy',
+      tag: 'Office',
+    });
   });
+
+  it.each([undefined, 'Unknown', 'Selector', 'Direct', 'URLTest'])(
+    'does not invent an active Desync outbound from absent or stale runtime type %s',
+    async (runtimeType) => {
+      mocks.getConfigSections.mockResolvedValue([
+        section({ action: 'desync' }),
+      ]);
+      setClashProxies(
+        runtimeType
+          ? {
+              Office: proxy(runtimeType, {
+                all: ['Office/Old'],
+                now: 'Office/Old',
+              }),
+            }
+          : {},
+      );
+      const result = await getDashboardSections();
+      expect(result.success).toBe(true);
+      expect(result.data).toMatchObject([
+        { action: 'desync', withTagSelect: false, outbounds: [] },
+      ]);
+    },
+  );
+
+  it('keeps Desync standalone even when source children remain from its previous action', async () => {
+    mocks.getConfigSections.mockResolvedValue([
+      section({ action: 'desync' }),
+      ...links([['Old', 'vless://old@example.org:443']]),
+    ]);
+    setClashProxies({ Office: proxy('Desync'), 'Office/Old': proxy('VLESS') });
+    const result = await getDashboardSections();
+    expect(result.data).toMatchObject([
+      {
+        withTagSelect: false,
+        outbounds: [
+          { code: 'Office', type: 'Desync', latency: 0, canCopyLink: false },
+        ],
+      },
+    ]);
+    setClashProxies({
+      Office: proxy('Selector', { all: ['Office/Old'], now: 'Office/Old' }),
+      'Office/Old': proxy('VLESS'),
+    });
+    expect((await getDashboardSections()).data).toMatchObject([
+      { withTagSelect: false, outbounds: [] },
+    ]);
+  });
+
+  it.each([{ all: [] }, { now: '' }, { groups: [] }])(
+    'rejects a runtime entry that carries group fields %j',
+    async (groupFields) => {
+      mocks.getConfigSections.mockResolvedValue([
+        section({ action: 'desync' }),
+      ]);
+      setClashProxies({ Office: proxy('Desync', groupFields) });
+      const result = await getDashboardSections();
+      expect(result.data[0].outbounds).toEqual([]);
+      expect(sectionLatencyTarget(result.data[0])).toBeUndefined();
+    },
+  );
 
   it('derives manual node identity and presentation from readable runtime tags', async () => {
     const uris = [

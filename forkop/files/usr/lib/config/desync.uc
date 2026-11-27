@@ -20,10 +20,28 @@ function integer(value, limits, key) {
         invalid(key + " must be an integer from " + limits[0] + " to " + limits[1]);
 }
 
-function duration(value, key, limit) {
-    let ns = type(value) == "string" ? common.duration_to_nanoseconds(value) : null;
-    if (ns == null || ns > limit * 1000000000)
-        invalid(key + " must be a positive duration up to " + limit + "s");
+function duration(value, key, limit, minimum) {
+    minimum ??= 0;
+    let rest = type(value) == "string" ? value : "";
+    let total = 0, maximum = limit * 1000000000;
+    const units = { ns: 1, us: 1000, "µs": 1000, ms: 1000000, s: 1000000000, m: 60000000000, h: 3600000000000, d: 86400000000000 };
+    if (rest == "") invalid(key + " must include a duration unit");
+    while (rest != "") {
+        let part = match(rest, /^([0-9]+(\.[0-9]+)?)(ns|us|µs|ms|s|m|h|d)/);
+        if (part == null) invalid(key + " must include a supported duration unit");
+        let scale = units[part[3]], amounts = split(part[1], ".");
+        let whole = amounts[0] * 1.0;
+        if (whole > maximum / scale) invalid(key + " exceeds " + limit + "s");
+        // Go truncates each component below one nanosecond, including a zero delay.
+        let fraction = amounts[1] ?? "", ns = 0;
+        for (let i = length(fraction) - 1; i >= 0; i--)
+            ns = int((ns + int(substr(fraction, i, 1)) * scale) / 10);
+        total += int(whole * scale) + ns;
+        if (total > maximum) invalid(key + " exceeds " + limit + "s");
+        rest = substr(rest, length(part[0]));
+    }
+    if (total < minimum * 1000000000)
+        invalid(key + " must be at least " + minimum + "s");
 }
 
 function validate(options, incomplete) {
@@ -46,8 +64,8 @@ function validate(options, incomplete) {
             if (type(value) != "object") invalid("adaptive must be an object");
             for (let field, item in value) {
                 if (ADAPTIVE[field] != null) integer(item, ADAPTIVE[field], "adaptive." + field);
-                else if (field == "ttl") duration(item, "adaptive.ttl", 604800);
-                else if (field == "timeout") duration(item, "adaptive.timeout", 60);
+                else if (field == "ttl") duration(item, "adaptive.ttl", 604800, 60);
+                else if (field == "timeout") duration(item, "adaptive.timeout", 60, 1);
                 else if (field == "network_id") {
                     if (type(item) != "string" || length(item) > 256 || (match(item, /[\r\n]/) || index(item, "\0") >= 0)) invalid("invalid adaptive.network_id");
                 }

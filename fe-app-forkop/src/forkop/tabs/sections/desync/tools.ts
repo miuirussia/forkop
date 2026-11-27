@@ -60,7 +60,9 @@ export function renderDesyncTools(
         {
           value: name,
           disabled:
-            capabilities.protocols && !capabilities.protocols.includes(name),
+            capabilities.protocols && !capabilities.protocols.includes(name)
+              ? true
+              : null,
         },
         name.toUpperCase(),
       ),
@@ -98,18 +100,29 @@ export function renderDesyncTools(
   const root = E('div', { class: 'fkp-desync__tools' });
   const poll = async () => {
     if (!job || job.state !== 'running') return;
+    const currentJob = job;
     if (!root.isConnected) {
       // A dialog closed during a run releases its isolated probes as well.
       void desyncApi.cancel(job.id).catch(() => undefined);
       return;
     }
     try {
-      update(await desyncApi.progress(job.id));
+      const progress = await desyncApi.progress(currentJob.id);
+      if (job !== currentJob || pending) return;
+      update(progress);
     } catch (reason) {
+      if (job !== currentJob || pending) return;
       report(reason);
     }
-    if (job.state === 'running') timer = setTimeout(() => void poll(), 1500);
+    if (job.state === 'running') schedulePoll(1500);
   };
+  function schedulePoll(delay: number) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = undefined;
+      void poll();
+    }, delay);
+  }
   function update(value: DesyncJob) {
     job = value;
     const state =
@@ -298,7 +311,7 @@ export function renderDesyncTools(
                 max_bytes: +bytes.value,
               }),
             );
-            timer = setTimeout(() => void poll(), 1000);
+            schedulePoll(1000);
           } finally {
             pending = false;
             start.disabled = job?.state === 'running';
@@ -320,19 +333,16 @@ export function renderDesyncTools(
         pending = true;
         cancel.disabled = true;
         if (timer) clearTimeout(timer);
+        timer = undefined;
         void desyncApi
           .cancel(job.id)
           .then(update)
-          .catch((reason) => {
-            report(reason);
-            timer = setTimeout(() => void poll(), 1500);
-          })
+          .catch(report)
           .finally(() => {
             pending = false;
             start.disabled = job?.state === 'running';
             cancel.disabled = job?.state !== 'running';
-            if (job?.state === 'running')
-              timer = setTimeout(() => void poll(), 500);
+            if (job?.state === 'running') schedulePoll(500);
           });
       },
     },
@@ -396,9 +406,10 @@ function numeric(value: string, min: string, max: string) {
   });
 }
 
-function validTarget(value: string, protocol: string) {
+export function validTarget(value: string, protocol: string) {
   if (!value || /[\s\r\n]/.test(value)) return false;
   if (protocol === 'http') {
+    if (!/^https?:\/\//.test(value) || value.includes('#')) return false;
     try {
       const url = new URL(value);
       return (

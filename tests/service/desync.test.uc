@@ -15,7 +15,7 @@ function setup() {
     d.paths.jobs = stub.tmpdir() + "/jobs";
     fixture.seed({ settings: fixture.settings({ output_network_interface: "wan0" }),
         section: [ { ".name": "dpi", label: "DPI exit", action: "desync", desync_options: '{"preset":"split"}', desync_strategy: "mode=split" } ] });
-    features.version = () => "1.14.4-r18";
+    features.version = () => "1.14.4-r19";
     features.desync_capabilities = () => ({ capability: "forkop-desync-v1", supported: true });
     features.paths.binary = "/test/sing-box";
     uloop.__reset();
@@ -42,6 +42,29 @@ t.test("a bounded job checks candidates using the core, starts separately and ne
     t.contains(commands[0], "sing-box desync check");
     t.contains(commands[1], "forkop desync_tune_worker " + job.id);
     t.eq(start().success, false, "one job at a time");
+    stub.restore();
+});
+
+t.test("an unsaved section can finish isolated probes without creating or changing UCI", () => {
+    setup();
+    let before = sprintf("%J", uci.__sections("forkop"));
+    let job = start({ section: "draft_section" });
+    t.eq(job.success, true, job.message);
+    if (!job.success) { stub.restore(); return; }
+    t.eq(job.section, "draft_section");
+    uloop.__on_run(() => {
+        let process = uloop.__processes()[0];
+        fs.writefile(process.args[2], '{"success":true,"protocol":"tls","latency_ms":7}');
+        uloop.__exit(0, 0);
+    });
+    d.worker(job.id);
+    let done = call("tune_progress", { id: job.id });
+    t.eq([ done.state, done.completed, done.results[0].success ], [ "completed", 1, true ]);
+    t.eq(uci.__commits(), []);
+    t.eq(sprintf("%J", uci.__sections("forkop")), before);
+    t.eq(call("diagnostics", { section: "draft_section" }).diagnostics, { outbounds: {} }, "a draft has no active outbound");
+    t.eq(call("clear_cache", { section: "draft_section" }).success, false);
+    t.eq(call("apply_custom", { section: "draft_section", options: { preset: "split" } }, "session").success, false);
     stub.restore();
 });
 
@@ -128,7 +151,7 @@ t.test("a hung probe is terminated by a deadline and is recorded as a failure", 
 
 t.test("apply custom stages only the selected strategy in the caller session, clears import and never commits", () => {
     setup();
-    ubus.__on("uci.get", { values: { action: "desync", desync_strategy: "mode=split" } });
+    ubus.__on("uci.get", { values: { ".type": "section", action: "desync", desync_strategy: "mode=split" } });
     ubus.__on("uci.set", {});
     ubus.__on("uci.delete", {});
     let result = call("apply_custom", { section: "dpi", options: { preset: "split", mode: "split", auto_tune: true, adaptive: { max_attempts: 2 } } }, "session");
@@ -160,6 +183,64 @@ t.test("diagnostics and cache clearing use only the active authenticated core AP
     api.request = original;
     t.eq(uci.__commits(), []);
     t.eq(stub.command_lines(), []);
+    stub.restore();
+});
+
+t.test("draft diagnostics stay empty and scoped while cache clearing and invalid sections remain strict", () => {
+    setup();
+    fixture.seed({ settings: fixture.settings(), section: [ { ".name": "regular", action: "connection" } ] });
+    let api = require("singbox.clash_api");
+    let original = api.request;
+    let requests = [];
+    api.request = (method, path, body) => {
+        push(requests, { method, path, body });
+        return { status: 200, body: '{"outbounds":{"unrelated":{"entries":2}}}' };
+    };
+    let before = sprintf("%J", uci.__sections("forkop"));
+    let diagnostic = call("diagnostics", { section: "draft_section" });
+    t.eq(diagnostic.success, true, diagnostic.message);
+    t.eq(diagnostic.diagnostics, { outbounds: {} });
+    t.eq(call("clear_cache", { section: "draft_section" }).success, false);
+    t.eq(call("diagnostics", { section: "../dpi" }).success, false);
+    t.eq(call("clear_cache", { section: "../dpi" }).success, false);
+    t.eq(call("diagnostics", { section: "settings" }).success, false, "an existing non-Desync section is not a draft");
+    t.eq(call("diagnostics", { section: "regular" }).success, false, "a saved section with another action is not a draft");
+    t.eq(requests, [], "neither draft diagnostics nor rejected clearing can query unrelated outbounds");
+    t.eq(sprintf("%J", uci.__sections("forkop")), before);
+    t.eq(uci.__commits(), []);
+    api.request = original;
+    stub.restore();
+});
+
+t.test("apply custom stages a session-created draft and validates the session section type and action", () => {
+    setup();
+    let before = sprintf("%J", uci.__sections("forkop"));
+    ubus.__on("uci.get", { values: { ".type": "section", action: "desync", desync_strategy: "mode=split" } });
+    ubus.__on("uci.set", {});
+    ubus.__on("uci.delete", {});
+    let result = call("apply_custom", { section: "draft_section", options: { preset: "split" } }, "session");
+    t.eq(result.success, true, result.message);
+    t.eq([ result.section, result.staged, result.apply_required ], [ "draft_section", true, true ]);
+    t.eq(result.options, { preset: "custom", auto_tune: false });
+    t.eq(ubus.__calls()[1].args.values.desync_options, sprintf("%J", result.options));
+    for (let request in ubus.__calls()) {
+        t.eq(request.args.section, "draft_section");
+        t.eq(request.args.ubus_rpc_session, "session");
+        t.ok(request.method != "commit" && request.method != "apply");
+    }
+    t.eq(sprintf("%J", uci.__sections("forkop")), before);
+    t.eq(uci.__commits(), []);
+    for (let current in [ null, { ".type": "section", action: "connection" }, { ".type": "settings", action: "desync" } ]) {
+        ubus.__reset();
+        ubus.__on("uci.get", { values: current });
+        let refused = call("apply_custom", { section: "dpi", options: { preset: "split" } }, "session");
+        t.eq(refused.success, false, sprintf("%J", current));
+        t.eq(length(ubus.__calls()), 1, "reject before any session mutation");
+    }
+    ubus.__reset();
+    t.eq(call("apply_custom", { section: "../draft", options: { preset: "split" } }, "session").success, false);
+    t.eq(call("apply_custom", { section: "draft_section", options: { preset: "split" } }).success, false);
+    t.eq(ubus.__calls(), []);
     stub.restore();
 });
 
@@ -217,7 +298,7 @@ t.test("a found preset retains its measured mode and UDP settings when copied to
     let job = start({ candidates: [ { preset: "GT2", auto_tune: false } ] });
     t.eq(job.success, true, job.message);
     t.eq(common.read_json_file(d.paths.jobs + "/" + job.id + "/job.json").candidates, [ resolved ]);
-    ubus.__on("uci.get", { values: { action: "desync" } });
+    ubus.__on("uci.get", { values: { ".type": "section", action: "desync" } });
     ubus.__on("uci.set", {});
     let applied = call("apply_custom", { section: "dpi", options: { preset: "GT2" } }, "session");
     t.eq(applied.success, true, applied.message);

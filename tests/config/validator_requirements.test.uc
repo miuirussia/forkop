@@ -102,9 +102,9 @@ t.test("a core of the sing-box-extended line or a build before the first release
         t.ok(core_accepted(requirements(version, null, PRESENT)), version);
 });
 
-t.test("the minimum core version includes kernel WARP and Desync", () => {
-    t.eq(REQUIRED, "1.14.4-r18");
-    for (let older in [ "1.14.4-r10", "1.14.4-r11", "1.14.4-r17" ])
+t.test("the minimum core version includes the Desync Clash API type", () => {
+    t.eq(REQUIRED, "1.14.4-r19");
+    for (let older in [ "1.14.4-r10", "1.14.4-r11", "1.14.4-r17", "1.14.4-r18" ])
         t.contains(requirements(older, null, PRESENT).error, "older than the required minimum (" + REQUIRED + ")");
     t.ok(core_accepted(requirements(REQUIRED, null, PRESENT)));
 });

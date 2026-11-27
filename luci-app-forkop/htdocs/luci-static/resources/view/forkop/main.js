@@ -2954,6 +2954,29 @@ async function getDashboardSections() {
     const sectionName = section2[".name"];
     const sectionAction = section2.action;
     const proxyConfigType = getSectionProxyConfigType(section2);
+    if (sectionAction === "desync") {
+      const runtime = proxies.find(
+        (proxy) => proxy.code === displayName
+      )?.value;
+      const active = runtime && runtime.type === "Desync" && runtime.all == null && runtime.now == null && runtime.groups == null;
+      return {
+        withTagSelect: false,
+        code: displayName,
+        sectionName,
+        displayName,
+        action: sectionAction,
+        outbounds: active ? [
+          {
+            code: displayName,
+            displayName,
+            latency: runtime.history?.[0]?.delay ?? 0,
+            type: "Desync",
+            selected: true,
+            canCopyLink: false
+          }
+        ] : []
+      };
+    }
     if (isConnectionAction(sectionAction) && shouldUseProxyGroup(section2)) {
       const subscriptionSourceCount = getSubscriptionSourceCount(section2);
       const subscriptionEnabled = subscriptionSourceCount > 0;
@@ -5496,10 +5519,10 @@ function renderDefaultState({
   onRefreshExit,
   onCopyExitAddress
 }) {
+  const latencyTarget = sectionLatencyTarget(section2);
   function testLatency() {
-    const target2 = sectionLatencyTarget(section2);
-    if (target2) {
-      onTestLatency(target2.tag);
+    if (latencyTarget) {
+      onTestLatency(latencyTarget.tag);
     }
   }
   function renderOutbound(outbound) {
@@ -5509,8 +5532,8 @@ function renderDefaultState({
     const canChooseOutbound = section2.withTagSelect && hasGroupMembers && !outbound.selected;
     const showLatency = hasGroupMembers;
     const latencyType = groupInfo ? "group" : "proxy";
-    const latencyTarget = outbound.code;
-    const outboundLatencyFetching = latencyFetchingTargets.has(latencyTarget);
+    const latencyTarget2 = outbound.code;
+    const outboundLatencyFetching = latencyFetchingTargets.has(latencyTarget2);
     const canTestOutboundLatency = showLatency && !outboundLatencyFetching;
     const className = [
       "fkp_dashboard-page__outbound-grid__item",
@@ -5536,7 +5559,7 @@ function renderDefaultState({
           event.preventDefault();
           event.stopPropagation();
           if (canTestOutboundLatency) {
-            onTestOutboundLatency(latencyType, latencyTarget);
+            onTestOutboundLatency(latencyType, latencyTarget2);
           }
         }
       },
@@ -5673,7 +5696,7 @@ function renderDefaultState({
     },
     renderListFilterIcon24()
   ) : void 0;
-  const exitAction = onToggleExit && sectionLatencyTarget(section2) ? textE(
+  const exitAction = onToggleExit && latencyTarget ? textE(
     "button",
     {
       type: "button",
@@ -5771,7 +5794,7 @@ function renderDefaultState({
               title: _("Test latency"),
               "aria-label": _("Test latency"),
               "aria-busy": latencyFetching ? "true" : void 0,
-              disabled: latencyFetching ? true : void 0,
+              disabled: latencyFetching || !latencyTarget ? true : void 0,
               click: (event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -5795,6 +5818,15 @@ function renderDefaultState({
     ...collapsed ? [] : [
       textE("div", { class: "fkp_dashboard-page__outbound-grid" }, [
         ...metadataNodes,
+        ...section2.action === "desync" && !outbounds.length ? [
+          textE(
+            "p",
+            { role: "status", style: "grid-column: 1 / -1" },
+            _(
+              "No active Desync outbound. Save and apply the section first."
+            )
+          )
+        ] : [],
         ...outbounds.map((outbound) => renderOutbound(outbound))
       ])
     ]
@@ -19863,15 +19895,14 @@ function validateDesync(options, capabilities) {
       fail("repeats", _("Multiple fake repetitions require a fake TCP mode"));
     if (mode === "none" && typeof options.delay === "string" && options.delay !== "0" && duration("delay", options.delay) > 0)
       fail("delay", _("Delay requires an enabled TCP mode"));
-    if (!fakeMode && [
+    if (!fakeMode && ([
       "fake_sni",
       "fake_host",
       "fake_payload",
       "fake_sni_pool",
       "fooling",
-      "ttl",
       "autottl"
-    ].some(enabled))
+    ].some(enabled) || enabled("ttl") && !enabled("syndata")))
       fail("mode", _("Fake parameters require a fake TCP mode"));
     if (mode === "none" && ["ipfrag", "seqovl", "wsize", "tlsrec_first"].some(enabled))
       fail(
@@ -20177,7 +20208,7 @@ function renderDesyncTools(section2, read, apply, capabilities) {
         "option",
         {
           value: name,
-          disabled: capabilities.protocols && !capabilities.protocols.includes(name)
+          disabled: capabilities.protocols && !capabilities.protocols.includes(name) ? true : null
         },
         name.toUpperCase()
       )
@@ -20215,17 +20246,28 @@ function renderDesyncTools(section2, read, apply, capabilities) {
   const root = textE("div", { class: "fkp-desync__tools" });
   const poll = async () => {
     if (!job || job.state !== "running") return;
+    const currentJob = job;
     if (!root.isConnected) {
       void desyncApi.cancel(job.id).catch(() => void 0);
       return;
     }
     try {
-      update(await desyncApi.progress(job.id));
+      const progress = await desyncApi.progress(currentJob.id);
+      if (job !== currentJob || pending) return;
+      update(progress);
     } catch (reason) {
+      if (job !== currentJob || pending) return;
       report2(reason);
     }
-    if (job.state === "running") timer = setTimeout(() => void poll(), 1500);
+    if (job.state === "running") schedulePoll(1500);
   };
+  function schedulePoll(delay) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = void 0;
+      void poll();
+    }, delay);
+  }
   function update(value) {
     job = value;
     const state = {
@@ -20395,7 +20437,7 @@ function renderDesyncTools(section2, read, apply, capabilities) {
                 max_bytes: +bytes.value
               })
             );
-            timer = setTimeout(() => void poll(), 1e3);
+            schedulePoll(1e3);
           } finally {
             pending = false;
             start.disabled = job?.state === "running";
@@ -20417,15 +20459,12 @@ function renderDesyncTools(section2, read, apply, capabilities) {
         pending = true;
         cancel.disabled = true;
         if (timer) clearTimeout(timer);
-        void desyncApi.cancel(job.id).then(update).catch((reason) => {
-          report2(reason);
-          timer = setTimeout(() => void poll(), 1500);
-        }).finally(() => {
+        timer = void 0;
+        void desyncApi.cancel(job.id).then(update).catch(report2).finally(() => {
           pending = false;
           start.disabled = job?.state === "running";
           cancel.disabled = job?.state !== "running";
-          if (job?.state === "running")
-            timer = setTimeout(() => void poll(), 500);
+          if (job?.state === "running") schedulePoll(500);
         });
       }
     },
@@ -20490,6 +20529,7 @@ function numeric(value, min, max) {
 function validTarget(value, protocol) {
   if (!value || /[\s\r\n]/.test(value)) return false;
   if (protocol === "http") {
+    if (!/^https?:\/\//.test(value) || value.includes("#")) return false;
     try {
       const url = new URL(value);
       return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password && !!url.hostname;
@@ -20502,6 +20542,10 @@ function validTarget(value, protocol) {
 }
 
 // src/forkop/tabs/sections/desync/widget.ts
+var editorValidators = /* @__PURE__ */ new WeakMap();
+function validateDesyncEditor(node) {
+  return node && editorValidators.get(node)?.() || true;
+}
 function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
   const errorId2 = `desync-error-${sectionId}`;
   const error = textE("p", {
@@ -20535,21 +20579,33 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
     false: _("Disabled")
   };
   const controls = /* @__PURE__ */ new Map();
+  const drafts = /* @__PURE__ */ new Map();
+  let updating = false;
+  let editedKey;
+  editorValidators.set(sourceNode, () => drafts.values().next().value || true);
   function read() {
+    const invalid = drafts.values().next().value;
+    if (invalid) throw new Error(invalid);
     return importDesync(source.value);
   }
   function report2(reason, fieldKey) {
     const message2 = reason instanceof Error ? reason.message : String(reason);
-    error.textContent = message2;
+    error.textContent = [
+      ...new Set([...drafts.values(), message2].filter(Boolean))
+    ].join("\n");
     const key = fieldKey || message2.split(":", 1)[0];
     for (const [name, control] of controls) {
-      control.setAttribute("aria-invalid", String(name === key));
+      control.setAttribute(
+        "aria-invalid",
+        String(drafts.has(name) || name === key)
+      );
     }
   }
   function sync() {
     try {
-      const options = read();
+      const options = importDesync(source.value);
       for (const [key, control] of controls) {
+        if (drafts.has(key) || key === editedKey) continue;
         const value = options[key];
         control.value = value === void 0 ? key === "preset" ? "auto" : "" : typeof value === "object" ? JSON.stringify(value) : String(value);
       }
@@ -20559,11 +20615,19 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
       report2(reason);
     }
   }
-  function set(options) {
-    source.value = JSON.stringify(options, null, 2);
-    source.dispatchEvent(new Event("input", { bubbles: true }));
-    source.dispatchEvent(new Event("change", { bubbles: true }));
-    sync();
+  function set(options, key) {
+    if (!key) drafts.clear();
+    editedKey = key;
+    updating = true;
+    try {
+      source.value = JSON.stringify(options, null, 2);
+      source.dispatchEvent(new Event("input", { bubbles: true }));
+      source.dispatchEvent(new Event("change", { bubbles: true }));
+      sync();
+    } finally {
+      updating = false;
+      editedKey = void 0;
+    }
   }
   function row2(key, label, kind = "text", choices) {
     const control = choices || kind === "boolean" ? textE("select", { class: "cbi-input-select" }, [
@@ -20582,9 +20646,11 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
     control.setAttribute("aria-label", label);
     control.setAttribute("aria-describedby", errorId2);
     controls.set(key, control);
-    control.addEventListener("change", () => {
+    const update = () => {
       try {
-        const options = read();
+        const options = importDesync(source.value);
+        if (kind === "number" && control.validity?.badInput)
+          throw new Error(_("%s: needs a whole number").format(key));
         const value = control.value.trim();
         if (!value) delete options[key];
         else
@@ -20595,11 +20661,19 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
             delete options.adaptive;
           } else if (value === "auto") options.auto_tune = true;
         }
-        set(options);
+        drafts.delete(key);
+        set(options, key);
       } catch (reason) {
-        report2(reason, key);
+        const message2 = reason instanceof Error ? reason.message : String(reason);
+        drafts.set(
+          key,
+          message2.startsWith(`${key}:`) ? message2 : `${key}: ${message2}`
+        );
+        report2(drafts.get(key), key);
       }
-    });
+    };
+    control.addEventListener("input", update);
+    control.addEventListener("change", update);
     const unavailable = capabilities.unsupported?.[key] || (capabilities.parameters && !capabilities.parameters.includes(key) ? _("Unsupported by the installed core") : "");
     const field2 = desyncField(label, control);
     if (unavailable || capabilities.requirements?.[key]) {
@@ -20773,7 +20847,10 @@ function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
     ]),
     desyncGroup(_("Strategy JSON"), [sourceNode])
   ]);
-  source.addEventListener("input", sync);
+  source.addEventListener("input", () => {
+    if (!updating) drafts.clear();
+    sync();
+  });
   sync();
   const tools = renderDesyncTools(sectionId, read, set, capabilities);
   const parameters = textE("div", {}, [
@@ -20853,6 +20930,8 @@ ${strategy}` : saved;
   };
   option2.validate = required(function(sectionId, value) {
     try {
+      const draft2 = validateDesyncEditor(this.getUIElement?.(sectionId)?.node);
+      if (draft2 !== true) return draft2;
       return validateDesync(
         importDesync(value),
         support.get(sectionId) || {
@@ -20865,6 +20944,8 @@ ${strategy}` : saved;
     }
   });
   option2.write = function(sectionId, value) {
+    const draft2 = validateDesyncEditor(this.getUIElement?.(sectionId)?.node);
+    if (draft2 !== true) throw new Error(draft2);
     const options = importDesync(String(value || "{}"));
     const valid = validateDesync(options, support.get(sectionId));
     if (valid !== true) throw new Error(valid);

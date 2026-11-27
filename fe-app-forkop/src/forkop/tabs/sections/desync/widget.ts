@@ -17,6 +17,12 @@ import {
 import type { DesyncCapabilities, DesyncOptions } from './model';
 
 type Kind = 'text' | 'number' | 'boolean' | 'json';
+const editorValidators = new WeakMap<Node, () => true | string>();
+
+export function validateDesyncEditor(node?: Node) {
+  return (node && editorValidators.get(node)?.()) || true;
+}
+
 export function renderDesyncEditor(
   sourceNode: Node,
   source: HTMLTextAreaElement,
@@ -58,21 +64,33 @@ export function renderDesyncEditor(
     string,
     HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
   >();
+  const drafts = new Map<string, string>();
+  let updating = false;
+  let editedKey: string | undefined;
+  editorValidators.set(sourceNode, () => drafts.values().next().value || true);
   function read() {
+    const invalid = drafts.values().next().value;
+    if (invalid) throw new Error(invalid);
     return importDesync(source.value);
   }
   function report(reason: unknown, fieldKey?: string) {
     const message = reason instanceof Error ? reason.message : String(reason);
-    error.textContent = message;
+    error.textContent = [
+      ...new Set([...drafts.values(), message].filter(Boolean)),
+    ].join('\n');
     const key = fieldKey || message.split(':', 1)[0];
     for (const [name, control] of controls) {
-      control.setAttribute('aria-invalid', String(name === key));
+      control.setAttribute(
+        'aria-invalid',
+        String(drafts.has(name) || name === key),
+      );
     }
   }
   function sync() {
     try {
-      const options = read();
+      const options = importDesync(source.value);
       for (const [key, control] of controls) {
+        if (drafts.has(key) || key === editedKey) continue;
         const value = options[key];
         control.value =
           value === undefined
@@ -89,11 +107,19 @@ export function renderDesyncEditor(
       report(reason);
     }
   }
-  function set(options: DesyncOptions) {
-    source.value = JSON.stringify(options, null, 2);
-    source.dispatchEvent(new Event('input', { bubbles: true }));
-    source.dispatchEvent(new Event('change', { bubbles: true }));
-    sync();
+  function set(options: DesyncOptions, key?: string) {
+    if (!key) drafts.clear();
+    editedKey = key;
+    updating = true;
+    try {
+      source.value = JSON.stringify(options, null, 2);
+      source.dispatchEvent(new Event('input', { bubbles: true }));
+      source.dispatchEvent(new Event('change', { bubbles: true }));
+      sync();
+    } finally {
+      updating = false;
+      editedKey = undefined;
+    }
   }
   function row(
     key: string,
@@ -126,9 +152,14 @@ export function renderDesyncEditor(
     control.setAttribute('aria-label', label);
     control.setAttribute('aria-describedby', errorId);
     controls.set(key, control);
-    control.addEventListener('change', () => {
+    const update = () => {
       try {
-        const options = read();
+        const options = importDesync(source.value);
+        if (
+          kind === 'number' &&
+          (control as HTMLInputElement).validity?.badInput
+        )
+          throw new Error(_('%s: needs a whole number').format(key));
         const value = control.value.trim();
         if (!value) delete options[key];
         else
@@ -146,11 +177,20 @@ export function renderDesyncEditor(
             delete options.adaptive;
           } else if (value === 'auto') options.auto_tune = true;
         }
-        set(options);
+        drafts.delete(key);
+        set(options, key);
       } catch (reason) {
-        report(reason, key);
+        const message =
+          reason instanceof Error ? reason.message : String(reason);
+        drafts.set(
+          key,
+          message.startsWith(`${key}:`) ? message : `${key}: ${message}`,
+        );
+        report(drafts.get(key)!, key);
       }
-    });
+    };
+    control.addEventListener('input', update);
+    control.addEventListener('change', update);
     const unavailable =
       capabilities.unsupported?.[key] ||
       (capabilities.parameters && !capabilities.parameters.includes(key)
@@ -333,7 +373,10 @@ export function renderDesyncEditor(
     ]),
     desyncGroup(_('Strategy JSON'), [sourceNode as HTMLElement]),
   ]);
-  source.addEventListener('input', sync);
+  source.addEventListener('input', () => {
+    if (!updating) drafts.clear();
+    sync();
+  });
   sync();
   const tools = renderDesyncTools(sectionId, read, set, capabilities);
   const parameters = E('div', {}, [
