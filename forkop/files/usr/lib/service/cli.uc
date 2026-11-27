@@ -122,7 +122,19 @@ function installer_log() {
     return 0;
 }
 
+function desync_reply(method) {
+    return action_reply((payload) => require("service.desync").dispatch(method, payload || "{}", getenv("FORKOP_RPC_SESSION")));
+}
+
 const COMMANDS = {
+    desync_capabilities: { args: 1, help: "Show Desync capabilities and probe limits", run: desync_reply("desync_capabilities") },
+    desync_diagnostics: { args: 1, help: "Show Desync strategy and learning diagnostics", run: desync_reply("desync_diagnostics") },
+    desync_tune_start: { args: 1, help: "Start an isolated bounded Desync probe job", run: desync_reply("desync_tune_start") },
+    desync_tune_progress: { args: 1, help: "Read Desync probe progress", run: desync_reply("desync_tune_progress") },
+    desync_tune_cancel: { args: 1, help: "Cancel a Desync probe job", run: desync_reply("desync_tune_cancel") },
+    desync_apply_custom: { args: 1, help: "Stage a custom Desync strategy in the caller UCI session", run: desync_reply("desync_apply_custom") },
+    desync_clear_cache: { args: 1, help: "Clear Desync learning through the running core", run: desync_reply("desync_clear_cache") },
+    desync_tune_worker: { args: 1, run: (args) => { require("service.desync").worker(args[0]); return 0; } },
     start: { help: "Start Forkop service", run: init_script("start") },
     stop: { help: "Stop Forkop service", run: init_script("stop") },
     reload: { args: 1, help: "Reload Forkop configuration", run: init_script("reload") },

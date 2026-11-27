@@ -38,7 +38,7 @@ var RESERVED_RUNTIME_TAGS = /* @__PURE__ */ new Set([
   "service-warp-in",
   "direct-out"
 ]);
-var DETOUR_TARGET_ACTIONS = ["connection"];
+var DETOUR_TARGET_ACTIONS = ["connection", "desync"];
 var TAILSCALE_CONTROL_URL = "https://controlplane.tailscale.com";
 var DEFAULT_LATENCY_TEST_URL = "https://www.gstatic.com/generate_204";
 var LATENCY_TEST_URL_OPTIONS = [
@@ -161,7 +161,7 @@ function render() {
 }
 
 // src/helpers/showToast.ts
-function showToast(message2, type, duration = 3e3) {
+function showToast(message2, type, duration2 = 3e3) {
   let container = document.querySelector(".toast-container");
   if (!container) {
     container = document.createElement("div");
@@ -176,7 +176,7 @@ function showToast(message2, type, duration = 3e3) {
   setTimeout(() => {
     toast.classList.remove("visible");
     setTimeout(() => toast.remove(), 300);
-  }, duration);
+  }, duration2);
 }
 
 // src/helpers/copyToClipboard.ts
@@ -1561,7 +1561,7 @@ async function callUbus(options) {
   return last;
 }
 async function callUbusOnce({
-  object,
+  object: object2,
   method,
   params = {},
   timeoutMs,
@@ -1574,9 +1574,9 @@ async function callUbusOnce({
   alignLuciRpcTimeout(timeoutMs);
   try {
     const names = Object.keys(params);
-    const request = rpc2.declare({ object, method, params: names, nobatch });
+    const request = rpc2.declare({ object: object2, method, params: names, nobatch });
     const call2 = request(...names.map((name) => params[name]));
-    const data = await withTimeout(call2, timeoutMs, `${object}.${method}`);
+    const data = await withTimeout(call2, timeoutMs, `${object2}.${method}`);
     if (data === null || data === void 0) {
       return { success: false, message: "empty reply", unavailable: false };
     }
@@ -2388,7 +2388,7 @@ function getJsonOutbounds(section2) {
   return getListValues(section2.outbound_jsons);
 }
 function isConnectionAction(action) {
-  return action === "connection";
+  return action === "connection" || action === "desync";
 }
 function hasSubscriptionSources(section2) {
   return getSubscriptionSourceCount(section2) > 0;
@@ -6356,11 +6356,15 @@ function missingCoreTags(feature) {
   return coreFeatureTags(feature).filter((tag) => !present.has(tag));
 }
 function missingCoreFeatureNote(feature) {
+  if (feature === "desync")
+    return _("The installed core does not support Desync");
   return _("the installed sing-box lacks %s").format(
     missingCoreTags(feature).join(", ")
   );
 }
 function validateCoreFeature(feature) {
+  if (feature === "desync" && !coreHas(feature))
+    return _("The installed core does not support Desync");
   return !feature || coreHas(feature) ? true : _("sing-box is built without %s").format(
     missingCoreTags(feature).join(", ")
   );
@@ -7242,7 +7246,7 @@ function hex(bytes) {
 }
 function extensionValue(der, oid) {
   const extensions = (signedFields(der) || []).find(
-    (field2) => field2.tag === 163
+    (field3) => field3.tag === 163
   );
   const list3 = extensions && children(der, extensions)[0];
   for (const extension of list3 ? children(der, list3) : []) {
@@ -7812,11 +7816,11 @@ function encodeQuery(params) {
     ([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(`${value}`)}`
   ).join("&");
 }
-function generateCredential(sectionId, protocol, field2) {
-  if (field2 === "uuid") {
+function generateCredential(sectionId, protocol, field3) {
+  if (field3 === "uuid") {
     return generateUuid();
   }
-  if (field2 === "password") {
+  if (field3 === "password") {
     const keyBytes = protocol === "shadowsocks" ? shadowsocksKeyBytes(getShadowsocksMethod(sectionId)) : 0;
     return keyBytes > 0 ? generatePresharedKey(keyBytes) : generatePassword();
   }
@@ -8319,11 +8323,11 @@ function buildTrustTunnelLink(sectionId, client, context) {
   });
 }
 function hasRequiredCredentials(sectionId, client) {
-  return credentialFields(getProtocol(sectionId)).filter((field2) => field2 !== "flow").every((field2) => {
-    if (field2 === "password" && !isAuthenticationEnabled(sectionId)) {
+  return credentialFields(getProtocol(sectionId)).filter((field3) => field3 !== "flow").every((field3) => {
+    if (field3 === "password" && !isAuthenticationEnabled(sectionId)) {
       return true;
     }
-    return !!client[field2];
+    return !!client[field3];
   });
 }
 function buildMieruLink(sectionId, client) {
@@ -18482,7 +18486,7 @@ function refreshOptionChoices(option2, choices) {
 
 // src/forkop/tabs/settings/sectionChoices.ts
 function isDownloadSectionAction(action) {
-  return action === "connection";
+  return DETOUR_TARGET_ACTIONS.includes(String(action || ""));
 }
 function refreshDownloadSectionChoices(option2) {
   const sections = option2.map?.data?.state?.values?.[FORKOP_UCI_PACKAGE] ?? {};
@@ -18879,7 +18883,7 @@ function arrangeGeodataGroups(section2) {
     const fields = new Map(
       Array.from(
         body.querySelectorAll(":scope > [data-name]"),
-        (field2) => [field2.dataset.name, field2]
+        (field3) => [field3.dataset.name, field3]
       )
     );
     const sources = fields.get("_dat_sources");
@@ -18902,7 +18906,7 @@ function arrangeGeodataGroups(section2) {
       _("Save & Apply before downloading newly added or changed sources")
     );
     const listSettings = [...fields.values()].filter(
-      (field2) => field2 !== sources && field2 !== storage && field2 !== datRoute && field2 !== datAction && field2 !== listAction
+      (field3) => field3 !== sources && field3 !== storage && field3 !== datRoute && field3 !== datAction && field3 !== listAction
     );
     body.classList.replace("cbi-section-node", "fkp-geodata");
     body.replaceChildren(
@@ -19231,6 +19235,1280 @@ function mountTabOption(section2, key, tab) {
   const o = section2.option(form.DummyValue, "_mount_node");
   o.rawhtml = true;
   o.cfgvalue = () => mountTab(key, tab.render, tab.initController);
+}
+
+// src/forkop/tabs/sections/desync/api.ts
+async function desyncRequest(method, payload = {}) {
+  const response = await callUbus({
+    object: "forkop",
+    method,
+    params: { payload: JSON.stringify(payload) },
+    timeoutMs: 15e3,
+    retryUnavailable: false
+  });
+  if (!response.success) throw new Error(response.message);
+  if (!response.data.success)
+    throw new Error(response.data.message || _("Desync request failed"));
+  return response.data;
+}
+var desyncApi = {
+  capabilities: async () => {
+    const reply = await desyncRequest("desync_capabilities");
+    const core = reply.capabilities;
+    const matrix = core?.parameters && !Array.isArray(core.parameters) ? core.parameters : void 0;
+    const unsupported = Object.fromEntries(
+      Object.entries(matrix || {}).filter(([, value]) => value.supported === false).map(([key, value]) => [
+        key,
+        value.requirements || _("Unsupported by the installed core")
+      ])
+    );
+    const requirements = Object.fromEntries(
+      Object.entries(matrix || {}).filter(([, value]) => value.requirements).map(([key, value]) => [key, value.requirements])
+    );
+    const unsupportedModes = Object.fromEntries(
+      Object.entries(core?.mode_support || {}).filter(([, value]) => value.supported === false).map(([key, value]) => [
+        key,
+        value.requirements || _("Unsupported by the installed core")
+      ])
+    );
+    return {
+      ...core,
+      parameters: matrix ? Object.keys(matrix) : Array.isArray(core?.parameters) ? core.parameters : void 0,
+      unsupported: { ...core?.unsupported, ...unsupported },
+      requirements: { ...core?.requirements, ...requirements },
+      unsupported_modes: { ...core?.unsupported_modes, ...unsupportedModes },
+      supported: reply.available && core?.supported !== false,
+      reason: reply.reason,
+      modes: reply.capabilities?.modes || reply.modes,
+      presets: reply.capabilities?.presets || reply.presets
+    };
+  },
+  diagnostics: async (section2) => {
+    const response = await desyncRequest(
+      "desync_diagnostics",
+      { section: section2 }
+    );
+    return response.diagnostics;
+  },
+  clear: (section2) => desyncRequest("desync_clear_cache", { section: section2 }),
+  start: (request) => desyncRequest("desync_tune_start", request),
+  progress: (id) => desyncRequest("desync_tune_progress", { id }),
+  cancel: (id) => desyncRequest("desync_tune_cancel", { id })
+};
+
+// src/forkop/tabs/sections/desync/model.ts
+var DESYNC_PRESETS = [
+  "auto",
+  "custom",
+  "split",
+  "disorder",
+  "tlsrec",
+  "fake",
+  "fake_split",
+  "oob",
+  "GT1",
+  "GT2",
+  "GT3",
+  "GT4"
+];
+var DESYNC_MODES = [
+  "none",
+  "split",
+  "disorder",
+  "tlsrec",
+  "fake",
+  "fake_split",
+  "oob",
+  "multi_split",
+  "fake_disorder",
+  "multi_disorder",
+  "disoob",
+  "hostfakesplit"
+];
+var DESYNC_KEYS = [
+  "preset",
+  "mode",
+  "split_pos",
+  "fake_sni",
+  "fake_host",
+  "fake_payload",
+  "fake_sni_pool",
+  "repeats",
+  "delay",
+  "ttl",
+  "fooling",
+  "tlsrec_first",
+  "seqovl",
+  "autottl",
+  "ipfrag",
+  "syndata",
+  "wsize",
+  "wscale",
+  "udp_mode",
+  "udp_fake_payload",
+  "udp_ttl",
+  "udp_repeats",
+  "udp_out_range",
+  "udp_keep_socket",
+  "quic_desync",
+  "quic_repeats",
+  "udplen",
+  "auto_tune",
+  "adaptive",
+  "strategy"
+];
+var BOOLEAN_KEYS = /* @__PURE__ */ new Set([
+  "tlsrec_first",
+  "autottl",
+  "udp_keep_socket",
+  "quic_desync",
+  "auto_tune"
+]);
+var NUMBER_LIMITS = {
+  repeats: [1, 16],
+  ttl: [1, 255],
+  seqovl: [0, 65535],
+  ipfrag: [0, 65535],
+  wsize: [0, 65535],
+  wscale: [0, 14],
+  udp_ttl: [1, 255],
+  udp_repeats: [1, 16],
+  quic_repeats: [0, 16],
+  udplen: [0, 65507]
+};
+var ADAPTIVE_LIMITS = {
+  max_attempts: [1, 8],
+  max_concurrent: [1, 16],
+  max_entries: [16, 16384],
+  max_buffer: [512, 65536]
+};
+function object(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+function fail(key, reason) {
+  throw new Error(`${key}: ${reason}`);
+}
+function integer(key, value, [min, max]) {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max)
+    fail(key, _("Expected an integer in range %s").format(`${min}\u2013${max}`));
+}
+function duration(key, value, min = 0, max = Infinity) {
+  if (typeof value !== "string" || !/^(?:\d+(?:\.\d+)?(?:ns|us|µs|ms|s|m|h))+$/.test(value))
+    fail(key, _("Expected a duration, for example 100ms or 5s"));
+  const scales = {
+    ns: 1e-9,
+    us: 1e-6,
+    \u00B5s: 1e-6,
+    ms: 1e-3,
+    s: 1,
+    m: 60,
+    h: 3600
+  };
+  const seconds3 = [
+    ...value.matchAll(/(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)/g)
+  ].reduce((total, match) => total + Number(match[1]) * scales[match[2]], 0);
+  if (seconds3 < min || seconds3 > max)
+    fail(key, _("Duration is outside the supported range"));
+  return seconds3;
+}
+function parseStrategy(text8) {
+  const result = {};
+  let rest = text8.trim();
+  while (rest) {
+    const match = /^([a-z_]+)=/.exec(rest);
+    if (!match) fail(_("Strategy"), _("Expected key=value"));
+    const key = match[1];
+    rest = rest.slice(match[0].length);
+    let end = 0;
+    let quoted = false;
+    let escape = false;
+    let depth = 0;
+    for (; end < rest.length; end++) {
+      const char = rest[end];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (char === "\\" && quoted) {
+        escape = true;
+        continue;
+      }
+      if (char === '"') quoted = !quoted;
+      if (!quoted) {
+        if (char === "[" || char === "{") depth++;
+        if (char === "]" || char === "}") depth--;
+        if (/\s/.test(char) && depth === 0) break;
+      }
+    }
+    if (quoted || depth !== 0) fail(key, _("Unterminated value"));
+    const raw = rest.slice(0, end);
+    if (!raw || Object.prototype.hasOwnProperty.call(result, key))
+      fail(key, _("Empty or duplicate parameter"));
+    if (!DESYNC_KEYS.includes(key) || key === "strategy")
+      fail(key, _("Unknown desync parameter"));
+    if (raw.startsWith('"') || raw.startsWith("[") || raw.startsWith("{") || BOOLEAN_KEYS.has(key) || key in NUMBER_LIMITS) {
+      try {
+        result[key] = JSON.parse(raw);
+      } catch {
+        fail(key, _("Invalid JSON value"));
+      }
+    } else result[key] = raw;
+    if (key === "fake_sni_pool" && typeof result[key] === "string")
+      result[key] = String(result[key]).split(",");
+    rest = rest.slice(end).trimStart();
+  }
+  return result;
+}
+function importDesync(text8) {
+  const trimmed3 = text8.trim();
+  if (!trimmed3) return { preset: "auto" };
+  const value = trimmed3.startsWith("{") || trimmed3.startsWith("[") ? JSON.parse(trimmed3) : parseStrategy(trimmed3);
+  if (!object(value)) fail(_("Strategy"), _("Expected a JSON object"));
+  const { strategy, ...explicit } = value;
+  if (strategy !== void 0 && typeof strategy !== "string")
+    fail("strategy", _("Expected a string"));
+  return { ...strategy ? parseStrategy(strategy) : {}, ...explicit };
+}
+function loadDesync(options, strategy = "") {
+  return {
+    ...strategy.trim() ? parseStrategy(strategy) : {},
+    ...importDesync(options || "{}")
+  };
+}
+function exportDesync(options) {
+  return Object.entries(options).map(
+    ([key, value]) => `${key}=${typeof value === "string" && !/\s|["\\{}[\]]/.test(value) && value !== "" ? value : JSON.stringify(value)}`
+  ).join(" ");
+}
+function customDesync(options) {
+  const canonical = importDesync(JSON.stringify(options));
+  delete canonical.adaptive;
+  const preset = String(canonical.preset || "");
+  let defaults = {};
+  if ([
+    "auto",
+    "split",
+    "disorder",
+    "tlsrec",
+    "fake",
+    "fake_split",
+    "oob"
+  ].includes(preset))
+    defaults = { mode: preset === "auto" ? "split" : preset };
+  else if (/^GT[1-4]$/.test(preset))
+    defaults = {
+      mode: "none",
+      udp_mode: "auto",
+      udp_repeats: Number(preset[2]),
+      udp_out_range: `1:${preset[2]}`
+    };
+  return { ...defaults, ...canonical, preset: "custom", auto_tune: false };
+}
+function validateDesync(options, capabilities) {
+  try {
+    if (capabilities && !capabilities.supported)
+      throw new Error(
+        capabilities.reason || _("The installed core does not support Desync")
+      );
+    if (JSON.stringify(options).length > 32768)
+      throw new Error(_("Strategy exceeds 32 KiB"));
+    for (const [key, value] of Object.entries(options)) {
+      if (!DESYNC_KEYS.includes(key)) fail(key, _("Unknown desync parameter"));
+      if (capabilities?.unsupported?.[key])
+        fail(key, capabilities.unsupported[key]);
+      const unsupportedValue = capabilities?.unsupported_values?.[key]?.[String(value)];
+      if (unsupportedValue) fail(key, unsupportedValue);
+      if (capabilities?.parameters && !capabilities.parameters.includes(key))
+        fail(key, _("Unsupported by the installed core"));
+      if (BOOLEAN_KEYS.has(key)) {
+        if (typeof value !== "boolean") fail(key, _("Expected true or false"));
+      } else if (key in NUMBER_LIMITS) integer(key, value, NUMBER_LIMITS[key]);
+      else if (key === "fake_sni_pool") {
+        if (!Array.isArray(value) || value.length > 64 || value.some((v) => typeof v !== "string" || !v.trim()))
+          fail(key, _("Expected an array of host names"));
+      } else if (key === "adaptive") {
+        if (!object(value)) fail(key, _("Expected a JSON object"));
+        for (const [name, entry] of Object.entries(value)) {
+          if (name in ADAPTIVE_LIMITS)
+            integer(`adaptive.${name}`, entry, ADAPTIVE_LIMITS[name]);
+          else if (["ttl", "timeout"].includes(name))
+            duration(
+              `adaptive.${name}`,
+              entry,
+              name === "ttl" ? 60 : 1,
+              name === "ttl" ? 604800 : 60
+            );
+          else if (name !== "network_id" || typeof entry !== "string" || entry.length > 256 || /[\r\n\0]/.test(entry))
+            fail(
+              `adaptive.${name}`,
+              _("Unknown or invalid Adaptive parameter")
+            );
+        }
+      } else if (typeof value !== "string") fail(key, _("Expected a string"));
+    }
+    const choice = (key, choices) => {
+      if (options[key] !== void 0 && !choices.includes(String(options[key])))
+        fail(key, _("Unsupported value"));
+    };
+    choice("preset", capabilities?.presets || DESYNC_PRESETS);
+    choice("mode", capabilities?.modes || DESYNC_MODES);
+    choice("udp_mode", ["none", "auto", "quic", "stun"]);
+    choice("fooling", [
+      "",
+      "none",
+      "badseq",
+      "badack",
+      "badsum",
+      "md5",
+      "md5_badack",
+      "badseq_badack_badsum",
+      "datanoack",
+      "hopbyhop",
+      "destopt",
+      "ipfrag",
+      "ts",
+      "badtimestamp"
+    ]);
+    if (options.delay !== void 0 && options.delay !== "0")
+      duration("delay", options.delay, 0, 1);
+    for (const [key, value] of Object.entries(options)) {
+      if (typeof value === "string" && /[\r\n\0]/.test(value))
+        fail(key, _("Expected a single-line string"));
+    }
+    for (const key of ["fake_sni", "fake_host"]) {
+      const value = options[key];
+      if (typeof value === "string" && (value.length > 253 || /[ \t]/.test(value)))
+        fail(key, _("Invalid host name"));
+    }
+    if (Array.isArray(options.fake_sni_pool) && options.fake_sni_pool.some(
+      (value) => typeof value !== "string" || value.length > 253 || /[^A-Za-z0-9._-]/.test(value)
+    ))
+      fail("fake_sni_pool", _("Invalid host name"));
+    if (options.adaptive && (options.auto_tune === false || options.auto_tune !== true && options.preset !== "auto"))
+      fail("adaptive", _("Adaptive requires auto_tune=true or preset=auto"));
+    if (typeof options.split_pos === "string" && options.split_pos.split(",").length > 16)
+      fail("split_pos", _("At most 16 split positions"));
+    if (options.split_pos !== void 0 && !String(options.split_pos).split(",").every(
+      (p) => /^(?:[1-9]\d*|(?:sni|sniext|host|midsld|endhost|extlen)(?:[+-]\d+)?)$/.test(
+        p.trim()
+      )
+    ))
+      fail("split_pos", _("Invalid split position"));
+    if (options.udp_out_range !== void 0) {
+      const range = /^(\d+):(\d+)$/.exec(String(options.udp_out_range));
+      if (!range || +range[1] < 1 || +range[2] < +range[1] || +range[2] > 1024)
+        fail(
+          "udp_out_range",
+          _("Expected an inclusive packet range, for example 1:3")
+        );
+    }
+    for (const key of ["fake_payload", "udp_fake_payload", "syndata"]) {
+      const value = options[key];
+      if (value !== void 0 && (typeof value !== "string" || value.length > 87384 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+        value
+      )))
+        fail(key, _("Expected a base64 payload"));
+    }
+    const mode = String(
+      options.mode || (String(options.preset || "").startsWith("GT") ? "none" : DESYNC_MODES.includes(String(options.preset)) ? options.preset : "split")
+    );
+    const udpMode = String(
+      options.udp_mode || (String(options.preset || "").startsWith("GT") ? "auto" : "none")
+    );
+    const enabled = (key) => options[key] !== void 0 && options[key] !== false && options[key] !== 0 && options[key] !== "" && (!Array.isArray(options[key]) || options[key].length > 0);
+    const fakeMode = [
+      "fake",
+      "fake_split",
+      "fake_disorder",
+      "hostfakesplit",
+      "oob",
+      "disoob"
+    ].includes(mode);
+    const quicEnabled = udpMode === "quic" || udpMode === "auto";
+    if (!quicEnabled && (options.quic_desync !== void 0 || options.quic_repeats !== void 0))
+      fail("udp_mode", _("QUIC parameters require UDP mode quic or auto"));
+    if (options.quic_desync === false && typeof options.quic_repeats === "number" && options.quic_repeats > 0)
+      fail("quic_repeats", _("QUIC repetitions require quic_desync=true"));
+    if (options.quic_desync === false && udpMode === "quic" && typeof options.udplen === "number" && options.udplen > 0)
+      fail(
+        "udplen",
+        _("QUIC resizing requires quic_desync=true in UDP mode quic")
+      );
+    if (capabilities?.unsupported_modes?.[mode])
+      fail("mode", capabilities.unsupported_modes[mode]);
+    if (enabled("split_pos") && (mode === "none" || ["fake", "oob"].includes(mode) && options.tlsrec_first !== true && !["ipfrag", "seqovl", "wsize"].some(enabled)))
+      fail(
+        "split_pos",
+        _(
+          "Split positions have no effect in this TCP mode without real-segment transformation"
+        )
+      );
+    if (capabilities?.platform && capabilities.platform !== "linux") {
+      if (options.udp_keep_socket === false)
+        fail(
+          "udp_keep_socket",
+          _("Ephemeral raw UDP injection requires Linux with CAP_NET_RAW")
+        );
+      if (options.wscale !== void 0 || enabled("syndata"))
+        fail("wscale/syndata", _("Pre-SYN parameters require Linux"));
+    }
+    if (!fakeMode && typeof options.repeats === "number" && options.repeats > 1)
+      fail("repeats", _("Multiple fake repetitions require a fake TCP mode"));
+    if (mode === "none" && typeof options.delay === "string" && options.delay !== "0" && duration("delay", options.delay) > 0)
+      fail("delay", _("Delay requires an enabled TCP mode"));
+    if (!fakeMode && [
+      "fake_sni",
+      "fake_host",
+      "fake_payload",
+      "fake_sni_pool",
+      "fooling",
+      "ttl",
+      "autottl"
+    ].some(enabled))
+      fail("mode", _("Fake parameters require a fake TCP mode"));
+    if (mode === "none" && ["ipfrag", "seqovl", "wsize", "tlsrec_first"].some(enabled))
+      fail(
+        "mode",
+        _("TCP transformation parameters require an enabled TCP mode")
+      );
+    if (udpMode === "none" && [
+      "udp_fake_payload",
+      "udp_ttl",
+      "udp_repeats",
+      "udp_out_range",
+      "udplen"
+    ].some(enabled))
+      fail("udp_mode", _("UDP parameters require an enabled UDP mode"));
+    if (typeof options.ipfrag === "number" && options.ipfrag !== 0 && (options.ipfrag < 8 || options.ipfrag > 65512 || options.ipfrag % 8 !== 0))
+      fail(
+        "ipfrag",
+        _("IP fragment size must be a multiple of 8 from 8 to 65512")
+      );
+    if (typeof options.seqovl === "number" && options.seqovl > 4096)
+      fail("seqovl", _("Sequence overlap must not exceed 4096 bytes"));
+    if (typeof options.udplen === "number" && options.udplen !== 0 && (options.udplen > 64e3 || udpMode === "stun" && (options.udplen < 4 || options.udplen % 4 !== 0)))
+      fail(
+        "udplen",
+        _(
+          "UDP padding must be at most 64000 bytes; STUN requires multiples of 4"
+        )
+      );
+    return true;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+// src/forkop/tabs/sections/desync/diagnostics.ts
+function renderDesyncDiagnostics(snapshot) {
+  const outbounds = Object.entries(snapshot.outbounds || {});
+  if (!outbounds.length)
+    return textE(
+      "p",
+      {},
+      _("No active Desync outbound. Save and apply the section first.")
+    );
+  return textE(
+    "div",
+    {},
+    outbounds.map(
+      ([name, value]) => textE("div", {}, [
+        textE("strong", {}, name),
+        textE("dl", {}, [
+          textE("dt", {}, _("Current strategy")),
+          textE("dd", {}, value.current || _("No observations yet")),
+          textE("dt", {}, _("Switch reason")),
+          textE("dd", {}, value.reason || "\u2014"),
+          textE("dt", {}, _("Active probes")),
+          textE("dd", {}, String(value.active ?? 0)),
+          textE("dt", {}, _("Learned destinations")),
+          textE(
+            "dd",
+            {},
+            String(
+              value.entry_count ?? Object.keys(value.entries || {}).length
+            )
+          )
+        ]),
+        ...value.entries_truncated ? [
+          textE(
+            "p",
+            {},
+            _(
+              "Only recent destinations are shown. The full history remains in the core cache."
+            )
+          )
+        ] : [],
+        textE(
+          "div",
+          { style: "overflow-x:auto" },
+          textE("table", { class: "table" }, [
+            textE(
+              "thead",
+              {},
+              textE(
+                "tr",
+                {},
+                [
+                  _("Destination"),
+                  _("Strategy"),
+                  _("Success"),
+                  _("Failed"),
+                  _("Latency"),
+                  _("Switch reason"),
+                  _("Updated")
+                ].map((label) => textE("th", { scope: "col" }, label))
+              )
+            ),
+            textE(
+              "tbody",
+              {},
+              Object.entries(value.entries || {}).flatMap(
+                ([destination, entry]) => Object.entries(entry.strategies || {}).map(
+                  ([strategy, score]) => textE(
+                    "tr",
+                    {},
+                    [
+                      destination,
+                      strategy,
+                      String(score.success ?? 0),
+                      String(score.failure ?? 0),
+                      score.latency_ms === void 0 ? "\u2014" : `${Math.round(score.latency_ms * 100) / 100} ms`,
+                      score.last_reason || "\u2014",
+                      entry.updated || "\u2014"
+                    ].map(
+                      (text8) => textE("td", { style: "overflow-wrap:anywhere" }, text8)
+                    )
+                  )
+                )
+              )
+            )
+          ])
+        )
+      ])
+    )
+  );
+}
+
+// src/forkop/tabs/sections/desync/results.ts
+function summarizeDesyncResults(probes) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const probe of probes) {
+    const key = probe.candidate === void 0 ? JSON.stringify(probe.options) : String(probe.candidate);
+    const group = groups.get(key) || [];
+    group.push(probe);
+    groups.set(key, group);
+  }
+  return [...groups.values()].map((group) => {
+    const passed = group.filter((result) => result.success);
+    const mean = (key) => {
+      const values = passed.map((result) => result[key]).filter(
+        (value) => typeof value === "number" && Number.isFinite(value)
+      );
+      return values.length ? Math.round(
+        values.reduce((sum, value) => sum + value, 0) / values.length * 100
+      ) / 100 : void 0;
+    };
+    const tested = (protocol) => {
+      const attempts = group.filter(
+        (result) => result.protocol === protocol || protocol === "tls" && result.tls_version
+      );
+      return attempts.length ? attempts.some((result) => result.success) : void 0;
+    };
+    return {
+      options: group[0].options,
+      success: passed.length > 0,
+      latency_ms: mean("latency_ms"),
+      throughput_bps: mean("throughput_bps"),
+      stability: Math.round(passed.length / group.length * 100),
+      tls: tested("tls"),
+      http: tested("http"),
+      quic: tested("quic"),
+      error: passed.length ? void 0 : group.find((result) => result.error)?.error
+    };
+  });
+}
+
+// src/forkop/tabs/sections/desync/tools.ts
+function renderDesyncTools(section2, read, apply, capabilities) {
+  const error = textE("p", { role: "alert" });
+  const diagnostics = textE("pre", {
+    style: "white-space:pre-wrap;overflow-wrap:anywhere"
+  });
+  const learning = textE("div");
+  function showDiagnostics(snapshot) {
+    learning.replaceChildren(renderDesyncDiagnostics(snapshot));
+    diagnostics.textContent = JSON.stringify(snapshot, null, 2);
+  }
+  const diagnosticStatus = textE("p", { "aria-live": "polite" });
+  const diagnosticLabels = textE(
+    "p",
+    {},
+    _("Current strategy, switch reason and learning statistics")
+  );
+  const refresh = button(_("Refresh diagnostics"), async () => {
+    const snapshot = await desyncApi.diagnostics(section2);
+    showDiagnostics(snapshot);
+  });
+  const clear = button(_("Clear learning results"), async () => {
+    await desyncApi.clear(section2);
+    diagnosticStatus.textContent = _("Learning results cleared");
+    const snapshot = await desyncApi.diagnostics(section2);
+    showDiagnostics(snapshot);
+  });
+  const target2 = textE("input", {
+    type: "text",
+    placeholder: "example.org:443",
+    class: "cbi-input-text"
+  });
+  const protocol = textE(
+    "select",
+    {},
+    ["tls", "http", "quic"].map(
+      (name) => textE(
+        "option",
+        {
+          value: name,
+          disabled: capabilities.protocols && !capabilities.protocols.includes(name)
+        },
+        name.toUpperCase()
+      )
+    )
+  );
+  const candidates = textE("textarea", {
+    rows: 4,
+    class: "cbi-input-textarea",
+    placeholder: '[{"preset":"split"},{"preset":"fake_split"}]'
+  });
+  const useCurrent = textE(
+    "button",
+    {
+      type: "button",
+      class: "btn cbi-button",
+      click: () => {
+        try {
+          candidates.value = JSON.stringify([customDesync(read())], null, 2);
+        } catch (reason) {
+          report2(reason);
+        }
+      }
+    },
+    _("Test the current form strategy")
+  );
+  const timeout = numeric("5", "1", "15");
+  const repetitions = numeric("2", "1", "3");
+  const budget = numeric("60", "1", "120");
+  const bytes = numeric("65536", "1024", "1048576");
+  const status = textE("p", { role: "status", "aria-live": "polite" });
+  const results = textE("div", { style: "overflow-x:auto" });
+  let job;
+  let pending = false;
+  let timer;
+  const root = textE("div");
+  const poll = async () => {
+    if (!job || job.state !== "running") return;
+    if (!root.isConnected) {
+      void desyncApi.cancel(job.id).catch(() => void 0);
+      return;
+    }
+    try {
+      update(await desyncApi.progress(job.id));
+    } catch (reason) {
+      report2(reason);
+    }
+    if (job.state === "running") timer = setTimeout(() => void poll(), 1500);
+  };
+  function update(value) {
+    job = value;
+    const state = {
+      running: _("Running"),
+      completed: _("Completed"),
+      cancelled: _("Cancelled"),
+      failed: _("Failed")
+    }[job.state] || job.state;
+    status.textContent = `${state}: ${job.completed ?? job.results?.length ?? 0}/${job.total ?? "?"}${job.error ? ` \u2014 ${job.error}` : ""}`;
+    start.disabled = pending || job.state === "running";
+    cancel.disabled = pending || job.state !== "running";
+    results.replaceChildren(
+      renderResults(summarizeDesyncResults(job.results || []))
+    );
+  }
+  function report2(reason) {
+    error.textContent = reason instanceof Error ? reason.message : String(reason);
+  }
+  function button(label, action) {
+    const node = textE(
+      "button",
+      {
+        type: "button",
+        class: "btn cbi-button",
+        click: () => {
+          error.textContent = "";
+          node.disabled = true;
+          void action().catch(report2).finally(() => {
+            node.disabled = false;
+          });
+        }
+      },
+      label
+    );
+    return node;
+  }
+  function renderResults(items) {
+    const metric = (value, suffix = "") => typeof value === "number" ? `${value}${suffix}` : "\u2014";
+    const check = (value) => typeof value === "boolean" ? value ? _("Success") : _("Failed") : _("Not tested");
+    const headers = [
+      _("Strategy"),
+      _("Result"),
+      "TLS",
+      "HTTP",
+      "QUIC",
+      _("Latency"),
+      _("Stability"),
+      _("Speed"),
+      _("Action")
+    ];
+    return textE("table", { class: "table" }, [
+      textE(
+        "thead",
+        {},
+        textE(
+          "tr",
+          {},
+          headers.map((text8) => textE("th", { scope: "col" }, text8))
+        )
+      ),
+      textE(
+        "tbody",
+        {},
+        items.map((item) => {
+          const choose = button(_("Apply as custom"), async () => {
+            const options = customDesync(item.options);
+            const valid = validateDesync(options, capabilities);
+            if (valid !== true) throw new Error(valid);
+            apply(options);
+            status.textContent = _(
+              "Custom strategy copied to this form. Save the section and apply configuration to activate it."
+            );
+          });
+          choose.disabled = !item.success;
+          return textE("tr", {}, [
+            textE(
+              "td",
+              { style: "overflow-wrap:anywhere;max-width:22em" },
+              JSON.stringify(item.options)
+            ),
+            textE("td", {}, item.error || check(item.success)),
+            textE("td", {}, check(item.tls)),
+            textE("td", {}, check(item.http)),
+            textE("td", {}, check(item.quic)),
+            textE("td", {}, metric(item.latency_ms, " ms")),
+            textE("td", {}, metric(item.stability, "%")),
+            textE("td", {}, metric(item.throughput_bps, " B/s")),
+            textE("td", {}, choose)
+          ]);
+        })
+      )
+    ]);
+  }
+  const start = textE(
+    "button",
+    {
+      type: "button",
+      class: "btn cbi-button cbi-button-positive",
+      click: () => {
+        if (pending || job?.state === "running") return;
+        error.textContent = "";
+        void (async () => {
+          const destination = target2.value.trim();
+          if (!validTarget(destination, protocol.value)) {
+            target2.focus();
+            throw new Error(_("Enter a test target (host:port or URL)"));
+          }
+          let strategies;
+          if (candidates.value.trim()) {
+            const value = JSON.parse(candidates.value);
+            if (!Array.isArray(value) || !value.length || value.length > 8)
+              throw new Error(_("Provide 1 to 8 candidate JSON objects"));
+            strategies = value.map(
+              (value2) => importDesync(JSON.stringify(value2))
+            );
+          } else {
+            const presets = protocol.value === "quic" ? ["GT1", "GT2", "GT3", "GT4"] : protocol.value === "http" && destination.startsWith("http:") ? ["split", "disorder", "fake_split"] : ["split", "tlsrec", "fake_split"];
+            strategies = presets.map((preset) => ({
+              preset,
+              auto_tune: false
+            }));
+          }
+          for (const options of strategies) {
+            if (options.preset === "auto" || options.auto_tune === true || options.adaptive !== void 0)
+              throw new Error(
+                _("Tuner candidates must be fixed manual strategies")
+              );
+            options.auto_tune = false;
+            const valid = validateDesync(options, capabilities);
+            if (valid !== true) throw new Error(valid);
+          }
+          for (const input of [timeout, repetitions, budget, bytes]) {
+            if (!input.checkValidity() || !input.value) {
+              input.reportValidity();
+              return;
+            }
+          }
+          pending = true;
+          start.disabled = true;
+          status.textContent = _("Starting isolated strategy tests\u2026");
+          try {
+            update(
+              await desyncApi.start({
+                section: section2,
+                target: destination,
+                protocol: protocol.value,
+                candidates: strategies,
+                timeout: +timeout.value,
+                repetitions: +repetitions.value,
+                max_duration: +budget.value,
+                max_bytes: +bytes.value
+              })
+            );
+            timer = setTimeout(() => void poll(), 1e3);
+          } finally {
+            pending = false;
+            start.disabled = job?.state === "running";
+            cancel.disabled = job?.state !== "running";
+          }
+        })().catch(report2);
+      }
+    },
+    _("Find a strategy")
+  );
+  const cancel = textE(
+    "button",
+    {
+      type: "button",
+      class: "btn cbi-button",
+      disabled: true,
+      click: () => {
+        if (!job || pending) return;
+        pending = true;
+        cancel.disabled = true;
+        if (timer) clearTimeout(timer);
+        void desyncApi.cancel(job.id).then(update).catch((reason) => {
+          report2(reason);
+          timer = setTimeout(() => void poll(), 1500);
+        }).finally(() => {
+          pending = false;
+          start.disabled = job?.state === "running";
+          cancel.disabled = job?.state !== "running";
+          if (job?.state === "running")
+            timer = setTimeout(() => void poll(), 500);
+        });
+      }
+    },
+    _("Cancel tests")
+  );
+  root.append(
+    textE("details", {}, [
+      textE("summary", {}, _("Learning and diagnostics")),
+      diagnosticLabels,
+      refresh,
+      " ",
+      clear,
+      diagnosticStatus,
+      learning,
+      textE("details", {}, [
+        textE("summary", {}, _("Raw diagnostics JSON")),
+        diagnostics
+      ])
+    ]),
+    textE("details", {}, [
+      textE("summary", {}, _("Strategy tuner")),
+      textE(
+        "p",
+        {},
+        _(
+          "Tests use isolated connections. Active sections keep their configuration. Speed is measured only for suitable download targets; unavailable metrics are shown as not tested."
+        )
+      ),
+      field2(_("Test target"), target2),
+      field2(_("Protocol"), protocol),
+      field2(
+        _("Candidates (JSON array; empty uses protocol defaults)"),
+        candidates
+      ),
+      useCurrent,
+      textE("details", {}, [
+        textE("summary", {}, _("Test limits")),
+        field2(_("Timeout per probe (seconds)"), timeout),
+        field2(_("Repetitions"), repetitions),
+        field2(_("Total time limit (seconds)"), budget),
+        field2(_("Download limit (bytes)"), bytes),
+        textE(
+          "p",
+          {},
+          _("At most 8 candidates and 24 probes, one connection at a time.")
+        )
+      ]),
+      start,
+      " ",
+      cancel,
+      status,
+      results
+    ]),
+    error
+  );
+  return root;
+}
+function field2(label, control) {
+  return textE("label", { style: "display:block;margin:0.65em 0" }, [
+    textE("span", { style: "display:block" }, label),
+    control
+  ]);
+}
+function numeric(value, min, max) {
+  return textE("input", {
+    type: "number",
+    step: "1",
+    value,
+    min,
+    max,
+    required: true,
+    class: "cbi-input-text"
+  });
+}
+function validTarget(value, protocol) {
+  if (!value || /[\s\r\n]/.test(value)) return false;
+  if (protocol === "http") {
+    try {
+      const url = new URL(value);
+      return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password && !!url.hostname;
+    } catch {
+      return false;
+    }
+  }
+  const match = /^(?:[A-Za-z0-9._-]+|\[[A-Fa-f0-9:]+\]):([0-9]+)$/.exec(value);
+  return !!match && +match[1] >= 1 && +match[1] <= 65535;
+}
+
+// src/forkop/tabs/sections/desync/widget.ts
+function renderDesyncEditor(sourceNode, source, sectionId, capabilities) {
+  const error = textE("p", { role: "alert", tabindex: "-1" });
+  const controls = /* @__PURE__ */ new Map();
+  function read() {
+    return importDesync(source.value);
+  }
+  function report2(reason) {
+    error.textContent = reason instanceof Error ? reason.message : String(reason);
+  }
+  function sync() {
+    try {
+      const options = read();
+      for (const [key, control] of controls) {
+        const value = options[key];
+        control.value = value === void 0 ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
+      }
+      const valid = validateDesync(options, capabilities);
+      error.textContent = valid === true ? "" : valid;
+    } catch (reason) {
+      report2(reason);
+    }
+  }
+  function set(options) {
+    source.value = JSON.stringify(options, null, 2);
+    source.dispatchEvent(new Event("input", { bubbles: true }));
+    source.dispatchEvent(new Event("change", { bubbles: true }));
+    sync();
+  }
+  function row2(key, label, kind = "text", choices) {
+    const control = choices || kind === "boolean" ? textE("select", { class: "cbi-input-select" }, [
+      textE("option", { value: "" }, _("Inherit preset")),
+      ...(choices || ["true", "false"]).map(
+        (value) => textE("option", { value }, value)
+      )
+    ]) : kind === "json" ? textE("textarea", { rows: 2, class: "cbi-input-textarea" }) : textE("input", {
+      type: kind === "number" ? "number" : "text",
+      class: "cbi-input-text"
+    });
+    control.setAttribute("aria-label", label);
+    controls.set(key, control);
+    control.addEventListener("change", () => {
+      try {
+        const options = read();
+        const value = control.value.trim();
+        if (!value) delete options[key];
+        else
+          options[key] = kind === "boolean" ? value === "true" : kind === "number" ? Number(value) : kind === "json" ? JSON.parse(value) : value;
+        if (key === "preset") {
+          if (value === "custom") {
+            options.auto_tune = false;
+            delete options.adaptive;
+          } else if (value === "auto") options.auto_tune = true;
+        }
+        set(options);
+      } catch (reason) {
+        report2(reason);
+      }
+    });
+    const unavailable = capabilities.unsupported?.[key] || (capabilities.parameters && !capabilities.parameters.includes(key) ? _("Unsupported by the installed core") : "");
+    return textE("label", { style: "display:block;margin:0.65em 0" }, [
+      textE("span", { style: "display:block" }, label),
+      control,
+      ...unavailable ? [textE("small", { style: "display:block" }, unavailable)] : capabilities.requirements?.[key] ? [
+        textE(
+          "small",
+          { style: "display:block" },
+          capabilities.requirements[key]
+        )
+      ] : []
+    ]);
+  }
+  const preset = row2("preset", _("Preset"), "text", DESYNC_PRESETS);
+  const manual = textE("details", {}, [
+    textE("summary", {}, _("Manual strategy")),
+    textE(
+      "p",
+      {},
+      _(
+        "Empty fields inherit the preset. Select auto_tune=false to keep a manual strategy fixed. Positions accept byte offsets and markers such as sni, midsld+1, host+1, endhost-1, sniext+1 and extlen."
+      )
+    ),
+    row2("mode", _("TCP mode"), "text", DESYNC_MODES),
+    row2("delay", _("Delay (for example 100ms)")),
+    row2("fake_sni", _("Fake SNI")),
+    row2("fake_host", _("Fake HTTP Host")),
+    row2("repeats", _("Fake packet repetitions"), "number"),
+    row2("ttl", _("Fake packet TTL"), "number"),
+    row2("udp_mode", _("UDP mode"), "text", ["none", "quic", "stun", "auto"]),
+    row2("udp_repeats", _("UDP fake repetitions"), "number"),
+    row2("udp_ttl", _("UDP fake TTL"), "number"),
+    row2("split_pos", _("Split positions"))
+  ]);
+  const advanced = textE("details", {}, [
+    textE("summary", {}, _("Advanced parameters")),
+    textE(
+      "p",
+      {},
+      _(
+        "Unsupported settings are rejected with a reason. Desync requires its own direct socket and cannot connect through another outbound."
+      )
+    ),
+    row2("fooling", _("Fooling methods")),
+    row2("tlsrec_first", _("Split TLS records first"), "boolean"),
+    row2("seqovl", _("Sequence overlap (bytes)"), "number"),
+    row2("autottl", _("Automatic TTL"), "boolean"),
+    row2("fake_payload", _("Fake TCP payload (base64)")),
+    row2("fake_sni_pool", _("Fake SNI pool (JSON array)"), "json"),
+    row2("ipfrag", _("IP fragment size"), "number"),
+    row2("syndata", _("SYN data (base64)")),
+    row2("wsize", _("TCP window size"), "number"),
+    row2("wscale", _("TCP window scale"), "number"),
+    row2("udp_fake_payload", _("Fake UDP payload (base64)")),
+    row2("udp_out_range", _("UDP packet range (inclusive)")),
+    row2("udp_keep_socket", _("Keep UDP socket"), "boolean"),
+    textE(
+      "p",
+      {},
+      _(
+        "True sends fake packets through the retained UDP session socket. False opens a temporary raw injector for each fake series on Linux with CAP_NET_RAW. Both preserve the same source address and port; the session socket receives replies."
+      )
+    ),
+    row2("quic_desync", _("Enable QUIC desync"), "boolean"),
+    row2(
+      "quic_repeats",
+      _("QUIC fake repetitions (0 inherits UDP repetitions)"),
+      "number"
+    ),
+    textE(
+      "p",
+      {},
+      _(
+        "QUIC desync is enabled by default in UDP modes quic and auto. False skips QUIC fake packets and resizing while auto mode still handles STUN. QUIC repetitions 1\u201316 override only QUIC series; 0 uses UDP repetitions."
+      )
+    ),
+    row2("udplen", _("UDP padding length"), "number")
+  ]);
+  const adaptive = textE("details", {}, [
+    textE("summary", {}, _("Adaptive")),
+    textE(
+      "p",
+      {},
+      _(
+        "Adaptive chooses strategies for future connections and retries only eligible initial TLS data within configured limits. Learning uses cache.db when available and otherwise stays in memory."
+      )
+    ),
+    row2("auto_tune", _("Enable Adaptive (auto_tune)"), "boolean"),
+    row2("adaptive", _("Adaptive limits (JSON object)"), "json"),
+    textE(
+      "p",
+      {},
+      _(
+        "Adaptive keys: max_attempts, max_concurrent, max_entries, ttl, timeout, max_buffer, network_id. Durations include a unit, for example 5s or 24h."
+      )
+    )
+  ]);
+  const exchange = textE("textarea", {
+    rows: 5,
+    class: "cbi-input-textarea",
+    "aria-label": _("Strategy import or export")
+  });
+  const importButton = textE(
+    "button",
+    {
+      type: "button",
+      class: "btn cbi-button",
+      click: () => {
+        try {
+          const options = importDesync(exchange.value);
+          const valid = validateDesync(options, capabilities);
+          if (valid !== true) throw new Error(valid);
+          set(options);
+        } catch (reason) {
+          report2(reason);
+          error.focus();
+        }
+      }
+    },
+    _("Import strategy")
+  );
+  const exportButton = (label, stringify) => textE(
+    "button",
+    {
+      type: "button",
+      class: "btn cbi-button",
+      click: () => {
+        try {
+          exchange.value = stringify(read());
+          exchange.focus();
+          exchange.select();
+        } catch (reason) {
+          report2(reason);
+        }
+      }
+    },
+    label
+  );
+  const transfer = textE("details", {}, [
+    textE("summary", {}, _("Import / export")),
+    textE(
+      "p",
+      {},
+      _(
+        "Import a JSON object or a key=value strategy. Import replaces the form strategy; explicit JSON fields override imported strategy values."
+      )
+    ),
+    exchange,
+    textE("div", {}, [
+      importButton,
+      " ",
+      exportButton(_("Export JSON"), (value) => JSON.stringify(value, null, 2)),
+      " ",
+      exportButton(_("Export string"), exportDesync)
+    ]),
+    textE("details", {}, [
+      textE("summary", {}, _("Canonical options JSON")),
+      sourceNode
+    ])
+  ]);
+  source.addEventListener("input", sync);
+  sync();
+  return textE("div", {}, [
+    preset,
+    manual,
+    advanced,
+    adaptive,
+    transfer,
+    error,
+    renderDesyncTools(sectionId, read, set, capabilities)
+  ]);
+}
+
+// src/forkop/tabs/sections/desync/form.ts
+function addDesyncOptions(section2) {
+  let capabilities;
+  const support = /* @__PURE__ */ new Map();
+  const option2 = section2.taboption(
+    "settings",
+    form.TextValue,
+    "desync_options",
+    _("Desync"),
+    _(
+      "Presets provide defaults; explicit options override them. Custom disables Adaptive. Normal section conditions, DNS and global QUIC blocking still apply."
+    )
+  );
+  option2.modalonly = true;
+  option2.retain = true;
+  option2.rows = 8;
+  option2.depends("action", "desync");
+  option2.load = async function(sectionId) {
+    try {
+      capabilities || (capabilities = desyncApi.capabilities());
+      support.set(sectionId, await capabilities);
+    } catch (reason) {
+      capabilities = void 0;
+      support.set(sectionId, {
+        supported: false,
+        reason: _("Cannot verify Desync support: %s").format(
+          reason instanceof Error ? reason.message : String(reason)
+        )
+      });
+    }
+    const saved = String(
+      uci.get(FORKOP_UCI_PACKAGE, sectionId, "desync_options") || "{}"
+    );
+    const strategy = String(
+      uci.get(FORKOP_UCI_PACKAGE, sectionId, "desync_strategy") || ""
+    );
+    try {
+      const options = loadDesync(saved, strategy);
+      return JSON.stringify(
+        Object.keys(options).length ? options : { preset: "auto" },
+        null,
+        2
+      );
+    } catch {
+      return strategy ? `${saved}
+${strategy}` : saved;
+    }
+  };
+  option2.validate = required(function(sectionId, value) {
+    try {
+      return validateDesync(
+        importDesync(value),
+        support.get(sectionId) || {
+          supported: false,
+          reason: _("Desync support has not been verified")
+        }
+      );
+    } catch (reason) {
+      return reason instanceof Error ? reason.message : String(reason);
+    }
+  });
+  option2.write = function(sectionId, value) {
+    const options = importDesync(String(value || "{}"));
+    const valid = validateDesync(options, support.get(sectionId));
+    if (valid !== true) throw new Error(valid);
+    uci.set(
+      FORKOP_UCI_PACKAGE,
+      sectionId,
+      "desync_options",
+      JSON.stringify(options)
+    );
+    uci.unset(FORKOP_UCI_PACKAGE, sectionId, "desync_strategy");
+  };
+  option2.remove = function() {
+  };
+  const baseRender = option2.renderWidget;
+  option2.renderWidget = async function(sectionId, index, value) {
+    const sourceNode = await baseRender.call(this, sectionId, index, value);
+    const source = sourceNode.tagName === "TEXTAREA" ? sourceNode : sourceNode.querySelector("textarea");
+    if (!source) return sourceNode;
+    return renderDesyncEditor(
+      sourceNode,
+      source,
+      sectionId,
+      support.get(sectionId) || { supported: false }
+    );
+  };
 }
 
 // src/validators/validateOutboundJson.ts
@@ -20152,16 +21430,16 @@ function configureTextareaOption(option2, analyzer) {
 // src/forkop/cbi/validation.ts
 var boundMaps = /* @__PURE__ */ new WeakSet();
 var errorId = 0;
-function renderFieldErrors(field2) {
+function renderFieldErrors(field3) {
   const invalid = Array.from(
-    field2.querySelectorAll(".cbi-input-invalid[data-tooltip]")
+    field3.querySelectorAll(".cbi-input-invalid[data-tooltip]")
   );
   const messages = [
     ...new Set(
       invalid.map((node) => node.getAttribute("data-tooltip")?.trim()).filter(Boolean)
     )
   ];
-  let error = field2.querySelector(".fkp-field-error");
+  let error = field3.querySelector(".fkp-field-error");
   if (!error && !messages.length) return;
   if (!error) {
     error = document.createElement("div");
@@ -20169,9 +21447,9 @@ function renderFieldErrors(field2) {
     error.className = "fkp-field-error";
     error.setAttribute("aria-live", "polite");
     error.setAttribute("aria-atomic", "true");
-    (field2.querySelector(".cbi-value-field") || field2).appendChild(error);
+    (field3.querySelector(".cbi-value-field") || field3).appendChild(error);
   }
-  field2.querySelectorAll(`[aria-errormessage="${error.id}"]`).forEach((node) => {
+  field3.querySelectorAll(`[aria-errormessage="${error.id}"]`).forEach((node) => {
     if (!invalid.includes(node)) {
       node.removeAttribute("aria-invalid");
       node.removeAttribute("aria-errormessage");
@@ -20192,10 +21470,10 @@ function bindInlineValidation(root, map) {
   if (boundMaps.has(root)) return;
   boundMaps.add(root);
   const update = (event) => {
-    const field2 = event.target.closest(
+    const field3 = event.target.closest(
       "[data-field]"
     );
-    if (field2 && root.contains(field2)) renderFieldErrors(field2);
+    if (field3 && root.contains(field3)) renderFieldErrors(field3);
   };
   root.addEventListener("validation-failure", update);
   root.addEventListener("validation-success", update);
@@ -20210,8 +21488,8 @@ function reportRefusedSave(error, dialog) {
   const invalidField = dialog?.querySelector(".cbi-input-invalid");
   const message2 = error instanceof Error ? error.message : `${error ?? ""}`;
   const reason = invalidField?.getAttribute("data-tooltip")?.trim();
-  const field2 = invalidField?.closest("[data-field]");
-  if (field2) renderFieldErrors(field2);
+  const field3 = invalidField?.closest("[data-field]");
+  if (field3) renderFieldErrors(field3);
   invalidField?.focus();
   showToast(reason || message2.trim() || _("Settings not saved"), "error", 6e3);
 }
@@ -20840,7 +22118,7 @@ function validateSubscriptionUrlEntry(_section_id, value) {
 
 // src/forkop/tabs/sections/constants.ts
 var RULE_SET_ITEM_SETTINGS_KEY = "rule_set_settings";
-var ROUTING_ACTIONS = ["connection", "bypass", "block"];
+var ROUTING_ACTIONS = ["connection", "bypass", "block", "desync"];
 var JSON_ENDPOINT_PLACEHOLDER = [
   "{",
   '  "type": "wireguard",',
@@ -20954,6 +22232,24 @@ function subscriptionDownloadTargetChoices(section_id) {
     value: getUciSectionName(section2),
     label: getUciSectionLabel(section2)
   }));
+}
+function desyncSectionProblem(map, sectionId) {
+  if (modalOptionFormValue(map, sectionId, "action") !== "desync") return true;
+  const hasSources = [
+    ...CONNECTION_OUTBOUND_SOURCES,
+    "urltest",
+    "fallback_group"
+  ].some(
+    (name) => normalizeDynamicListItems(
+      modalOptionFormValue(map, sectionId, name) ?? uci.get(FORKOP_UCI_PACKAGE, sectionId, name)
+    ).length > 0
+  );
+  const cascade = ["detour", "detour_section"].some(
+    (name) => uci.get(FORKOP_UCI_PACKAGE, sectionId, name)
+  );
+  return hasSources || cascade ? _(
+    "Desync needs a direct socket. Remove connection sources and cascades before changing this section to Desync, or create a new section."
+  ) : true;
 }
 
 // src/validators/fields.ts
@@ -21245,7 +22541,7 @@ var OS_KEY_DIRECTIVES = /* @__PURE__ */ new Set([
 ]);
 var ImportError = class extends Error {
 };
-function fail(message2) {
+function fail2(message2) {
   throw new ImportError(message2);
 }
 function tokenize(line) {
@@ -21316,10 +22612,10 @@ function readDirectives(lines3, closing) {
       }
       content.push(inner);
     }
-    if (!closed) fail(_("The <%s> block is not closed").format(open[1]));
+    if (!closed) fail2(_("The <%s> block is not closed").format(open[1]));
     directives.push({ name, args: [], inline: content.join("\n").trim() });
   }
-  if (closing) fail(_("The <%s> block is not closed").format(closing));
+  if (closing) fail2(_("The <%s> block is not closed").format(closing));
   return directives;
 }
 function basename(path) {
@@ -21333,14 +22629,14 @@ function lines(value) {
 }
 function number(value, directive) {
   if (!/^\d+$/.test(`${value ?? ""}`)) {
-    fail(_("%s: needs a whole number").format(directive));
+    fail2(_("%s: needs a whole number").format(directive));
   }
   return Number(value);
 }
 function port(value, directive) {
   const result = number(value, directive);
   if (result < 1 || result > 65535) {
-    fail(_("%s: invalid port %s").format(directive, value));
+    fail2(_("%s: invalid port %s").format(directive, value));
   }
   return result;
 }
@@ -21349,9 +22645,9 @@ function transport2(value, directive) {
   if (/^udp[46]?$/.test(proto)) return "udp";
   if (/^tcp[46]?(-client)?$/.test(proto)) return "tcp";
   if (/^tcp[46]?-server$/.test(proto)) {
-    fail(_("This is a server configuration, not a client profile"));
+    fail2(_("This is a server configuration, not a client profile"));
   }
-  return fail(_("%s: unsupported protocol %s").format(directive, value));
+  return fail2(_("%s: unsupported protocol %s").format(directive, value));
 }
 function cipherName(value) {
   return `${value || ""}`.toUpperCase();
@@ -21380,12 +22676,12 @@ function material(state, directive, kind) {
     if (!reference || isInlineReference(reference)) {
       content = state.blocks.get(directive.name);
       if (content == null) {
-        fail(_("%s is empty").format(directive.name));
+        fail2(_("%s is empty").format(directive.name));
       }
     } else {
       content = state.files[basename(reference)];
       if (content == null) {
-        fail(
+        fail2(
           _("Missing file %s: select it together with the profile").format(
             basename(reference)
           )
@@ -21394,7 +22690,7 @@ function material(state, directive, kind) {
     }
   }
   const check = checkMaterial(kind, content.trim());
-  if (check !== true) fail(`${directive.name}: ${check}`);
+  if (check !== true) fail2(`${directive.name}: ${check}`);
   return content.trim();
 }
 function inlineDirection(directive) {
@@ -21403,7 +22699,7 @@ function inlineDirection(directive) {
 }
 function addRemote(state, directive, network2) {
   const [server2, remotePort, proto] = directive.args;
-  if (!server2) fail(_("remote: no server"));
+  if (!server2) fail2(_("remote: no server"));
   if (remotePort != null) port(remotePort, "remote");
   state.remotes.push({
     server: server2,
@@ -21434,7 +22730,7 @@ function readCompression(state, directive) {
   if (directive.name === "comp-lzo") {
     const mode = `${directive.args[0] || "adaptive"}`.toLowerCase();
     if (!["yes", "no", "adaptive"].includes(mode)) {
-      fail(_("comp-lzo: unsupported mode %s").format(directive.args[0]));
+      fail2(_("comp-lzo: unsupported mode %s").format(directive.args[0]));
     }
     endpoint.compression_lzo = mode;
     return;
@@ -21444,7 +22740,7 @@ function readCompression(state, directive) {
   else if (["lz4", "lz4-v2", "stub", "stub-v2"].includes(algorithm)) {
     endpoint.compression = algorithm;
   } else if (algorithm !== "migrate") {
-    fail(_("compress: unsupported algorithm %s").format(directive.args[0]));
+    fail2(_("compress: unsupported algorithm %s").format(directive.args[0]));
   }
 }
 function readDirective(state, directive) {
@@ -21456,15 +22752,15 @@ function readDirective(state, directive) {
     return;
   }
   if (SERVER_DIRECTIVES.has(name)) {
-    fail(_("This is a server configuration, not a client profile"));
+    fail2(_("This is a server configuration, not a client profile"));
   }
   if (OS_KEY_DIRECTIVES.has(name)) {
-    fail(_("The key is kept by the system or a token and cannot be exported"));
+    fail2(_("The key is kept by the system or a token and cannot be exported"));
   }
   switch (name) {
     case "dev":
       if (/^tap/i.test(args[0] || "")) {
-        fail(_("TAP (layer 2) is not supported, only TUN"));
+        fail2(_("TAP (layer 2) is not supported, only TUN"));
       }
       return;
     case "proto":
@@ -21497,14 +22793,14 @@ function readDirective(state, directive) {
       tls.client_key = lines(material(state, directive, "key"));
       return;
     case "pkcs12":
-      fail(
+      fail2(
         _(
           "PKCS#12 is not supported: export the certificate and the key as PEM"
         )
       );
       return;
     case "askpass":
-      fail(
+      fail2(
         _("Remove the key passphrase: openssl pkey -in key.pem -out plain.pem")
       );
       return;
@@ -21538,10 +22834,10 @@ function readDirective(state, directive) {
       state.login = directive;
       return;
     case "verify-x509-name": {
-      if (!args[0]) fail(_("verify-x509-name: no name"));
+      if (!args[0]) fail2(_("verify-x509-name: no name"));
       const type = `${args[1] || "subject"}`.toLowerCase();
       if (!["subject", "name", "name-prefix"].includes(type)) {
-        fail(_("verify-x509-name: unsupported type %s").format(args[1]));
+        fail2(_("verify-x509-name: unsupported type %s").format(args[1]));
       }
       tls.server_name = args[0];
       tls.server_name_type = type;
@@ -21565,7 +22861,7 @@ function readDirective(state, directive) {
     case "peer-fingerprint": {
       const fingerprints = `${directive.inline ?? args.join(" ")}`.split(/[\s,;]+/).filter(Boolean).map((value) => value.replace(/:/g, "").toLowerCase());
       if (!fingerprints.length || fingerprints.some((value) => !/^[0-9a-f]{64}$/.test(value))) {
-        fail(_("peer-fingerprint: SHA-256 only"));
+        fail2(_("peer-fingerprint: SHA-256 only"));
       }
       tls.peer_fingerprint = fingerprints;
       return;
@@ -21627,7 +22923,7 @@ function readDirective(state, directive) {
       return;
     case "ifconfig": {
       const length = netmaskLength(args[1]);
-      if (!args[0] || !args[1]) fail(_("ifconfig: needs two addresses"));
+      if (!args[0] || !args[1]) fail2(_("ifconfig: needs two addresses"));
       if (length >= 0 && length < 31) {
         state.addresses.push(`${args[0]}/${length}`);
       } else {
@@ -21637,7 +22933,7 @@ function readDirective(state, directive) {
       return;
     }
     case "ifconfig-ipv6":
-      if (!args[0]) fail(_("ifconfig-ipv6: needs an address"));
+      if (!args[0]) fail2(_("ifconfig-ipv6: needs an address"));
       state.addresses.push(args[0].includes("/") ? args[0] : `${args[0]}/128`);
       state.peerAddress6 = args[1] || "";
       return;
@@ -21698,10 +22994,10 @@ function finishStaticKey(state) {
   if (direction) endpoint.key_direction = direction;
   endpoint.cipher = state.cipher || "BF-CBC";
   if (/-(GCM|POLY1305)$/.test(`${endpoint.cipher}`)) {
-    fail(_("A static key profile needs a CBC cipher"));
+    fail2(_("A static key profile needs a CBC cipher"));
   }
   if (!state.addresses.length) {
-    fail(_("A static key profile needs ifconfig"));
+    fail2(_("A static key profile needs ifconfig"));
   }
   endpoint.address = state.addresses;
   if (state.peerAddress) endpoint.peer_address = state.peerAddress;
@@ -21719,10 +23015,10 @@ function finishStaticKey(state) {
 function finishTls(state) {
   const { endpoint, tls } = state;
   if (!tls.certificate && !tls.peer_fingerprint) {
-    fail(_("No CA certificate (ca)"));
+    fail2(_("No CA certificate (ca)"));
   }
   if (!tls.client_certificate !== !tls.client_key) {
-    fail(
+    fail2(
       tls.client_certificate ? _("cert without key") : _("key without cert")
     );
   }
@@ -21799,7 +23095,7 @@ function buildEndpoint(input, files) {
   };
   directives.forEach((directive) => readDirective(state, directive));
   if (!state.remotes.length) {
-    fail(
+    fail2(
       looksLikeOpenVPNConfig(input) ? _("No remote directive") : _("This is not an OpenVPN profile")
     );
   }
@@ -21959,17 +23255,17 @@ function trimmed(value) {
 function list(value) {
   return value == null ? [] : Array.isArray(value) ? value.map(text5) : [text5(value)];
 }
-function material2(object, key) {
-  const content = list(object[key]).join("\n").trim();
-  return content || trimmed(object[`${key}_path`]);
+function material2(object2, key) {
+  const content = list(object2[key]).join("\n").trim();
+  return content || trimmed(object2[`${key}_path`]);
 }
-function setMaterial(object, key, value) {
+function setMaterial(object2, key, value) {
   const content = trimmed(value);
   if (!content) return;
   if (isRouterPath(content)) {
-    object[`${key}_path`] = content;
+    object2[`${key}_path`] = content;
   } else {
-    object[key] = content.split(/\r?\n/).map((line) => line.trimEnd());
+    object2[key] = content.split(/\r?\n/).map((line) => line.trimEnd());
   }
 }
 function secondsValue(value) {
@@ -22160,12 +23456,12 @@ function applyAdvanced(endpoint, tls, settings) {
     settings.openvpn_peer_fingerprint
   ).map((value) => value.replace(/:/g, "").toLowerCase());
   if (fingerprints.length) tls.peer_fingerprint = fingerprints;
-  for (const [key, field2] of [
+  for (const [key, field3] of [
     ["certificate_profile", "openvpn_certificate_profile"],
     ["version_min", "openvpn_tls_version_min"],
     ["cipher", "openvpn_tls_cipher"]
   ]) {
-    if (trimmed(settings[field2])) tls[key] = trimmed(settings[field2]);
+    if (trimmed(settings[field3])) tls[key] = trimmed(settings[field3]);
   }
   const ciphers = normalizeOptionValues(settings.openvpn_data_ciphers);
   if (ciphers.length) endpoint.data_ciphers = ciphers;
@@ -22267,7 +23563,7 @@ var OPENCONNECT_REPORTED_OS = [
 ];
 var ImportError2 = class extends Error {
 };
-function fail2(message2) {
+function fail3(message2) {
   throw new ImportError2(message2);
 }
 function text6(value) {
@@ -22319,7 +23615,7 @@ function normalizeOpenConnectServer(value) {
 }
 function server(value) {
   const result = normalizeOpenConnectServer(value);
-  return "server" in result ? result.server : fail2(`${_("Server")}: ${result.message}`);
+  return "server" in result ? result.server : fail3(`${_("Server")}: ${result.message}`);
 }
 var HEX = /^[0-9a-f]+$/i;
 var BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -22343,7 +23639,7 @@ function normalizeOpenConnectFingerprint(value) {
 }
 function fingerprint(value) {
   const result = normalizeOpenConnectFingerprint(value);
-  return "fingerprint" in result ? result.fingerprint : fail2(`${text6(value)}: ${result.message}`);
+  return "fingerprint" in result ? result.fingerprint : fail3(`${text6(value)}: ${result.message}`);
 }
 var BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 function base32(bytes) {
@@ -22369,7 +23665,7 @@ function totpSecret(value) {
   let secret = value.trim();
   if (/^otpauth:\/\//i.test(secret)) return secret;
   if (secret.startsWith("<?xml")) {
-    fail2(_("PSKC token files are not supported: use the base32 secret"));
+    fail3(_("PSKC token files are not supported: use the base32 secret"));
   }
   let algorithm = "SHA1";
   const named = /^(sha1|sha256|sha512):/i.exec(secret);
@@ -22381,12 +23677,12 @@ function totpSecret(value) {
   if (/^base32:/i.test(secret)) {
     encoded = secret.slice(7).replace(/[\s=]/g, "").toUpperCase();
     if (!/^[A-Z2-7]+$/.test(encoded)) {
-      fail2(_("Token secret: invalid base32"));
+      fail3(_("Token secret: invalid base32"));
     }
   } else if (secret.startsWith("0x")) {
     const hex2 = secret.slice(2);
     if (!HEX.test(hex2) || hex2.length % 2) {
-      fail2(_("Token secret: invalid hexadecimal"));
+      fail3(_("Token secret: invalid hexadecimal"));
     }
     encoded = base32(
       Uint8Array.from(hex2.match(/../g), (pair) => parseInt(pair, 16))
@@ -22416,11 +23712,11 @@ function draft(files) {
 }
 function fileContent(state, reference) {
   if (/^(pkcs11|system):/i.test(reference)) {
-    fail2(_("The key is kept by the system or a token and cannot be exported"));
+    fail3(_("The key is kept by the system or a token and cannot be exported"));
   }
   const name = basename2(reference);
   if (/\.(p12|pfx)$/i.test(name)) {
-    fail2(
+    fail3(
       _(
         "%s is PKCS#12: export it as PEM with openssl pkcs12 -in %s -out client.pem -nodes"
       ).format(name, name)
@@ -22428,7 +23724,7 @@ function fileContent(state, reference) {
   }
   const content = state.files[name];
   if (content == null) {
-    fail2(
+    fail3(
       _("Missing file %s: select it together with the profile").format(name)
     );
   }
@@ -22437,33 +23733,33 @@ function fileContent(state, reference) {
 function material3(state, reference, kind) {
   const content = fileContent(state, reference);
   const check = checkMaterial(kind, content);
-  if (check !== true) fail2(`${basename2(reference)}: ${check}`);
+  if (check !== true) fail3(`${basename2(reference)}: ${check}`);
   return lines2(content);
 }
 function seconds2(value, option2) {
   return `${whole(value, option2)}s`;
 }
 function whole(value, option2) {
-  if (!/^\d+$/.test(value)) fail2(_("%s: needs a whole number").format(option2));
+  if (!/^\d+$/.test(value)) fail3(_("%s: needs a whole number").format(option2));
   return Number(value);
 }
 function flavor(value) {
   const name = value.toLowerCase();
   if (name === "array") {
-    fail2(_("The Array Networks protocol is not supported by sing-box"));
+    fail3(_("The Array Networks protocol is not supported by sing-box"));
   }
   if (!OPENCONNECT_FLAVORS.includes(name)) {
-    fail2(_("Unknown OpenConnect protocol %s").format(value));
+    fail3(_("Unknown OpenConnect protocol %s").format(value));
   }
   return name;
 }
 function formEntry(value) {
   const match = /^([^:=]+):([^=]+)=(.*)$/.exec(value);
-  if (!match) fail2(_("form-entry: format FORM:NAME=VALUE"));
+  if (!match) fail3(_("form-entry: format FORM:NAME=VALUE"));
   return { form_id: match[1], name: match[2], value: match[3] };
 }
-function pushTo(object, key, value) {
-  object[key] = [...object[key] || [], value];
+function pushTo(object2, key, value) {
+  object2[key] = [...object2[key] || [], value];
 }
 var IGNORED_OPTIONS = /* @__PURE__ */ new Set([
   "authenticate",
@@ -22682,7 +23978,7 @@ function applyOption(state, name, value) {
       } else if (["hotp", "yubioath"].includes(value.toLowerCase())) {
         state.skipped.add(`token-mode ${value.toLowerCase()}`);
       } else {
-        fail2(_("Unknown token mode %s").format(value));
+        fail3(_("Unknown token mode %s").format(value));
       }
       return;
     case "token-secret":
@@ -22690,7 +23986,7 @@ function applyOption(state, name, value) {
       return;
     case "os":
       if (!OPENCONNECT_REPORTED_OS.includes(value)) {
-        fail2(_("Unknown operating system %s").format(value));
+        fail3(_("Unknown operating system %s").format(value));
       }
       endpoint.reported_os = value;
       return;
@@ -22713,7 +24009,7 @@ function applyOption(state, name, value) {
       if (value === "none") endpoint.compression_disabled = true;
       else if (value === "all") endpoint.compression_mode = "all";
       else if (value !== "stateless") {
-        fail2(_("Unknown compression mode %s").format(value));
+        fail3(_("Unknown compression mode %s").format(value));
       }
       return;
     case "deflate":
@@ -22835,14 +24131,14 @@ function readCommandLine(state, input) {
       name = equals < 0 ? arg.slice(2) : arg.slice(2, equals);
       value = equals < 0 ? void 0 : arg.slice(equals + 1);
       if (!(name in OPTION_ARGUMENTS))
-        fail2(_("Unknown option --%s").format(name));
+        fail3(_("Unknown option --%s").format(name));
     } else {
       name = SHORT_OPTIONS[arg[1]];
-      if (!name) fail2(_("Unknown option %s").format(arg.slice(0, 2)));
+      if (!name) fail3(_("Unknown option %s").format(arg.slice(0, 2)));
       if (arg.length > 2) value = arg.slice(2);
     }
     if (OPTION_ARGUMENTS[name] === 1 && value == null) {
-      if (i + 1 >= args.length) fail2(_("%s: needs a value").format(arg));
+      if (i + 1 >= args.length) fail3(_("%s: needs a value").format(arg));
       i += 1;
       value = args[i];
     }
@@ -22860,7 +24156,7 @@ function readConfigFile(state, input) {
   input.split(/\r?\n/).forEach((line) => {
     const option2 = configOption(line);
     if (option2 === void 0) {
-      fail2(_("Unknown option %s").format(line.trim().split(/[\s=]/)[0]));
+      fail3(_("Unknown option %s").format(line.trim().split(/[\s=]/)[0]));
     }
     if (option2) applyOption(state, option2.name, option2.value);
   });
@@ -22934,7 +24230,7 @@ function readNetworkManager(state, input) {
   const secrets = sections["vpn-secrets"] || {};
   const { endpoint, tls } = state;
   state.host = text6(data.gateway);
-  if (!state.host) fail2(_("No gateway"));
+  if (!state.host) fail3(_("No gateway"));
   const xml = secrets.xmlconfig ? decodeBase64(secrets.xmlconfig) : null;
   if (xml && !/[.:/]/.test(state.host)) {
     const entry = hostEntries(new TextDecoder().decode(xml)).find(
@@ -22960,7 +24256,7 @@ function readNetworkManager(state, input) {
   if (data.useragent) endpoint.user_agent = data.useragent;
   if (data.reported_os) {
     if (!OPENCONNECT_REPORTED_OS.includes(data.reported_os)) {
-      fail2(_("Unknown operating system %s").format(data.reported_os));
+      fail3(_("Unknown operating system %s").format(data.reported_os));
     }
     endpoint.reported_os = data.reported_os;
   }
@@ -22981,16 +24277,16 @@ function readNetworkManager(state, input) {
   if (secrets.key_pass) tls.client_key_password = secrets.key_pass;
   if (secrets.mca_key_pass) tls.mca_key_password = secrets.mca_key_pass;
   Object.entries(secrets).forEach(([key, value]) => {
-    const field2 = /^form:([^:]+):(.+)$/.exec(key);
-    if (!field2 || !value) return;
-    const name = field2[2].toLowerCase();
+    const field3 = /^form:([^:]+):(.+)$/.exec(key);
+    if (!field3 || !value) return;
+    const name = field3[2].toLowerCase();
     if (name === "username") endpoint.username = value;
     else if (name === "password") endpoint.password = value;
     else if (name === "group_list") endpoint.auth_group = value;
     else
       pushTo(endpoint, "form_entries", {
-        form_id: field2[1],
-        name: field2[2],
+        form_id: field3[1],
+        name: field3[2],
         value
       });
   });
@@ -23030,9 +24326,9 @@ function hostEntries(xml) {
 function readAnyConnectProfile(state, input) {
   const entries = hostEntries(input).filter((entry) => entry.address);
   const usable = entries.filter((entry) => !entry.ipsec);
-  if (!entries.length) fail2(_("No server"));
+  if (!entries.length) fail3(_("No server"));
   if (!usable.length) {
-    fail2(
+    fail3(
       _("The profile connects over IPsec, which OpenConnect does not speak")
     );
   }
@@ -23046,7 +24342,7 @@ function readAnyConnectLink(state, input) {
   const match = /^anyconnect:(?:\/\/)?(\w+)\/?\??(.*)$/i.exec(input.trim());
   const action = `${match?.[1] || ""}`.toLowerCase();
   if (!match || !["create", "connect"].includes(action)) {
-    fail2(
+    fail3(
       _(
         "Only anyconnect://create and anyconnect://connect links carry a server"
       )
@@ -23054,10 +24350,10 @@ function readAnyConnectLink(state, input) {
   }
   const query = new URLSearchParams(match[2]);
   if (/^ipsec$/i.test(query.get("protocol") || "")) {
-    fail2(_("The link connects over IPsec, which OpenConnect does not speak"));
+    fail3(_("The link connects over IPsec, which OpenConnect does not speak"));
   }
   state.host = text6(query.get("host"));
-  if (!state.host) fail2(_("No host"));
+  if (!state.host) fail3(_("No host"));
   state.endpoint.flavor = "anyconnect";
   const username = text6(query.get("prefill_username"));
   const password = query.get("prefill_password") ?? "";
@@ -23097,7 +24393,7 @@ function readOpenFortiVPN(state, input) {
   });
   const { endpoint, tls } = state;
   endpoint.flavor = "fortinet";
-  if (!values.host) fail2(_("No host"));
+  if (!values.host) fail3(_("No host"));
   state.host = values.port ? `${values.host}:${values.port}` : values.host;
   if (values.realm) state.path = values.realm;
   Object.entries(values).forEach(([key, value]) => {
@@ -23141,10 +24437,10 @@ function readJson(state, input) {
   try {
     parsed = JSON.parse(input);
   } catch (_error) {
-    fail2(_("Invalid JSON"));
+    fail3(_("Invalid JSON"));
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || parsed.type !== "openconnect") {
-    fail2(_("This JSON is not an openconnect endpoint"));
+    fail3(_("This JSON is not an openconnect endpoint"));
   }
   const endpoint = { ...parsed };
   delete endpoint.tag;
@@ -23179,14 +24475,14 @@ function looksLikeOpenConnectConfig(input) {
 function finishCertificate(state) {
   if (!state.certificate && !state.key) return;
   if (!state.certificate) {
-    fail2(_("A client key without its certificate"));
+    fail3(_("A client key without its certificate"));
   }
   const content = fileContent(state, state.certificate);
   const both = state.key ? null : splitCertificateAndKey(content);
   const certificate = both ? both.certificate : content;
   const key = both ? both.key : state.key ? fileContent(state, state.key) : "";
   if (!key) {
-    fail2(
+    fail3(
       _("A client certificate without its key: select the key file with it")
     );
   }
@@ -23195,7 +24491,7 @@ function finishCertificate(state) {
     [key, "passphrase-key"]
   ]) {
     const check = checkMaterial(kind, value);
-    if (check !== true) fail2(check);
+    if (check !== true) fail3(check);
   }
   state.tls.client_certificate = lines2(certificate);
   state.tls.client_key = lines2(key);
@@ -23237,9 +24533,9 @@ function buildEndpoint2(input, files) {
       readJson(state, input);
       break;
     default:
-      fail2(_("This is not an OpenConnect configuration"));
+      fail3(_("This is not an OpenConnect configuration"));
   }
-  if (!state.host) fail2(_("No server"));
+  if (!state.host) fail3(_("No server"));
   const { endpoint } = state;
   const path = state.path.replace(/^\/+/, "");
   endpoint.server = server(
@@ -23344,17 +24640,17 @@ function list2(value) {
 function flag(value) {
   return value === true ? "1" : "0";
 }
-function material4(object, key) {
-  const content = list2(object[key]).join("\n").trim();
-  return content || trimmed2(object[`${key}_path`]);
+function material4(object2, key) {
+  const content = list2(object2[key]).join("\n").trim();
+  return content || trimmed2(object2[`${key}_path`]);
 }
-function setMaterial2(object, key, value) {
+function setMaterial2(object2, key, value) {
   const content = trimmed2(value);
   if (!content) return;
   if (isRouterPath(content)) {
-    object[`${key}_path`] = content;
+    object2[`${key}_path`] = content;
   } else {
-    object[key] = content.split(/\r?\n/).map((line) => line.trimEnd());
+    object2[key] = content.split(/\r?\n/).map((line) => line.trimEnd());
   }
 }
 function secondsValue2(value) {
@@ -23491,12 +24787,12 @@ function applyAdvanced2(endpoint, tls, settings) {
     tls.system_trust_disabled = true;
   }
   if (settings.openconnect_no_udp === "1") endpoint.no_udp = true;
-  for (const [key, field2] of [
+  for (const [key, field3] of [
     ["reported_os", "openconnect_reported_os"],
     ["version", "openconnect_version"],
     ["local_hostname", "openconnect_local_hostname"]
   ]) {
-    if (trimmed2(settings[field2])) endpoint[key] = trimmed2(settings[field2]);
+    if (trimmed2(settings[field3])) endpoint[key] = trimmed2(settings[field3]);
   }
   if (trimmed2(settings.openconnect_user_agent)) {
     endpoint.user_agent = text7(settings.openconnect_user_agent);
@@ -23551,12 +24847,12 @@ function openConnectEndpoint(settings) {
       secret: tokenSecret(mode, settings.openconnect_token_secret)
     };
     if (mode === "stoken") {
-      for (const [key, field2] of [
+      for (const [key, field3] of [
         ["pin", "openconnect_token_pin"],
         ["password", "openconnect_token_password"],
         ["device_id", "openconnect_token_device_id"]
       ]) {
-        if (trimmed2(settings[field2])) token[key] = trimmed2(settings[field2]);
+        if (trimmed2(settings[field3])) token[key] = trimmed2(settings[field3]);
       }
     }
     endpoint.token = token;
@@ -24604,6 +25900,8 @@ function tunnelCoreFeature(kind, endpointJson) {
 }
 function sectionMissingCoreFeatures(sectionId) {
   const missing = /* @__PURE__ */ new Set();
+  if (uci.get(FORKOP_UCI_PACKAGE, sectionId, "action") === "desync" && !coreHas("desync"))
+    missing.add("desync");
   (uci.sections(FORKOP_UCI_PACKAGE, "tunnel") || []).filter((tunnel) => tunnel.section === sectionId).forEach((tunnel) => {
     const feature = tunnelCoreFeature(
       `${tunnel.kind || "wireguard"}`.toLowerCase(),
@@ -24645,6 +25943,8 @@ function getActionOptionLabel(action) {
       return "Bypass";
     case "connection":
       return "Connection";
+    case "desync":
+      return _("Desync");
     case "dns":
       return "DNS";
     default:
@@ -24668,6 +25968,7 @@ function populateActionOptionValues(option2, currentAction) {
   option2.value("bypass", "Bypass");
   option2.value("block", "Block");
   option2.value("dns", "DNS");
+  option2.value("desync", _("Desync"));
   const stored = `${currentAction || ""}`.trim();
   if (stored && !option2.keylist.includes(stored)) {
     option2.value(stored, getActionOptionLabel(stored));
@@ -25036,47 +26337,47 @@ function addServerFilterOptions(itemSection, parentSectionForItem, options = {})
   ].forEach(
     ([key, storageKey, label, description, validator, visibleModes]) => {
       const isList = storageKey.endsWith("_outbounds") || storageKey === "exclude_types";
-      const field2 = itemSection.option(
+      const field3 = itemSection.option(
         isList ? form.DynamicList : form.Value,
         key,
         label,
         description
       );
       (visibleModes || []).forEach(
-        (mode) => field2.depends("server_filter_mode", mode)
+        (mode) => field3.depends("server_filter_mode", mode)
       );
-      field2.rmempty = true;
+      field3.rmempty = true;
       if (key !== storageKey) {
-        field2.ucioption = storageKey;
-        field2.retain = true;
+        field3.ucioption = storageKey;
+        field3.retain = true;
         const mode = (visibleModes || [])[0];
         if (mode) {
           if (!sharedFields[mode]) {
             sharedFields[mode] = {};
           }
-          sharedFields[mode][storageKey] = field2;
+          sharedFields[mode][storageKey] = field3;
         }
       }
       if (storageKey === "exclude_types") {
         const choices = options.groupContext ? groupTypeChoices() : providerTypeChoices();
-        field2.load = function(itemId) {
+        field3.load = function(itemId) {
           const values = normalizeOptionValues(
             optionMapValue(this, itemId, storageKey)
           );
           refreshOptionChoices(this, coreFilterTypeChoices(choices, values));
           return values;
         };
-        field2.placeholder = _("-- Select --");
+        field3.placeholder = _("-- Select --");
       }
       if (storageKey.endsWith("_outbounds")) {
-        field2.load = function(itemId) {
+        field3.load = function(itemId) {
           return normalizeOptionValues(
             optionMapValue(this, itemId, storageKey)
           );
         };
-        field2.placeholder = _("-- Select --");
+        field3.placeholder = _("-- Select --");
         configureLiveDynamicListChoices(
-          field2,
+          field3,
           (itemId) => typeof options.ownerId === "function" ? currentSubscriptionOutboundNameChoices(
             parentSectionForItem(itemId),
             options.ownerId()
@@ -25085,7 +26386,7 @@ function addServerFilterOptions(itemSection, parentSectionForItem, options = {})
         );
       }
       if (validator) {
-        field2.validate = function(_itemId, value) {
+        field3.validate = function(_itemId, value) {
           return validator(value);
         };
       }
@@ -25150,9 +26451,9 @@ function addGroupHealthCheckTailOptions(itemSection, idleTimeoutDefault, interva
   );
   o.default = idleTimeoutDefault;
   o.validate = function(itemId, value) {
-    const duration = validateRequiredSingBoxDuration(value);
-    if (duration !== true) {
-      return duration;
+    const duration2 = validateRequiredSingBoxDuration(value);
+    if (duration2 !== true) {
+      return duration2;
     }
     const intervalValue = currentOptionValue(this, itemId, intervalOption);
     const interval = singBoxDurationSeconds(intervalValue);
@@ -25770,9 +27071,9 @@ function canonicalField(key) {
   return CANONICAL_FIELDS[compact] || compact;
 }
 function addValue(values, key, value) {
-  const field2 = canonicalField(key);
-  if (!field2) return;
-  (values[field2] || (values[field2] = [])).push(value);
+  const field3 = canonicalField(key);
+  if (!field3) return;
+  (values[field3] || (values[field3] = [])).push(value);
 }
 function firstValue(values, key) {
   return values[key]?.[0]?.trim() || "";
@@ -28907,9 +30208,9 @@ function showTunnelImportModal(parentMap, fields, openvpn, openconnect) {
             if (!files.length) return;
             const found = files.find((file) => CONFIGURATION_FILE.test(file.name)) || files.find((file) => importedFormat(file.content.trim()));
             files.filter((file) => file !== found).forEach((file) => attachments[file.name] = file.content);
-            const field2 = configuration.getUIElement("settings");
-            if (found) field2?.setValue(found.content.trim());
-            const input = `${field2?.getValue() ?? ""}`.trim();
+            const field3 = configuration.getUIElement("settings");
+            if (found) field3?.setValue(found.content.trim());
+            const input = `${field3?.getValue() ?? ""}`.trim();
             const result = configuration.validate("settings", input);
             configuration.triggerValidation("settings");
             if (result === true) return save();
@@ -29672,8 +30973,9 @@ function createSectionContent(section2) {
   o.validate = function(sectionId) {
     return missingConnectionOutbound(this.map, sectionId) ? _(
       "Add a connection URI, subscription, interface, tunnel or JSON outbound"
-    ) : missingDnsMatcher(this.map, sectionId) ? _("Add a domain, built-in list, rule set or device") : true;
+    ) : missingDnsMatcher(this.map, sectionId) ? _("Add a domain, built-in list, rule set or device") : desyncSectionProblem(this.map, sectionId);
   };
+  addDesyncOptions(section2);
   const dnsServerOption = section2.taboption(
     "settings",
     form.DynamicList,
@@ -30377,32 +31679,32 @@ function validateClientName(sectionId, value) {
   }
   return hasControlCharacters(name) ? message.noControlCharacters() : true;
 }
-function validateClientCredential(sectionId, field2, value) {
-  if (field2 === "uuid") {
+function validateClientCredential(sectionId, field3, value) {
+  if (field3 === "uuid") {
     return `${value || ""}`.trim() ? validateUuid(sectionId, value) : message.required();
   }
-  if (field2 === "password") {
+  if (field3 === "password") {
     return getProtocol(sectionId) === "shadowsocks" ? validateShadowsocksPassword(sectionId, value) : validateRequiredText(sectionId, value);
   }
   return true;
 }
 function visibleClientFields(sectionId) {
   const protocol = getProtocol(sectionId);
-  return credentialFields(protocol).filter((field2) => {
-    if (field2 === "password") {
+  return credentialFields(protocol).filter((field3) => {
+    if (field3 === "password") {
       return isAuthenticationEnabled(sectionId);
     }
-    if (field2 === "flow") {
+    if (field3 === "flow") {
       return supportsVisionFlow(sectionId);
     }
     return true;
   });
 }
-function clientCredentialLabel(sectionId, field2) {
-  if (field2 === "uuid") {
+function clientCredentialLabel(sectionId, field3) {
+  if (field3 === "uuid") {
     return _("UUID");
   }
-  if (field2 === "flow") {
+  if (field3 === "flow") {
     return _("Flow");
   }
   return getProtocol(sectionId) === "shadowsocks" && isShadowsocks2022(getShadowsocksMethod(sectionId)) ? _("Key") : _("Password");
@@ -30414,11 +31716,11 @@ function clientSettingsDefaults(sectionId, inputValue, existing, listOption) {
     return defaults;
   }
   defaults.name = `${inputValue || ""}`.trim() || generateClientName(sectionId, listOption);
-  visibleClientFields(sectionId).forEach((field2) => {
-    if (field2 === "flow") {
+  visibleClientFields(sectionId).forEach((field3) => {
+    if (field3 === "flow") {
       return;
     }
-    defaults[field2] = generateCredential(sectionId, protocol, field2);
+    defaults[field3] = generateCredential(sectionId, protocol, field3);
   });
   return defaults;
 }
@@ -30466,14 +31768,14 @@ function validateClientsOnSave(sectionId, values, listOption) {
       return message.item(name, message.nameTaken());
     }
     seen.add(name.toLowerCase());
-    for (const field2 of visibleClientFields(sectionId)) {
-      if (field2 === "flow") {
+    for (const field3 of visibleClientFields(sectionId)) {
+      if (field3 === "flow") {
         continue;
       }
       const result = validateClientCredential(
         sectionId,
-        field2,
-        `${settings[field2] || ""}`
+        field3,
+        `${settings[field3] || ""}`
       );
       if (result !== true) {
         return message.item(name, message.fixSettings());
@@ -30571,12 +31873,12 @@ function addRoutingOptions(section2) {
 // src/forkop/tabs/servers/clientDialog.ts
 function addClientCredentialOptions(sectionId, itemSection) {
   const protocol = getProtocol(sectionId);
-  visibleClientFields(sectionId).forEach((field2) => {
-    if (field2 === "flow") {
+  visibleClientFields(sectionId).forEach((field3) => {
+    if (field3 === "flow") {
       const flow = itemSection.option(
         form.ListValue,
         "flow",
-        clientCredentialLabel(sectionId, field2)
+        clientCredentialLabel(sectionId, field3)
       );
       flow.value("", _("None"));
       flow.value("xtls-rprx-vision", "xtls-rprx-vision");
@@ -30585,14 +31887,14 @@ function addClientCredentialOptions(sectionId, itemSection) {
     }
     const credential = itemSection.option(
       form.Value,
-      field2,
-      clientCredentialLabel(sectionId, field2)
+      field3,
+      clientCredentialLabel(sectionId, field3)
     );
-    credential.password = field2 !== "uuid";
-    credential.validate = (_id, value) => validateClientCredential(sectionId, field2, value);
+    credential.password = field3 !== "uuid";
+    credential.validate = (_id, value) => validateClientCredential(sectionId, field3, value);
     addGenerateButton(
       credential,
-      () => generateCredential(sectionId, protocol, field2)
+      () => generateCredential(sectionId, protocol, field3)
     );
   });
 }
@@ -31581,9 +32883,9 @@ function analyzeStaticHosts(text8) {
   const annotations = [];
   const errors = [];
   let offset = 0;
-  const reject = (field2, reason) => {
-    annotations.push({ start: field2.start, end: field2.end, message: reason });
-    errors.push(`${field2.value}: ${reason}`);
+  const reject = (field3, reason) => {
+    annotations.push({ start: field3.start, end: field3.end, message: reason });
+    errors.push(`${field3.value}: ${reason}`);
   };
   for (const line of value.split("\n")) {
     const fields = lineFields(line, offset);
@@ -31902,11 +33204,11 @@ function addAutodetectOptions(section2) {
       max: 100
     }
   ];
-  for (const field2 of fields) {
-    o = section2.option(form.Value, field2.key, field2.title);
-    o.default = `${field2.value}`;
-    o.datatype = `range(${field2.min},${field2.max})`;
-    o.validate = required(wholeNumberField(field2.min, field2.max));
+  for (const field3 of fields) {
+    o = section2.option(form.Value, field3.key, field3.title);
+    o.default = `${field3.value}`;
+    o.datatype = `range(${field3.min},${field3.max})`;
+    o.validate = required(wholeNumberField(field3.min, field3.max));
     o.depends("enable_autodetect", "1");
     o.retain = true;
   }

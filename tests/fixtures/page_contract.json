@@ -243,7 +243,9 @@
       "with_vmess",
       "with_wireguard"
     ],
+    "desync": { "required_version": "1.14.4-r18", "capabilities": null },
     "features": {
+      "desync": { "available": false, "tags": [] },
       "clash_api": {
         "available": true,
         "tags": ["with_clash_api"]
@@ -311,6 +313,7 @@
     },
     "types": {
       "outbound": {
+        "desync": "desync",
         "hysteria": "quic",
         "hysteria2": "quic",
         "tuic": "quic",

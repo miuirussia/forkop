@@ -226,7 +226,7 @@ export namespace Forkop {
     sourceSection?: string;
   }
 
-  type RuleAction = 'connection' | 'bypass' | 'block';
+  type RuleAction = 'connection' | 'desync' | 'bypass' | 'block';
   type ProxyConfigType =
     | 'urltest'
     | 'selector'

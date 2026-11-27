@@ -206,7 +206,7 @@ function child_values(parent, type_name, value_key) {
 }
 
 function is_connections_action(action) {
-    return as_string(action) == "connection";
+    return as_string(action) in [ "connection", "desync" ];
 }
 
 // A subscription is its item, not its address: two of them may fetch one address.
@@ -468,7 +468,7 @@ function has_dns_matchers(section) {
 }
 
 function has_connection_sources(section) {
-    return length(connection_link_items(section)) > 0 ||
+    return option(section, "action", "") == "desync" || length(connection_link_items(section)) > 0 ||
         length(subscription_items(section)) > 0 ||
         length(interfaces(section)) > 0 ||
         length(outbound_jsons(section)) > 0 ||

@@ -54,6 +54,7 @@ export default defineConfig({
             { text: 'Tailscale', link: '/tunnels/tailscale' },
             { text: 'Сетевой интерфейс', link: '/connections/interface' },
             { text: 'JSON outbound', link: '/connections/json' },
+            { text: 'Desync', link: '/connections/desync' },
           ],
         },
         {

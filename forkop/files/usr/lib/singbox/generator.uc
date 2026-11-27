@@ -2055,7 +2055,16 @@ function add_outbound_for_section(config, section) {
     let action = option(section, "action", "");
     let section_name = section[".name"];
 
-    if (connections.is_connections_action(action)) {
+    if (action == "desync") {
+        push(config.outbounds, {
+            ...require("config.desync").options(section),
+            type: "desync", tag: outbound_tag(section_name),
+            routing_mark: runtime_constants.OUTBOUND_MARK,
+            domain_resolver: runtime_constants.BOOTSTRAP_DNS_SERVER_TAG
+        });
+        add_section_domain_resolver(config, section);
+    }
+    else if (connections.is_connections_action(action)) {
         add_connections_outbound(config, section);
         add_section_domain_resolver(config, section);
     }

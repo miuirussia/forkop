@@ -1,3 +1,4 @@
+import { addDesyncOptions } from './desync/form';
 import { renderChildItemLabel } from '../../cbi/listItems';
 import { FORKOP_UCI_PACKAGE, RESERVED_RUNTIME_TAGS } from '../../../constants';
 import { validateOutboundJson } from '../../../validators/validateOutboundJson';
@@ -74,6 +75,7 @@ import {
   refreshLiveChoiceWidgets,
 } from './outboundNames';
 import {
+  desyncSectionProblem,
   dependsOnRoutingAction,
   dependsOnRuleConditions,
   missingConnectionOutbound,
@@ -196,8 +198,10 @@ export function createSectionContent(section: CBISection) {
         )
       : missingDnsMatcher(this.map, sectionId)
         ? _('Add a domain, built-in list, rule set or device')
-        : true;
+        : desyncSectionProblem(this.map, sectionId);
   };
+
+  addDesyncOptions(section);
 
   const dnsServerOption = section.taboption(
     'settings',

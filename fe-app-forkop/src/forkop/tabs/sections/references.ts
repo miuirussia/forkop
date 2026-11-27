@@ -150,3 +150,28 @@ export function subscriptionDownloadTargetChoices(section_id: string) {
       label: getUciSectionLabel(section),
     }));
 }
+
+// The core's desync outbound must own a direct socket. Old connection children are
+// retained across action changes, so require the user to remove them explicitly.
+export function desyncSectionProblem(map: CBIMap, sectionId: string) {
+  if (modalOptionFormValue(map, sectionId, 'action') !== 'desync') return true;
+  const hasSources = [
+    ...CONNECTION_OUTBOUND_SOURCES,
+    'urltest',
+    'fallback_group',
+  ].some(
+    (name) =>
+      normalizeDynamicListItems(
+        modalOptionFormValue(map, sectionId, name) ??
+          uci.get(FORKOP_UCI_PACKAGE, sectionId, name),
+      ).length > 0,
+  );
+  const cascade = ['detour', 'detour_section'].some((name) =>
+    uci.get(FORKOP_UCI_PACKAGE, sectionId, name),
+  );
+  return hasSources || cascade
+    ? _(
+        'Desync needs a direct socket. Remove connection sources and cascades before changing this section to Desync, or create a new section.',
+      )
+    : true;
+}

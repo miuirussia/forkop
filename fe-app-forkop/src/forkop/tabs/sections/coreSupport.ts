@@ -75,6 +75,11 @@ export function tunnelCoreFeature(kind: string, endpointJson: unknown) {
 // Subscriptions are not included: the core skips a server it cannot build and starts anyway.
 export function sectionMissingCoreFeatures(sectionId: string) {
   const missing = new Set<string>();
+  if (
+    uci.get(FORKOP_UCI_PACKAGE, sectionId, 'action') === 'desync' &&
+    !coreHas('desync')
+  )
+    missing.add('desync');
   (uci.sections(FORKOP_UCI_PACKAGE, 'tunnel') || [])
     .filter((tunnel) => tunnel.section === sectionId)
     .forEach((tunnel) => {

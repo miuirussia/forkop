@@ -135,7 +135,9 @@ t.test("the state service parks a request as long as the page expects", () => {
 t.test("the page may call every method the state service publishes", () => {
     let acl = json(fs.readfile(repo.path("luci-app-forkop/root/usr/share/rpcd/acl.d/luci-app-forkop.json")))["luci-app-forkop"];
     t.eq(sort([ ...acl.read.ubus.forkop, ...acl.write.ubus.forkop ]), sort(keys(state_service.object_methods())));
-    t.eq(acl.write.ubus.forkop, [ "import_config" ]);
+    t.eq(sort(acl.write.ubus.forkop), sort([ "import_config", "desync_tune_start", "desync_tune_cancel", "desync_apply_custom", "desync_clear_cache" ]));
+    for (let method in [ "desync_capabilities", "desync_diagnostics", "desync_tune_progress" ])
+        t.contains(acl.read.ubus.forkop, method);
 });
 
 t.test("the option every password field is stored in is masked in diagnostics", () => {

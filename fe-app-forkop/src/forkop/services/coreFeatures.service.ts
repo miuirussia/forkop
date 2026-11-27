@@ -64,6 +64,8 @@ export function missingCoreTags(feature: string) {
 
 // What a choice the build lacks says about itself.
 export function missingCoreFeatureNote(feature: string) {
+  if (feature === 'desync')
+    return _('The installed core does not support Desync');
   return _('the installed sing-box lacks %s').format(
     missingCoreTags(feature).join(', '),
   );
@@ -71,6 +73,8 @@ export function missingCoreFeatureNote(feature: string) {
 
 // The refusal of a value the build lacks, or true.
 export function validateCoreFeature(feature: string) {
+  if (feature === 'desync' && !coreHas(feature))
+    return _('The installed core does not support Desync');
   return !feature || coreHas(feature)
     ? true
     : _('sing-box is built without %s').format(

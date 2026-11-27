@@ -1,11 +1,11 @@
-import { FORKOP_UCI_PACKAGE } from '../../../constants';
+import { DETOUR_TARGET_ACTIONS, FORKOP_UCI_PACKAGE } from '../../../constants';
 import {
   keepUnavailableSectionChoice,
   validateSectionChoice,
 } from '../../cbi/choices';
 
 function isDownloadSectionAction(action: unknown) {
-  return action === 'connection';
+  return DETOUR_TARGET_ACTIONS.includes(String(action || ''));
 }
 
 function refreshDownloadSectionChoices(option: CBIOption) {

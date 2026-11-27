@@ -6,6 +6,8 @@ let fs = require("fs");
 let exec = require("core.exec");
 let url = require("core.url");
 let singbox_constants = require("singbox.constants");
+let core_version = require("core.version");
+const DESYNC_REQUIRED_VERSION = "1.14.4-r18";
 
 let paths = {
     binary: "/usr/bin/sing-box"
@@ -33,14 +35,15 @@ const FEATURES = {
     shadowtls: { name: "ShadowTLS", tags: [ "with_shadowtls" ] },
     tor: { name: "Tor", tags: [ "with_tor" ] },
     anytls: { name: "AnyTLS", tags: [ "with_anytls" ] },
-    mieru: { name: "mieru", tags: [ "with_mieru" ] }
+    mieru: { name: "mieru", tags: [ "with_mieru" ] },
+    desync: { name: "Desync", tags: [] }
 };
 
 const OUTBOUND_TYPES = {
     hysteria: "quic", hysteria2: "quic", tuic: "quic",
     naive: "naive", trusttunnel: "trusttunnel",
     vmess: "vmess", snell: "snell", ssh: "ssh", shadowtls: "shadowtls", tor: "tor",
-    anytls: "anytls", mieru: "mieru"
+    anytls: "anytls", mieru: "mieru", desync: "desync"
 };
 const INBOUND_TYPES = {
     hysteria: "quic", hysteria2: "quic", tuic: "quic",
@@ -54,6 +57,7 @@ const ENDPOINT_TYPES = {
 };
 
 let known = { signature: null, tags: null, version: "" };
+let desync_known = { signature: null, value: null };
 
 function signature(stat) {
     return sprintf("%d:%d:%d", stat.inode, stat.size, stat.mtime);
@@ -102,6 +106,27 @@ function version() {
     return report_of_binary()?.version ?? "";
 }
 
+function desync_version_supported(current) {
+    return require("core.packages").forkop_core_version(current) != "" &&
+        core_version.version_at_least(current, DESYNC_REQUIRED_VERSION);
+}
+
+// Older custom cores may not implement this CLI; their release is still checked.
+// An explicit capability response is authoritative, including a refusal.
+function desync_capabilities() {
+    let report = report_of_binary();
+    if (report == null || !desync_version_supported(report.version)) return null;
+    if (desync_known.signature == report.signature) return desync_known.value;
+    let result = exec.capture([ paths.binary, "desync", "capabilities" ]);
+    let value = null;
+    if (result.status == 0) {
+        try { value = json(result.stdout); } catch (e) { value = {}; }
+        if (type(value) != "object") value = {};
+    }
+    desync_known = { signature: report.signature, value };
+    return value;
+}
+
 // The tags a feature needs that the given set, or the installed core, lacks.
 function missing_tags(feature, present) {
     let have = {};
@@ -111,6 +136,11 @@ function missing_tags(feature, present) {
 }
 
 function available(feature, present) {
+    if (feature == "desync") {
+        let caps = desync_capabilities();
+        return desync_version_supported(version()) &&
+            (caps == null || (caps.capability == "forkop-desync-v1" && caps.supported === true));
+    }
     present ??= tags();
     return FEATURES[feature] != null && present != null && length(missing_tags(feature, present)) == 0;
 }
@@ -122,6 +152,7 @@ function unavailable_reason(feature, present) {
         return "";
     if (present == null)
         return "sing-box is not installed";
+    if (feature == "desync") return "Desync requires sing-box-forkop " + DESYNC_REQUIRED_VERSION + " with forkop-desync-v1 support";
     return "this sing-box build lacks " + FEATURES[feature].name + " (built without " + join(", ", missing_tags(feature, present)) + ")";
 }
 
@@ -260,19 +291,21 @@ function report(present) {
     let current = present ?? tags();
     let features = {};
     for (let name, entry in FEATURES)
-        features[name] = { available: current != null && length(missing_tags(name, current)) == 0, tags: entry.tags };
+        features[name] = { available: name == "desync" ? available(name) : current != null && length(missing_tags(name, current)) == 0, tags: entry.tags };
     return {
         known: current != null,
         tags: current ?? [],
         features,
         types: { outbound: OUTBOUND_TYPES, inbound: INBOUND_TYPES, endpoint: ENDPOINT_TYPES },
         // The type each share link scheme dials, so the page reads a link the way this does.
-        links: singbox_constants.LINK_SCHEME_OUTBOUND_TYPES
+        links: singbox_constants.LINK_SCHEME_OUTBOUND_TYPES,
+        desync: { required_version: DESYNC_REQUIRED_VERSION, capabilities: desync_capabilities() }
     };
 }
 
 return {
     paths, REQUIRED, FEATURES, OUTBOUND_TYPES, INBOUND_TYPES, ENDPOINT_TYPES,
+    DESYNC_REQUIRED_VERSION, desync_version_supported, desync_capabilities,
     parse_tags, tags, version, available, missing_tags, unavailable_reason, core_problem, type_feature, link_features,
     link_uses_xhttp_http3, report
 };

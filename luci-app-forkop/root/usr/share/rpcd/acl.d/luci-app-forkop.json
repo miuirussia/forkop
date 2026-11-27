@@ -9,6 +9,9 @@
       },
       "ubus": {
         "forkop": [
+          "desync_capabilities",
+          "desync_diagnostics",
+          "desync_tune_progress",
           "state",
           "state_wait",
           "config",
@@ -52,6 +55,10 @@
           "remove"
         ],
         "forkop": [
+          "desync_tune_start",
+          "desync_tune_cancel",
+          "desync_apply_custom",
+          "desync_clear_cache",
           "import_config"
         ]
       },

@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-26 14:11+0300\n"
-"PO-Revision-Date: 2026-11-26 14:11+0300\n"
+"POT-Creation-Date: 2026-11-27 09:51+0300\n"
+"PO-Revision-Date: 2026-11-27 09:51+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -274,6 +274,7 @@ msgstr ""
 msgid "Accurate latency measurement"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 #: fe-app-forkop/src/forkop/tabs/sections/form.ts
 msgid "Action"
 msgstr ""
@@ -285,6 +286,30 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/monitoring/initController.ts
 #: fe-app-forkop/src/forkop/tabs/monitoring/render.ts
 msgid "Active"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+msgid "Active probes"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Adaptive"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Adaptive chooses strategies for future connections and retries only eligible initial TLS data within configured limits. Learning uses cache.db when available and otherwise stays in memory."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Adaptive keys: max_attempts, max_concurrent, max_entries, ttl, timeout, max_buffer, network_id. Durations include a unit, for example 5s or 24h."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Adaptive limits (JSON object)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Adaptive requires auto_tune=true or preset=auto"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/entry/gridSection.ts
@@ -365,6 +390,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
 msgid "Addresses"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Advanced parameters"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -459,6 +488,10 @@ msgstr ""
 msgid "Applies WARP+ to the profile account"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Apply as custom"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/helpers/serviceStatusDisplay.ts
 msgid "applying..."
 msgstr ""
@@ -473,6 +506,14 @@ msgstr ""
 
 #: fe-app-forkop/src/validators/validateSavedSize.ts
 msgid "At most %d KB, this is %d KB"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "At most 16 split positions"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "At most 8 candidates and 24 probes, one connection at a time."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/form/tunnel.ts
@@ -517,6 +558,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
 msgid "Autodetect is unavailable."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Automatic TTL"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/fallback.ts
@@ -595,8 +640,28 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Cancel tests"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Cancelled"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Candidates (JSON array; empty uses protocol defaults)"
+msgstr ""
+
 #: fe-app-forkop/src/validators/messages.ts
 msgid "Cannot be this section"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/form.ts
+msgid "Cannot verify Desync support: %s"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Canonical options JSON"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -724,6 +789,10 @@ msgstr ""
 msgid "Clear"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Clear learning results"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
 msgid "Click a node to pin it, and click it again to unpin it."
 msgstr ""
@@ -824,6 +893,7 @@ msgid "Compiling rule sets"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 msgid "Completed"
 msgstr ""
 
@@ -1021,8 +1091,20 @@ msgstr ""
 msgid "Created in the Tailscale console under Settings → Keys"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+msgid "Current strategy"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Current strategy, switch reason and learning statistics"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderWidget.ts
 msgid "Currently unavailable"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Custom strategy copied to this form. Save the section and apply configuration to activate it."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/entry/view.ts
@@ -1092,12 +1174,41 @@ msgstr ""
 msgid "Default (SHA1)"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Delay (for example 100ms)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/settings/form/network.ts
 msgid "Delay in milliseconds before reloading Forkop after interface UP"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Delay requires an enabled TCP mode"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/servers/table.ts
 msgid "Delete"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+msgid "Destination"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/actions.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/form.ts
+msgid "Desync"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/references.ts
+msgid "Desync needs a direct socket. Remove connection sources and cascades before changing this section to Desync, or create a new section."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/api.ts
+msgid "Desync request failed"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/form.ts
+msgid "Desync support has not been verified"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/initController.ts
@@ -1261,6 +1372,10 @@ msgstr ""
 msgid "Download"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Download limit (bytes)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/logs/initController.ts
 msgid "Download matching"
 msgstr ""
@@ -1294,6 +1409,10 @@ msgstr ""
 msgid "Duplicate value"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Duration is outside the supported range"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/options.ts
 #: fe-app-forkop/src/forkop/tabs/settings/staticHosts.ts
 msgid "Edit"
@@ -1307,9 +1426,21 @@ msgstr ""
 msgid "empty"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Empty fields inherit the preset. Select auto_tune=false to keep a manual strategy fixed. Positions accept byte offsets and markers such as sni, midsld+1, host+1, endhost-1, sniext+1 and extlen."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Empty or duplicate parameter"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/form.ts
 #: fe-app-forkop/src/forkop/tabs/servers/form/identity.ts
 msgid "Enable"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Enable Adaptive (auto_tune)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
@@ -1328,6 +1459,10 @@ msgstr ""
 msgid "Enable Output Network Interface"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Enable QUIC desync"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/settings/form/service.ts
 msgid "Enable VPN server"
 msgstr ""
@@ -1340,8 +1475,16 @@ msgstr ""
 msgid "Enable YACD WAN Access"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Enter a test target (host:port or URL)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/servers/form/identity.ts
 msgid "Ephemeral node"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Ephemeral raw UDP injection requires Linux with CAP_NET_RAW"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/serverFilters.ts
@@ -1389,9 +1532,49 @@ msgstr ""
 msgid "Expand section"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected a base64 payload"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected a duration, for example 100ms or 5s"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected a JSON object"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected a single-line string"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected a string"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected an array of host names"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected an inclusive packet range, for example 1:3"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected an integer in range %s"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected key=value"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
 #: fe-app-forkop/src/forkop/tabs/sections/healthCheck.ts
 msgid "Expected status"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected true or false"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
@@ -1406,11 +1589,21 @@ msgstr ""
 msgid "Expires %s"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Export JSON"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Export string"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/components/initController.ts
 msgid "failed"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 msgid "Failed"
 msgstr ""
 
@@ -1486,6 +1679,38 @@ msgstr ""
 msgid "Failed to upload the file: %s"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake HTTP Host"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake packet repetitions"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake packet TTL"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Fake parameters require a fake TCP mode"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake SNI"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake SNI pool (JSON array)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake TCP payload (base64)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake UDP payload (base64)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts
 #: fe-app-forkop/src/forkop/tabs/sections/fallback.ts
 #: fe-app-forkop/src/forkop/tabs/sections/form.ts
@@ -1517,6 +1742,10 @@ msgstr ""
 msgid "Fill in the credentials of this client to get a link."
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Find a strategy"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderExitPanel.ts
 msgid "Finding the exit…"
 msgstr ""
@@ -1531,6 +1760,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/clients.ts
 msgid "Flow"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fooling methods"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -1829,8 +2062,20 @@ msgstr ""
 msgid "Import"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Import / export"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Import a JSON object or a key=value strategy. Import replaces the form strategy; explicit JSON fields override imported strategy values."
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "Import configuration"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Import strategy"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
@@ -1863,6 +2108,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
 msgid "Inconclusive"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Inherit preset"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
@@ -1959,6 +2208,10 @@ msgstr ""
 msgid "Invalid header name"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Invalid host name"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/form.ts
 msgid "Invalid interface name"
 msgstr ""
@@ -1977,6 +2230,10 @@ msgstr ""
 
 #: fe-app-forkop/src/validators/messages.ts
 msgid "Invalid JSON object"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Invalid JSON value"
 msgstr ""
 
 #: fe-app-forkop/src/validators/messages.ts
@@ -2033,6 +2290,10 @@ msgstr ""
 msgid "Invalid SHA-256 fingerprint"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Invalid split position"
+msgstr ""
+
 #: fe-app-forkop/src/validators/messages.ts
 msgid "Invalid subnet"
 msgstr ""
@@ -2068,6 +2329,14 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/exitNodes.ts
 msgid "IP address or name of the device. The tunnel is not signed in to its tailnet: check the authorization key"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "IP fragment size"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "IP fragment size must be a multiple of 8 from 8 to 65512"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/dns.ts
@@ -2120,6 +2389,10 @@ msgstr ""
 msgid "Keep settings"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Keep UDP socket"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/wireguardMode.ts
 msgid "Kernel uses a Linux module and falls back to Userspace if the module or configuration does not support it."
 msgstr ""
@@ -2157,6 +2430,11 @@ msgstr ""
 msgid "Last online %s"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Latency"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
 msgid "Latency difference"
 msgstr ""
@@ -2175,6 +2453,18 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/updates.ts
 msgid "Latency test URL"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+msgid "Learned destinations"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Learning and diagnostics"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Learning results cleared"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -2286,6 +2576,10 @@ msgstr ""
 msgid "Main DNS Query Mode"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Manual strategy"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/links.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
 msgid "Masking type"
@@ -2372,6 +2666,10 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "MTU"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Multiple fake repetitions require a fake TCP mode"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/form/security.ts
@@ -2464,6 +2762,10 @@ msgstr ""
 msgid "No active connections"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+msgid "No active Desync outbound. Save and apply the section first."
+msgstr ""
+
 #: fe-app-forkop/src/helpers/parseWireGuardConfig.ts
 msgid "No Address or PrivateKey"
 msgstr ""
@@ -2536,6 +2838,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/sagerNetCatalog.ts
 msgid "No matching rule sets"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+msgid "No observations yet"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
@@ -2667,6 +2973,10 @@ msgstr ""
 msgid "Not supported by this protocol"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Not tested"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/conditions.ts
 msgid "Nothing after %s"
 msgstr ""
@@ -2782,6 +3092,10 @@ msgstr ""
 
 #: fe-app-forkop/src/validators/messages.ts
 msgid "Only letters, digits and . _ -"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+msgid "Only recent destinations are shown. The full history remains in the core cache."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/fallback.ts
@@ -2951,6 +3265,10 @@ msgstr ""
 msgid "Pre-shared key"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Pre-SYN parameters require Linux"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/settings/form/dns.ts
 msgid "Prefer IPv4"
 msgstr ""
@@ -2969,6 +3287,14 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/conditions.ts
 msgid "Prefixes: full:, keyword:, regex:"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Preset"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/form.ts
+msgid "Presets provide defaults; explicit options override them. Custom disables Adaptive. Normal section conditions, DNS and global QUIC blocking still apply."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/geodata/catalog.ts
@@ -3006,6 +3332,7 @@ msgstr ""
 msgid "Profile ID"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 #: fe-app-forkop/src/forkop/tabs/servers/form/identity.ts
 msgid "Protocol"
@@ -3013,6 +3340,10 @@ msgstr ""
 
 #: fe-app-forkop/src/validators/validateDns.ts
 msgid "Protocol %s is not supported"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Provide 1 to 8 candidate JSON objects"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
@@ -3035,8 +3366,32 @@ msgstr ""
 msgid "QR code"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "QUIC desync is enabled by default in UDP modes quic and auto. False skips QUIC fake packets and resizing while auto mode still handles STUN. QUIC repetitions 1–16 override only QUIC series; 0 uses UDP repetitions."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "QUIC fake repetitions (0 inherits UDP repetitions)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "QUIC parameters require UDP mode quic or auto"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "QUIC repetitions require quic_desync=true"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "QUIC resizing requires quic_desync=true in UDP mode quic"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "Random server order"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Raw diagnostics JSON"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
@@ -3070,6 +3425,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts
 msgid "Refill"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Refresh diagnostics"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -3127,6 +3486,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/overrides.ts
 msgid "Rename servers"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Repetitions"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -3194,6 +3557,7 @@ msgid "Restarting..."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 msgid "Result"
 msgstr ""
 
@@ -3282,6 +3646,10 @@ msgstr ""
 #: fe-app-forkop/src/forkop/helpers/serviceStatusDisplay.ts
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/service.ts
 msgid "running"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Running"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/service.ts
@@ -3388,6 +3756,14 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/traffic.ts
 msgid "Send BitTorrent traffic past the proxy"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Sequence overlap (bytes)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Sequence overlap must not exceed 4096 bytes"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/cbi/dnsServers.ts
@@ -3632,6 +4008,22 @@ msgstr ""
 msgid "Spaces are not allowed"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Speed"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Split positions"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Split positions have no effect in this TCP mode without real-segment transformation"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Split TLS records first"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/sshForm.ts
 msgid "SSH client version"
 msgstr ""
@@ -3646,6 +4038,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 msgid "SSO and SAML through the sing-box dashboard, which the tunnel waits for at every connection"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Stability"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
@@ -3666,6 +4062,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
 msgid "Starting"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Starting isolated strategy tests…"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/helpers/serviceStatusDisplay.ts
@@ -3726,6 +4126,24 @@ msgstr ""
 msgid "Straight from the router, without a proxy or tunnel"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Strategy"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Strategy exceeds 32 KiB"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Strategy import or export"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Strategy tuner"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
 msgid "Subnets"
 msgstr ""
@@ -3762,6 +4180,11 @@ msgstr ""
 msgid "Subscriptions updated"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Success"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts
 msgid "Support"
 msgstr ""
@@ -3770,8 +4193,16 @@ msgstr ""
 msgid "Supported URIs: %s"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+msgid "Switch reason"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/urltest.ts
 msgid "Switching threshold in ms at which to move to a faster server"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "SYN data (base64)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/cbi/localDevices.ts
@@ -3809,8 +4240,24 @@ msgstr ""
 msgid "TCP and UDP"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "TCP mode"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
 msgid "TCP ports to monitor, one per entry. Default: 443."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "TCP transformation parameters require an enabled TCP mode"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "TCP window scale"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "TCP window size"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/components/initController.ts
@@ -3823,6 +4270,22 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts
 msgid "Test latency"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Test limits"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Test target"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Test the current form strategy"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Tests use isolated connections. Active sections keep their configuration. Speed is measured only for suitable download targets; unavailable metrics are shown as not tested."
 msgstr ""
 
 #: fe-app-forkop/src/validators/messages.ts
@@ -3887,6 +4350,11 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 msgid "The group, realm or gateway the server offers at sign-in"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/services/coreFeatures.service.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "The installed core does not support Desync"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/services/coreFeatures.service.ts
@@ -4043,6 +4511,10 @@ msgstr ""
 msgid "Time"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Timeout per probe (seconds)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "TLS (certificates)"
 msgstr ""
@@ -4083,6 +4555,10 @@ msgstr ""
 msgid "Torrents directly"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Total time limit (seconds)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 msgid "TOTP: the base32 secret or the otpauth:// link of the QR code. RSA SecurID: the token string. OIDC: the access token"
 msgstr ""
@@ -4121,12 +4597,20 @@ msgstr ""
 msgid "Transport path"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "True sends fake packets through the retained UDP session socket. False opens a temporary raw injector for each fake series on Linux with CAP_NET_RAW. Both preserve the same source address and port; the session socket receives replies."
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 msgid "Trust only the CA certificate above"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "tun-mtu in the profile"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
+msgid "Tuner candidates must be fixed manual strategies"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/form.ts
@@ -4164,6 +4648,34 @@ msgstr ""
 msgid "Type"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "UDP fake repetitions"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "UDP fake TTL"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "UDP mode"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "UDP packet range (inclusive)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "UDP padding length"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "UDP padding must be at most 64000 bytes; STUN requires multiples of 4"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "UDP parameters require an enabled UDP mode"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/geodata/index.ts
 msgid "Unavailable"
 msgstr ""
@@ -4174,6 +4686,10 @@ msgstr ""
 
 #: fe-app-forkop/src/helpers/parseOpenConnectConfig.ts
 msgid "Unknown compression mode %s"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Unknown desync parameter"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderExitPanel.ts
@@ -4204,6 +4720,10 @@ msgstr ""
 msgid "Unknown option %s"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Unknown or invalid Adaptive parameter"
+msgstr ""
+
 #: fe-app-forkop/src/helpers/parseOpenConnectConfig.ts
 msgid "Unknown token mode %s"
 msgstr ""
@@ -4212,8 +4732,26 @@ msgstr ""
 msgid "Unsaved changes to Forkop made earlier are replaced."
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/api.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Unsupported by the installed core"
+msgstr ""
+
 #: fe-app-forkop/src/validators/validateProxyUrl.ts
 msgid "Unsupported link"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Unsupported settings are rejected with a reason. Desync requires its own direct socket and cannot connect through another outbound."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Unsupported value"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Unterminated value"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/clients.ts
@@ -4249,6 +4787,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/subscriptions/options.ts
 msgid "Update the subscription automatically at a set interval"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/diagnostics.ts
+msgid "Updated"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/partials/renderSections.ts

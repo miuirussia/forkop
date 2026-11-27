@@ -362,6 +362,49 @@ t.test("core downloads preserve HTTP errors and accept a complete binary stream 
     stub.restore();
 });
 
+t.test("an eligible Desync exit validates and streams a real Geodata download", () => {
+    let run = setup();
+    let controller = require("controller").start();
+    let config_path = run.root + "/config.json";
+    fs.writefile(config_path, sprintf("%J", { experimental: { clash_api: { external_controller: controller.endpoint } } }));
+    run.config.settings.config_path = config_path;
+    run.config.settings.geodata_download_section = "dpi";
+    run.config.geodata[0].input = "https://example.com/geosite.dat";
+    push(run.config.section, { ".name": "dpi", action: "desync", enabled: "1", label: "Direct DPI", desync_options: '{"preset":"split","auto_tune":false}' });
+    fixture.seed(run.config);
+    connections.load();
+    controller.reply({ status: 200, body: "valid-dat\nFORKOP-GEODATA-DONE\n" });
+    t.eq(service.run("sites", false), true, service.status().sources[0].error);
+    t.eq(fs.readfile(sources.active("sites").dat), "valid-dat");
+    t.eq(fs.readfile(sources.resolve("dat:sites:youtube")), "SRS-a");
+    t.contains(controller.requests()[0], '"detour": "Direct DPI"');
+    t.eq(run.state.fetches, 0, "the selected Desync exit must not fall back to direct fetch");
+    // A running-core transfer failure must still preserve the prior generation.
+    controller.reply({ status: 502, body: "selected outbound unavailable\n" });
+    run.state.sha = "b";
+    t.eq(service.run("sites", false), false);
+    t.contains(service.status().sources[0].error, "HTTP 502: selected outbound unavailable");
+    t.eq(fs.readfile(sources.resolve("dat:sites:youtube")), "SRS-a");
+    stub.restore();
+    validation.accepts(run.config, { sing_box_version: "1.14.4-r18", core_tags: [ "with_clash_api" ] });
+});
+
+t.test("Geodata continues rejecting missing, disabled and non-routing download exits", () => {
+    for (let unavailable in [ null, { action: "desync", enabled: "0" }, { action: "bypass" }, { action: "block" }, { action: "dns" } ]) {
+        let run = setup();
+        run.config.settings.geodata_download_section = "dpi";
+        run.config.geodata[0].input = "https://example.com/geosite.dat";
+        if (unavailable != null) push(run.config.section, { ".name": "dpi", ...unavailable });
+        fixture.seed(run.config);
+        t.eq(service.run("sites", false), false);
+        t.contains(service.status().sources[0].error, "Geodata download section is unavailable");
+        t.eq(run.state.fetches, 0);
+        t.eq(sources.active("sites"), null);
+        stub.restore();
+        t.ok(validation.run(run.config, { sing_box_version: "1.14.4-r18", core_tags: [ "with_clash_api" ] }).error != null);
+    }
+});
+
 t.test("GeoIP references automatically export subnets and are refused in DNS rules", () => {
     let run = setup();
     let features = require("singbox.features");

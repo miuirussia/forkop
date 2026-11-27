@@ -232,6 +232,7 @@ function cleanup_network() {
 
 function stop_runtime(keep_watcher) {
     let ok = true;
+    require("service.desync").stop_all();
     require("geodata.service").stop_worker();
     if (!keep_watcher)
         watch.stop_worker();

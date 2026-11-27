@@ -46,6 +46,12 @@ function allowed(method, path, body) {
     if (path == "" || length(path) > 4096 || match(path, /[\r\n ]/))
         return false;
 
+    // Desync diagnostics and learning only. Tuner jobs use Forkop's bounded worker,
+    // never an unrestricted core control-plane request.
+    if ((method == "GET" || method == "DELETE") && body == "" &&
+        (path == "/desync" || match(path, /^\/desync\?outbound=([A-Za-z0-9._~-]|%[A-Fa-f0-9]{2})+$/)))
+        return true;
+
     if (method == "GET") {
         if (body != "")
             return false;

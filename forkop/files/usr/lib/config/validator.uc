@@ -252,7 +252,7 @@ function rule_action(section) {
 }
 
 function rule_action_supported(action) {
-    return contains([ "connection", "bypass", "block", "dns" ], as_string(action));
+    return contains([ "connection", "desync", "bypass", "block", "dns" ], as_string(action));
 }
 
 function find_section(sections, name) {
@@ -272,7 +272,7 @@ function outbound_section(sections, label, target_name) {
         : !connections.has_connection_sources(target) ? "section '" + section_label(target) + "', which has no servers"
         : null;
     if (reason != null)
-        fail_validation(label + " points to " + reason + ". Select an enabled Connection section with servers");
+        fail_validation(label + " points to " + reason + ". Select an enabled Connection section with servers or a Desync section");
     return target;
 }
 
@@ -287,14 +287,14 @@ function tunnel_kind(tunnel) {
 function section_cascades(section) {
     let owner = " in section '" + section_label(section) + "'";
     let result = [];
-    let add = (label, target) => {
+    let add = (label, target, desync_exit) => {
         if (target != "")
-            push(result, { label, target });
+            push(result, { label, target, desync_exit: desync_exit ?? false });
     };
     for (let link in connections.connection_link_items(section))
-        add("The cascade of link '" + option(link, "name", "") + "'" + owner, connections.cascade_section(link));
+        add("The cascade of link '" + option(link, "name", "") + "'" + owner, connections.cascade_section(link), true);
     for (let subscription in connections.subscription_items(section))
-        add("The cascade of subscription '" + option(subscription, "tag", "") + "'" + owner, connections.cascade_section(subscription));
+        add("The cascade of subscription '" + option(subscription, "tag", "") + "'" + owner, connections.cascade_section(subscription), true);
     for (let tunnel in connections.tunnel_items(section))
         if (CASCADE_TUNNEL_KINDS[tunnel_kind(tunnel)])
             add("The cascade of tunnel '" + option(tunnel, "name", "") + "'" + owner, connections.cascade_section(tunnel));
@@ -337,6 +337,8 @@ function validate_cascades(sections) {
             if (item.target == name)
                 fail_validation(item.label + " cannot point to its own section");
             let target = outbound_section(sections, item.label, item.target);
+            if (rule_action(target) == "desync" && !item.desync_exit)
+                fail_validation(item.label + " cannot use a Desync exit: only connection links and subscriptions support this direct-socket cascade");
             if (cascade_reaches(sections, item.target, name))
                 fail_validation(item.label + " loops back through section '" + section_label(target) + "'");
         }
@@ -1120,7 +1122,24 @@ function validate_rule(section, sections, context) {
     if (action == "dns")
         validate_dns_action(section, sections, context);
 
-    if (connections.is_connections_action(action)) {
+    if (action == "desync") {
+        let desync = require("config.desync");
+        let options = desync.options(section);
+        let capabilities = context.desync_capabilities ?? features.desync_capabilities();
+        let problem = desync.support_problem(context.sing_box_version, capabilities);
+        if (problem != "") fail_validation(problem);
+        // A desync socket is always opened by its own direct dialer. Leaving stale
+        // connection children active would promise a cascade the engine cannot honor.
+        if (length(connections.connection_link_items(section)) || length(connections.subscription_items(section)) ||
+            length(connections.interfaces(section)) || length(connections.outbound_jsons(section)) ||
+            length(connections.tunnels(section)) || length(connections.urltests(section)) || length(connections.fallback_groups(section)) ||
+            option(section, "detour_section", "") != "" || option(section, "detour", "") != "")
+            fail_validation("Desync section '" + section_label(section) + "' owns its direct socket and cannot contain connection sources or cascades");
+        if (capabilities != null)
+            desync.check_core(options);
+    }
+
+    if (action == "connection") {
         for (let urltest_id in connections.urltests(section)) {
             let urltest = "URLTest '" + connections.urltest_display_name(section, urltest_id) + "' in section '" + section_label(section) + "'";
             let check_interval = connections.urltest_check_interval(section, urltest_id);

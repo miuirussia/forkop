@@ -20,6 +20,8 @@ function getActionOptionLabel(action: string) {
       return 'Bypass';
     case 'connection':
       return 'Connection';
+    case 'desync':
+      return _('Desync');
     case 'dns':
       return 'DNS';
     default:
@@ -53,6 +55,7 @@ export function populateActionOptionValues(
   option.value('bypass', 'Bypass');
   option.value('block', 'Block');
   option.value('dns', 'DNS');
+  option.value('desync', _('Desync'));
 
   const stored = `${currentAction || ''}`.trim();
   if (stored && !option.keylist!.includes(stored)) {

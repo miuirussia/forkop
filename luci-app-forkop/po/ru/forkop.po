@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-26 14:11+0300\n"
-"PO-Revision-Date: 2026-11-26 14:11+0300\n"
+"POT-Creation-Date: 2026-11-27 09:51+0300\n"
+"PO-Revision-Date: 2026-11-27 09:51+0300\n"
 "Last-Translator: Kirill Kuznetsov\n"
 "Language-Team: none\n"
 "Language: ru\n"
@@ -218,6 +218,24 @@ msgstr "Действия"
 msgid "Active"
 msgstr "Активные"
 
+msgid "Active probes"
+msgstr "Активные проверки"
+
+msgid "Adaptive"
+msgstr "Адаптивный режим"
+
+msgid "Adaptive chooses strategies for future connections and retries only eligible initial TLS data within configured limits. Learning uses cache.db when available and otherwise stays in memory."
+msgstr "Адаптивный режим выбирает стратегии для следующих соединений и повторяет только допустимые начальные данные TLS в заданных пределах. Обучение сохраняется в cache.db, если файл кеша доступен, иначе остаётся в памяти."
+
+msgid "Adaptive keys: max_attempts, max_concurrent, max_entries, ttl, timeout, max_buffer, network_id. Durations include a unit, for example 5s or 24h."
+msgstr "Параметры Adaptive: max_attempts, max_concurrent, max_entries, ttl, timeout, max_buffer, network_id. Указывайте единицу времени, например 5s или 24h."
+
+msgid "Adaptive limits (JSON object)"
+msgstr "Ограничения Adaptive (объект JSON)"
+
+msgid "Adaptive requires auto_tune=true or preset=auto"
+msgstr "Для Adaptive требуется auto_tune=true или preset=auto"
+
 msgid "Add"
 msgstr "Добавить"
 
@@ -274,6 +292,9 @@ msgstr "Адрес %s недопустим"
 
 msgid "Addresses"
 msgstr "Адреса"
+
+msgid "Advanced parameters"
+msgstr "Расширенные параметры"
 
 msgid "Advanced settings"
 msgstr "Дополнительные параметры"
@@ -338,6 +359,9 @@ msgstr "Любой на пути до сервера сможет выдать �
 msgid "Applies WARP+ to the profile account"
 msgstr "Применяет WARP+ к аккаунту профиля"
 
+msgid "Apply as custom"
+msgstr "Применить как custom"
+
 msgid "applying..."
 msgstr "применяет настройки..."
 
@@ -349,6 +373,12 @@ msgstr "Одобрено"
 
 msgid "At most %d KB, this is %d KB"
 msgstr "Не больше %d КБ, здесь %d КБ"
+
+msgid "At most 16 split positions"
+msgstr "Допускается не более 16 позиций разбиения"
+
+msgid "At most 8 candidates and 24 probes, one connection at a time."
+msgstr "Не более 8 стратегий и 24 проверок, по одному соединению одновременно."
 
 msgid "At most one IPv4 subnet"
 msgstr "Не больше одной подсети IPv4"
@@ -379,6 +409,9 @@ msgstr "Секция сравнения Autodetect"
 
 msgid "Autodetect is unavailable."
 msgstr "Autodetect недоступен."
+
+msgid "Automatic TTL"
+msgstr "Автоматический TTL"
 
 msgid "Availability check for every server"
 msgstr "Проверка доступности каждого сервера"
@@ -434,8 +467,23 @@ msgstr "Путь к файлу кэша"
 msgid "Cancel"
 msgstr "Отмена"
 
+msgid "Cancel tests"
+msgstr "Остановить проверки"
+
+msgid "Cancelled"
+msgstr "Отменено"
+
+msgid "Candidates (JSON array; empty uses protocol defaults)"
+msgstr "Стратегии (массив JSON; пустое поле использует пресеты для выбранного протокола)"
+
 msgid "Cannot be this section"
 msgstr "Нельзя выбрать эту же секцию"
+
+msgid "Cannot verify Desync support: %s"
+msgstr "Не удалось проверить поддержку Desync: %s"
+
+msgid "Canonical options JSON"
+msgstr "Канонический JSON параметров"
 
 msgid "Carry the traffic over the TLS connection without the faster DTLS channel, for a network that drops or slows UDP"
 msgstr "Передавать трафик через соединение TLS без более быстрого канала DTLS — для сети, которая теряет или замедляет UDP"
@@ -523,6 +571,9 @@ msgstr "Запрос к Clash API был отправлен, но ответ п�
 
 msgid "Clear"
 msgstr "Очистить"
+
+msgid "Clear learning results"
+msgstr "Очистить результаты обучения"
 
 msgid "Click a node to pin it, and click it again to unpin it."
 msgstr "Нажмите на узел, чтобы закрепить его, и ещё раз, чтобы открепить."
@@ -728,8 +779,17 @@ msgstr "Создавать и получать профили Cloudflare WARP ч
 msgid "Created in the Tailscale console under Settings → Keys"
 msgstr "Создаётся в консоли Tailscale: Settings → Keys"
 
+msgid "Current strategy"
+msgstr "Текущая стратегия"
+
+msgid "Current strategy, switch reason and learning statistics"
+msgstr "Текущая стратегия, причина переключения и статистика обучения"
+
 msgid "Currently unavailable"
 msgstr "Временно недоступно"
+
+msgid "Custom strategy copied to this form. Save the section and apply configuration to activate it."
+msgstr "Стратегия custom перенесена в форму. Для активации сохраните секцию и примените конфигурацию."
 
 msgid "Dashboard"
 msgstr "Дашборд"
@@ -779,11 +839,32 @@ msgstr "По умолчанию (Linux)"
 msgid "Default (SHA1)"
 msgstr "По умолчанию (SHA1)"
 
+msgid "Delay (for example 100ms)"
+msgstr "Задержка (например 100ms)"
+
 msgid "Delay in milliseconds before reloading Forkop after interface UP"
 msgstr "Задержка в миллисекундах перед перезапуском Forkop после поднятия интерфейса"
 
+msgid "Delay requires an enabled TCP mode"
+msgstr "Для задержки требуется включённый режим TCP"
+
 msgid "Delete"
 msgstr "Удалить"
+
+msgid "Destination"
+msgstr "Назначение"
+
+msgid "Desync"
+msgstr "Desync"
+
+msgid "Desync needs a direct socket. Remove connection sources and cascades before changing this section to Desync, or create a new section."
+msgstr "Desync требуется прямой сокет. Удалите источники соединений и каскады перед сменой действия на Desync или создайте новую секцию."
+
+msgid "Desync request failed"
+msgstr "Ошибка запроса Desync"
+
+msgid "Desync support has not been verified"
+msgstr "Поддержка Desync не проверена"
 
 msgid "Device"
 msgstr "Устройство"
@@ -893,6 +974,9 @@ msgstr "Входящий"
 msgid "Download"
 msgstr "Скачать"
 
+msgid "Download limit (bytes)"
+msgstr "Предел загрузки (байты)"
+
 msgid "Download matching"
 msgstr "Скачать найденное"
 
@@ -917,6 +1001,9 @@ msgstr "Сбрасывать все активные соединения при
 msgid "Duplicate value"
 msgstr "Значение повторяется"
 
+msgid "Duration is outside the supported range"
+msgstr "Длительность вне допустимого диапазона"
+
 msgid "Edit"
 msgstr "Редактировать"
 
@@ -926,8 +1013,17 @@ msgstr "Изменить"
 msgid "empty"
 msgstr "пусто"
 
+msgid "Empty fields inherit the preset. Select auto_tune=false to keep a manual strategy fixed. Positions accept byte offsets and markers such as sni, midsld+1, host+1, endhost-1, sniext+1 and extlen."
+msgstr "Пустые поля наследуют пресет. Установите auto_tune=false, чтобы зафиксировать ручную стратегию. Позиции задаются смещениями в байтах или маркерами: sni, midsld+1, host+1, endhost-1, sniext+1, extlen."
+
+msgid "Empty or duplicate parameter"
+msgstr "Пустой или повторяющийся параметр"
+
 msgid "Enable"
 msgstr "Включить"
+
+msgid "Enable Adaptive (auto_tune)"
+msgstr "Включить Adaptive (auto_tune)"
 
 msgid "Enable Autodetect"
 msgstr "Включить Autodetect"
@@ -941,6 +1037,9 @@ msgstr "Включить встроенный DNS-резолвер для дом
 msgid "Enable Output Network Interface"
 msgstr "Включить выходной сетевой интерфейс"
 
+msgid "Enable QUIC desync"
+msgstr "Включить десинхронизацию QUIC"
+
 msgid "Enable VPN server"
 msgstr "Включить VPN-сервер"
 
@@ -950,8 +1049,14 @@ msgstr "Включить YACD"
 msgid "Enable YACD WAN Access"
 msgstr "Включить доступ YACD WAN"
 
+msgid "Enter a test target (host:port or URL)"
+msgstr "Укажите цель проверки (хост:порт или URL)"
+
 msgid "Ephemeral node"
 msgstr "Временный узел"
+
+msgid "Ephemeral raw UDP injection requires Linux with CAP_NET_RAW"
+msgstr "Для временной raw-инъекции UDP требуется Linux с CAP_NET_RAW"
 
 msgid "Exclude by pattern"
 msgstr "Исключить по шаблону"
@@ -986,8 +1091,38 @@ msgstr "Выход через «%s»"
 msgid "Expand section"
 msgstr "Развернуть секцию"
 
+msgid "Expected a base64 payload"
+msgstr "Ожидается содержимое в base64"
+
+msgid "Expected a duration, for example 100ms or 5s"
+msgstr "Ожидается длительность, например 100ms или 5s"
+
+msgid "Expected a JSON object"
+msgstr "Ожидается объект JSON"
+
+msgid "Expected a single-line string"
+msgstr "Ожидается строка без переносов"
+
+msgid "Expected a string"
+msgstr "Ожидается строка"
+
+msgid "Expected an array of host names"
+msgstr "Ожидается массив имён хостов"
+
+msgid "Expected an inclusive packet range, for example 1:3"
+msgstr "Ожидается включительный диапазон пакетов, например 1:3"
+
+msgid "Expected an integer in range %s"
+msgstr "Ожидается целое число в диапазоне %s"
+
+msgid "Expected key=value"
+msgstr "Ожидается ключ=значение"
+
 msgid "Expected status"
 msgstr "Ожидаемый статус"
+
+msgid "Expected true or false"
+msgstr "Ожидается true или false"
 
 msgid "Expired %s"
 msgstr "Истёк %s"
@@ -997,6 +1132,12 @@ msgstr "Истекает"
 
 msgid "Expires %s"
 msgstr "Истекает %s"
+
+msgid "Export JSON"
+msgstr "Экспорт JSON"
+
+msgid "Export string"
+msgstr "Экспорт строки"
 
 msgid "failed"
 msgstr "ошибка"
@@ -1055,6 +1196,30 @@ msgstr "Ошибка обновления подписок"
 msgid "Failed to upload the file: %s"
 msgstr "Не удалось загрузить файл на роутер: %s"
 
+msgid "Fake HTTP Host"
+msgstr "Подставной HTTP Host"
+
+msgid "Fake packet repetitions"
+msgstr "Повторы подставных пакетов"
+
+msgid "Fake packet TTL"
+msgstr "TTL подставных пакетов"
+
+msgid "Fake parameters require a fake TCP mode"
+msgstr "Параметрам подставных пакетов требуется TCP-режим с fake"
+
+msgid "Fake SNI"
+msgstr "Подставной SNI"
+
+msgid "Fake SNI pool (JSON array)"
+msgstr "Пул подставных SNI (массив JSON)"
+
+msgid "Fake TCP payload (base64)"
+msgstr "Содержимое подставного TCP-пакета (base64)"
+
+msgid "Fake UDP payload (base64)"
+msgstr "Содержимое подставного UDP-пакета (base64)"
+
 msgid "Fallback"
 msgstr "Fallback"
 
@@ -1076,6 +1241,9 @@ msgstr "Fallback: %s"
 msgid "Fill in the credentials of this client to get a link."
 msgstr "Заполните учётные данные клиента, чтобы получить ссылку."
 
+msgid "Find a strategy"
+msgstr "Подобрать стратегию"
+
 msgid "Finding the exit…"
 msgstr "Определяем выход…"
 
@@ -1087,6 +1255,9 @@ msgstr "Постоянные адреса для доменов в формат�
 
 msgid "Flow"
 msgstr "Flow"
+
+msgid "Fooling methods"
+msgstr "Методы fooling"
 
 msgid "For a field the server asks besides the login, as openconnect --form-entry takes it: FORM:NAME=VALUE"
 msgstr "Для поля, которое сервер спрашивает помимо логина, в формате openconnect --form-entry: ФОРМА:ИМЯ=ЗНАЧЕНИЕ"
@@ -1304,8 +1475,17 @@ msgstr "ifconfig: нужны два адреса"
 msgid "Import"
 msgstr "Импортировать"
 
+msgid "Import / export"
+msgstr "Импорт / экспорт"
+
+msgid "Import a JSON object or a key=value strategy. Import replaces the form strategy; explicit JSON fields override imported strategy values."
+msgstr "Импортируйте объект JSON или строку ключ=значение. Импорт заменяет стратегию в форме; явные поля JSON переопределяют значения импортированной стратегии."
+
 msgid "Import configuration"
 msgstr "Импорт конфигурации"
+
+msgid "Import strategy"
+msgstr "Импортировать стратегию"
 
 msgid "Imported the first server. The profile also lists: %s"
 msgstr "Импортирован первый сервер. В профиле есть ещё: %s"
@@ -1330,6 +1510,9 @@ msgstr "Учитывает установку соединения и TLS-рук
 
 msgid "Inconclusive"
 msgstr "Не определено"
+
+msgid "Inherit preset"
+msgstr "Наследовать пресет"
 
 msgid "insecure: also MD5 and short keys"
 msgstr "insecure: ещё MD5 и короткие ключи"
@@ -1400,6 +1583,9 @@ msgstr "Неверный домен или IP-адрес"
 msgid "Invalid header name"
 msgstr "Неверное имя заголовка"
 
+msgid "Invalid host name"
+msgstr "Недопустимое имя хоста"
+
 msgid "Invalid interface name"
 msgstr "Неверное имя интерфейса"
 
@@ -1414,6 +1600,9 @@ msgstr "Неверный JSON"
 
 msgid "Invalid JSON object"
 msgstr "Неверный JSON-объект"
+
+msgid "Invalid JSON value"
+msgstr "Недопустимое значение JSON"
 
 msgid "Invalid key"
 msgstr "Неверный ключ"
@@ -1454,6 +1643,9 @@ msgstr "Неверное регулярное выражение"
 msgid "Invalid SHA-256 fingerprint"
 msgstr "Неверный отпечаток SHA-256"
 
+msgid "Invalid split position"
+msgstr "Недопустимая позиция разбиения"
+
 msgid "Invalid subnet"
 msgstr "Неверная подсеть"
 
@@ -1480,6 +1672,12 @@ msgstr "IP-адрес или имя устройства. Туннель без 
 
 msgid "IP address or name of the device. The tunnel is not signed in to its tailnet: check the authorization key"
 msgstr "IP-адрес или имя устройства. Туннель не вошёл в сеть: проверьте ключ авторизации"
+
+msgid "IP fragment size"
+msgstr "Размер IP-фрагмента"
+
+msgid "IP fragment size must be a multiple of 8 from 8 to 65512"
+msgstr "Размер IP-фрагмента должен быть кратен 8 и находиться в диапазоне 8–65512"
 
 msgid "IPv4 only"
 msgstr "Только IPv4"
@@ -1517,6 +1715,9 @@ msgstr "Сохранить текущий перевод"
 msgid "Keep settings"
 msgstr "Сохранить настройки"
 
+msgid "Keep UDP socket"
+msgstr "Сохранять UDP-сокет"
+
 msgid "Kernel uses a Linux module and falls back to Userspace if the module or configuration does not support it."
 msgstr "Для режима Kernel нужен модуль Linux. Если модуль недоступен или параметры туннеля с ним несовместимы, используется Userspace."
 
@@ -1544,6 +1745,9 @@ msgstr "Последняя проверка"
 msgid "Last online %s"
 msgstr "Последний раз в сети %s"
 
+msgid "Latency"
+msgstr "Задержка"
+
 msgid "Latency difference"
 msgstr "Разница задержки"
 
@@ -1558,6 +1762,15 @@ msgstr "Не удалось проверить задержку: Clash API не 
 
 msgid "Latency test URL"
 msgstr "URL для тестирования задержки"
+
+msgid "Learned destinations"
+msgstr "Изученные назначения"
+
+msgid "Learning and diagnostics"
+msgstr "Обучение и диагностика"
+
+msgid "Learning results cleared"
+msgstr "Результаты обучения очищены"
 
 msgid "Legacy encryption"
 msgstr "Устаревшее шифрование"
@@ -1637,6 +1850,9 @@ msgstr "Основной DNS"
 msgid "Main DNS Query Mode"
 msgstr "Режим опроса основного DNS"
 
+msgid "Manual strategy"
+msgstr "Ручная стратегия"
+
 msgid "Masking type"
 msgstr "Тип маскировки"
 
@@ -1699,6 +1915,9 @@ msgstr "Ограничение MSS"
 
 msgid "MTU"
 msgstr "MTU"
+
+msgid "Multiple fake repetitions require a fake TCP mode"
+msgstr "Для нескольких повторов подставных пакетов требуется TCP-режим с fake"
 
 msgid "Multiplex"
 msgstr "Multiplex"
@@ -1763,6 +1982,9 @@ msgstr "Нет секции [Interface] или [Peer]"
 msgid "No active connections"
 msgstr "Нет активных подключений"
 
+msgid "No active Desync outbound. Save and apply the section first."
+msgstr "Нет активного выхода Desync. Сначала сохраните секцию и примените конфигурацию."
+
 msgid "No Address or PrivateKey"
 msgstr "Нет Address или PrivateKey"
 
@@ -1816,6 +2038,9 @@ msgstr "Нет логов, соответствующих текущим фил�
 
 msgid "No matching rule sets"
 msgstr "Наборы правил не найдены"
+
+msgid "No observations yet"
+msgstr "Пока нет наблюдений"
 
 msgid "No other devices in the tailnet"
 msgstr "В сети нет других устройств"
@@ -1907,6 +2132,9 @@ msgstr "не запущен"
 msgid "Not supported by this protocol"
 msgstr "Не поддерживается этим протоколом"
 
+msgid "Not tested"
+msgstr "Не проверено"
+
 msgid "Nothing after %s"
 msgstr "Пусто после %s"
 
@@ -1990,6 +2218,9 @@ msgstr "Только если сервер тоже его использует 
 
 msgid "Only letters, digits and . _ -"
 msgstr "Только буквы, цифры и . _ -"
+
+msgid "Only recent destinations are shown. The full history remains in the core cache."
+msgstr "Показаны последние назначения. Полная история остаётся в кеше ядра."
 
 msgid "Only selected"
 msgstr "Только выбранные"
@@ -2111,6 +2342,9 @@ msgstr "Порты"
 msgid "Pre-shared key"
 msgstr "Предварительно согласованный ключ"
 
+msgid "Pre-SYN parameters require Linux"
+msgstr "Для параметров preSYN требуется Linux"
+
 msgid "Prefer IPv4"
 msgstr "Предпочитать IPv4"
 
@@ -2125,6 +2359,12 @@ msgstr "Длина префикса от %d до %d"
 
 msgid "Prefixes: full:, keyword:, regex:"
 msgstr "Префиксы: full:, keyword:, regex:"
+
+msgid "Preset"
+msgstr "Пресет"
+
+msgid "Presets provide defaults; explicit options override them. Custom disables Adaptive. Normal section conditions, DNS and global QUIC blocking still apply."
+msgstr "Пресеты задают значения по умолчанию; явные параметры их переопределяют. Custom отключает Adaptive. Условия секции, DNS и глобальная блокировка QUIC действуют как обычно."
 
 msgid "Previous"
 msgstr "Назад"
@@ -2156,6 +2396,9 @@ msgstr "Протокол"
 msgid "Protocol %s is not supported"
 msgstr "Протокол %s не поддерживается"
 
+msgid "Provide 1 to 8 candidate JSON objects"
+msgstr "Укажите от 1 до 8 объектов JSON со стратегиями"
+
 msgid "Proxy link is unavailable"
 msgstr "Ссылка прокси недоступна"
 
@@ -2171,8 +2414,26 @@ msgstr "Публичный ключ"
 msgid "QR code"
 msgstr "QR-код"
 
+msgid "QUIC desync is enabled by default in UDP modes quic and auto. False skips QUIC fake packets and resizing while auto mode still handles STUN. QUIC repetitions 1–16 override only QUIC series; 0 uses UDP repetitions."
+msgstr "Десинхронизация QUIC включена по умолчанию в режимах UDP quic и auto. False отключает подставные пакеты и изменение размера QUIC; режим auto продолжает обрабатывать STUN. Повторы QUIC от 1 до 16 задают только серии QUIC; 0 наследует число повторов UDP."
+
+msgid "QUIC fake repetitions (0 inherits UDP repetitions)"
+msgstr "Повторы подставных QUIC-пакетов (0 наследует повторы UDP)"
+
+msgid "QUIC parameters require UDP mode quic or auto"
+msgstr "Для параметров QUIC требуется режим UDP quic или auto"
+
+msgid "QUIC repetitions require quic_desync=true"
+msgstr "Для повторов QUIC требуется quic_desync=true"
+
+msgid "QUIC resizing requires quic_desync=true in UDP mode quic"
+msgstr "Для изменения размера QUIC в режиме UDP quic требуется quic_desync=true"
+
 msgid "Random server order"
 msgstr "Случайный порядок серверов"
+
+msgid "Raw diagnostics JSON"
+msgstr "Исходный JSON диагностики"
 
 msgid "Reach the coordination server through a section instead of the WAN"
 msgstr "Подключаться к серверу координации через секцию, а не напрямую"
@@ -2197,6 +2458,9 @@ msgstr "Переподключение после тишины, секунд"
 
 msgid "Refill"
 msgstr "Сброс"
+
+msgid "Refresh diagnostics"
+msgstr "Обновить диагностику"
 
 msgid "Refuse a TLS 1.2 key exchange without forward secrecy"
 msgstr "Отказываться от обмена ключами TLS 1.2 без прямой секретности"
@@ -2239,6 +2503,9 @@ msgstr "Удалить с настройками"
 
 msgid "Rename servers"
 msgstr "Переименование серверов"
+
+msgid "Repetitions"
+msgstr "Повторы"
 
 msgid "Reported system"
 msgstr "Сообщаемая система"
@@ -2351,6 +2618,9 @@ msgstr "Запустить диагностику"
 msgid "running"
 msgstr "работает"
 
+msgid "Running"
+msgstr "Выполняется"
+
 msgid "running for %s"
 msgstr "работает %s"
 
@@ -2425,6 +2695,12 @@ msgstr "Самоподписанный"
 
 msgid "Send BitTorrent traffic past the proxy"
 msgstr "Пропускать торрент-трафик мимо прокси"
+
+msgid "Sequence overlap (bytes)"
+msgstr "Перекрытие последовательности (байты)"
+
+msgid "Sequence overlap must not exceed 4096 bytes"
+msgstr "Перекрытие последовательности не должно превышать 4096 байт"
 
 msgid "Sequential"
 msgstr "Последовательно"
@@ -2597,6 +2873,18 @@ msgstr "Сетевой интерфейс источника"
 msgid "Spaces are not allowed"
 msgstr "Пробелы недопустимы"
 
+msgid "Speed"
+msgstr "Скорость"
+
+msgid "Split positions"
+msgstr "Позиции разбиения"
+
+msgid "Split positions have no effect in this TCP mode without real-segment transformation"
+msgstr "Позиции разбиения не действуют в этом режиме TCP без преобразования реальных сегментов"
+
+msgid "Split TLS records first"
+msgstr "Сначала разбивать записи TLS"
+
 msgid "SSH client version"
 msgstr "Версия SSH-клиента"
 
@@ -2608,6 +2896,9 @@ msgstr "Ключи SSH-сервера"
 
 msgid "SSO and SAML through the sing-box dashboard, which the tunnel waits for at every connection"
 msgstr "SSO и SAML через панель sing-box: туннель будет ждать входа при каждом подключении"
+
+msgid "Stability"
+msgstr "Устойчивость"
 
 msgid "Stall threshold (seconds)"
 msgstr "Порог зависания, секунды"
@@ -2623,6 +2914,9 @@ msgstr "Начало имени CN (name-prefix)"
 
 msgid "Starting"
 msgstr "Запускается"
+
+msgid "Starting isolated strategy tests…"
+msgstr "Запуск изолированных проверок стратегий…"
 
 msgid "starting..."
 msgstr "запускается..."
@@ -2666,6 +2960,18 @@ msgstr "Остановка..."
 msgid "Straight from the router, without a proxy or tunnel"
 msgstr "Прямо с роутера, без прокси и туннелей"
 
+msgid "Strategy"
+msgstr "Стратегия"
+
+msgid "Strategy exceeds 32 KiB"
+msgstr "Размер стратегии превышает 32 КиБ"
+
+msgid "Strategy import or export"
+msgstr "Импорт или экспорт стратегии"
+
+msgid "Strategy tuner"
+msgstr "Подбор стратегий"
+
 msgid "Subnets"
 msgstr "Подсети"
 
@@ -2693,14 +2999,23 @@ msgstr "Подписка: %s"
 msgid "Subscriptions updated"
 msgstr "Подписки успешно обновлены"
 
+msgid "Success"
+msgstr "Успешно"
+
 msgid "Support"
 msgstr "Поддержка"
 
 msgid "Supported URIs: %s"
 msgstr "Поддерживаются URI: %s"
 
+msgid "Switch reason"
+msgstr "Причина переключения"
+
 msgid "Switching threshold in ms at which to move to a faster server"
 msgstr "Порог переключения в мс, при которой переключаться на более быстрый сервер"
+
+msgid "SYN data (base64)"
+msgstr "Данные SYN (base64)"
 
 msgid "System"
 msgstr "Система"
@@ -2726,8 +3041,20 @@ msgstr "TAP (уровень 2) не поддерживается, только T
 msgid "TCP and UDP"
 msgstr "TCP и UDP"
 
+msgid "TCP mode"
+msgstr "Режим TCP"
+
 msgid "TCP ports to monitor, one per entry. Default: 443."
 msgstr "TCP-порты для наблюдения, по одному в строке. По умолчанию — 443."
+
+msgid "TCP transformation parameters require an enabled TCP mode"
+msgstr "Для параметров преобразования TCP требуется включённый режим TCP"
+
+msgid "TCP window scale"
+msgstr "Масштаб окна TCP"
+
+msgid "TCP window size"
+msgstr "Размер окна TCP"
 
 msgid "Terminal"
 msgstr "Терминал"
@@ -2737,6 +3064,18 @@ msgstr "Тестировать все секции"
 
 msgid "Test latency"
 msgstr "Тестирование задержки"
+
+msgid "Test limits"
+msgstr "Ограничения проверок"
+
+msgid "Test target"
+msgstr "Цель проверки"
+
+msgid "Test the current form strategy"
+msgstr "Проверить стратегию из формы"
+
+msgid "Tests use isolated connections. Active sections keep their configuration. Speed is measured only for suitable download targets; unavailable metrics are shown as not tested."
+msgstr "Проверки используют отдельные соединения. Конфигурация активных секций сохраняется. Скорость измеряется только для подходящих целей загрузки; недоступные показатели отображаются как непроверенные."
 
 msgid "The / character is not allowed"
 msgstr "Символ / недопустим"
@@ -2785,6 +3124,9 @@ msgstr "Группа участвует как один выбранный уз�
 
 msgid "The group, realm or gateway the server offers at sign-in"
 msgstr "Группа, realm или шлюз, которые сервер предлагает при входе"
+
+msgid "The installed core does not support Desync"
+msgstr "Установленное ядро не поддерживает Desync"
 
 msgid "the installed sing-box lacks %s"
 msgstr "в установленном sing-box нет %s"
@@ -2900,6 +3242,9 @@ msgstr "Через секцию"
 msgid "Time"
 msgstr "Время"
 
+msgid "Timeout per probe (seconds)"
+msgstr "Тайм-аут одной проверки (секунды)"
+
 msgid "TLS (certificates)"
 msgstr "TLS (сертификаты)"
 
@@ -2930,6 +3275,9 @@ msgstr "Допуск"
 msgid "Torrents directly"
 msgstr "Торренты напрямую"
 
+msgid "Total time limit (seconds)"
+msgstr "Общее ограничение времени (секунды)"
+
 msgid "TOTP: the base32 secret or the otpauth:// link of the QR code. RSA SecurID: the token string. OIDC: the access token"
 msgstr "TOTP: секрет base32 или ссылка otpauth:// из QR-кода. RSA SecurID: строка токена. OIDC: токен доступа"
 
@@ -2954,11 +3302,17 @@ msgstr "Хост транспорта"
 msgid "Transport path"
 msgstr "Путь транспорта"
 
+msgid "True sends fake packets through the retained UDP session socket. False opens a temporary raw injector for each fake series on Linux with CAP_NET_RAW. Both preserve the same source address and port; the session socket receives replies."
+msgstr "True отправляет подставные пакеты через сохранённый UDP-сокет сессии. False открывает временный raw-инъектор для каждой серии пакетов в Linux с CAP_NET_RAW. В обоих случаях сохраняются исходный адрес и порт; ответы принимает сокет сессии."
+
 msgid "Trust only the CA certificate above"
 msgstr "Доверять только сертификату CA выше"
 
 msgid "tun-mtu in the profile"
 msgstr "tun-mtu в профиле"
+
+msgid "Tuner candidates must be fixed manual strategies"
+msgstr "Для подбора нужны фиксированные ручные стратегии"
 
 msgid "Tunnel"
 msgstr "Туннель"
@@ -2984,6 +3338,27 @@ msgstr "Туннель: %s"
 msgid "Type"
 msgstr "Тип"
 
+msgid "UDP fake repetitions"
+msgstr "Повторы подставных UDP-пакетов"
+
+msgid "UDP fake TTL"
+msgstr "TTL подставных UDP-пакетов"
+
+msgid "UDP mode"
+msgstr "Режим UDP"
+
+msgid "UDP packet range (inclusive)"
+msgstr "Диапазон UDP-пакетов (включительно)"
+
+msgid "UDP padding length"
+msgstr "Длина дополнения UDP"
+
+msgid "UDP padding must be at most 64000 bytes; STUN requires multiples of 4"
+msgstr "Дополнение UDP не должно превышать 64000 байт; для STUN размер должен быть кратен 4"
+
+msgid "UDP parameters require an enabled UDP mode"
+msgstr "Для параметров UDP требуется включённый режим UDP"
+
 msgid "Unavailable"
 msgstr "Недоступно"
 
@@ -2992,6 +3367,9 @@ msgstr "неизвестно"
 
 msgid "Unknown compression mode %s"
 msgstr "Неизвестный режим сжатия %s"
+
+msgid "Unknown desync parameter"
+msgstr "Неизвестный параметр desync"
 
 msgid "unknown error"
 msgstr "неизвестная ошибка"
@@ -3014,14 +3392,29 @@ msgstr "Неизвестный параметр --%s"
 msgid "Unknown option %s"
 msgstr "Неизвестный параметр %s"
 
+msgid "Unknown or invalid Adaptive parameter"
+msgstr "Неизвестный или недопустимый параметр Adaptive"
+
 msgid "Unknown token mode %s"
 msgstr "Неизвестный режим токена %s"
 
 msgid "Unsaved changes to Forkop made earlier are replaced."
 msgstr "Непринятые изменения Forkop, сделанные раньше, будут заменены."
 
+msgid "Unsupported by the installed core"
+msgstr "Не поддерживается установленным ядром"
+
 msgid "Unsupported link"
 msgstr "Ссылка не поддерживается"
+
+msgid "Unsupported settings are rejected with a reason. Desync requires its own direct socket and cannot connect through another outbound."
+msgstr "Неподдерживаемые настройки отклоняются с объяснением. Desync требуется собственный прямой сокет; подключение через другой выход недоступно."
+
+msgid "Unsupported value"
+msgstr "Неподдерживаемое значение"
+
+msgid "Unterminated value"
+msgstr "Незавершённое значение"
 
 msgid "Up to %d characters"
 msgstr "Не длиннее %d символов"
@@ -3046,6 +3439,9 @@ msgstr "Обновить подписки"
 
 msgid "Update the subscription automatically at a set interval"
 msgstr "Автоматически обновлять подписку через заданный интервал"
+
+msgid "Updated"
+msgstr "Обновлено"
 
 msgid "Updated %s"
 msgstr "Обновлено %s"

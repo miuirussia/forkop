@@ -186,6 +186,26 @@ describe('getDashboardSections', () => {
     vi.stubGlobal('fetch', undefined);
   });
 
+  it('keeps standalone Desync sections visible as direct outbounds', async () => {
+    mocks.getConfigSections.mockResolvedValue([
+      section({ action: 'desync' }),
+      section({ '.name': 'disabled', action: 'desync', enabled: '0' }),
+    ]);
+    setClashProxies({ Office: proxy('Desync') });
+    expect(await getDashboardSections()).toMatchObject({
+      success: true,
+      data: [
+        {
+          code: 'Office',
+          sectionName: 'main',
+          action: 'desync',
+          withTagSelect: false,
+          outbounds: [],
+        },
+      ],
+    });
+  });
+
   it('derives manual node identity and presentation from readable runtime tags', async () => {
     const uris = [
       'vless://first@example.com:443#Same',

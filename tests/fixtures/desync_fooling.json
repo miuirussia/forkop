@@ -1,0 +1,10 @@
+{
+  "accepted": ["", "none", "badseq", "badack", "badsum", "md5", "md5_badack", "badseq_badack_badsum", "datanoack", "hopbyhop", "destopt", "ipfrag", "ts", "badtimestamp"],
+  "rejected": ["magic", "badseq_magic", "badseq_badsum", "ts_badack"],
+  "exports": [
+    {
+      "options": {"preset":"custom","mode":"fake_split","fooling":"","auto_tune":false,"seqovl":0,"repeats":1,"split_pos":"midsld","ttl":3,"udp_mode":"none"},
+      "strategy": "auto_tune=false fooling=\"\" mode=fake_split preset=custom repeats=1 seqovl=0 split_pos=midsld ttl=3 udp_mode=none"
+    }
+  ]
+}

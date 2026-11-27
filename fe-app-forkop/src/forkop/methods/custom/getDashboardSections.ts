@@ -264,7 +264,7 @@ function getJsonOutbounds(section: Forkop.ConfigSection) {
 }
 
 function isConnectionAction(action?: string) {
-  return action === 'connection';
+  return action === 'connection' || action === 'desync';
 }
 
 function hasSubscriptionSources(section: Forkop.ConfigSection) {

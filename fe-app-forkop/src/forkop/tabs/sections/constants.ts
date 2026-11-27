@@ -1,6 +1,6 @@
 export const RULE_SET_ITEM_SETTINGS_KEY = 'rule_set_settings';
 
-export const ROUTING_ACTIONS = ['connection', 'bypass', 'block'];
+export const ROUTING_ACTIONS = ['connection', 'bypass', 'block', 'desync'];
 
 // The smallest object the validator and sing-box both accept; the tag becomes the tunnel's name.
 export const JSON_ENDPOINT_PLACEHOLDER = [

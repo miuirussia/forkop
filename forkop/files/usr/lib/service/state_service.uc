@@ -328,8 +328,10 @@ function tick() {
 
     recompute();
 
-    if (due_sweep)
+    if (due_sweep) {
         refresh_system_info();
+        require("service.desync").cleanup();
+    }
 }
 
 function log_tick() {
@@ -338,7 +340,17 @@ function log_tick() {
 }
 
 function object_methods() {
+    let desync = {};
+    for (let name in [ "desync_capabilities", "desync_diagnostics", "desync_tune_start", "desync_tune_progress",
+        "desync_tune_cancel", "desync_apply_custom", "desync_clear_cache" ]) {
+        let method = name;
+        desync[method] = {
+            call: (request) => require("service.desync").dispatch(method, request.args.payload ?? "{}", request.args.ubus_rpc_session),
+            args: { payload: "", ubus_rpc_session: "" }
+        };
+    }
     return {
+        ...desync,
         state: {
             call: function(request) {
                 return reply_payload();

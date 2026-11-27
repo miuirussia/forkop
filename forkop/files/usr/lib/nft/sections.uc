@@ -10,6 +10,7 @@ let object_or_empty = common.object_or_empty;
 
 const CAPTURE_ACTIONS = {
     connection: true,
+    desync: true,
     block: true
 };
 
