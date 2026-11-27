@@ -648,8 +648,7 @@ function renderTab(
   tab.className = active ? 'cbi-tab' : 'cbi-tab-disabled';
   tab.replaceChildren(
     E('a', { href: '#' }, [
-      label,
-      ' ',
+      E('span', {}, label),
       E('span', { class: 'fkp_monitoring-page__tab-count' }, String(count)),
     ]),
   );

@@ -15723,8 +15723,7 @@ function renderTab(tab, label, count, active) {
   tab.className = active ? "cbi-tab" : "cbi-tab-disabled";
   tab.replaceChildren(
     textE("a", { href: "#" }, [
-      label,
-      " ",
+      textE("span", {}, label),
       textE("span", { class: "fkp_monitoring-page__tab-count" }, String(count))
     ])
   );
@@ -16329,6 +16328,7 @@ width: 100% something to resolve against. */
 
 /* Follows the page's width, not the window's: a theme sidebar leaves far less. */
 .fkp_monitoring-page {
+    --fkp-monitoring-inline-padding: 16px;
     --fkp-monitoring-row-action-size: 24px;
     --fkp-monitoring-divider-color: rgba(127, 127, 127, 0.22);
     --fkp-monitoring-soft-bg: rgba(127, 127, 127, 0.08);
@@ -16358,6 +16358,21 @@ width: 100% something to resolve against. */
     align-items: center;
     gap: 12px 16px;
     margin-bottom: 12px;
+    padding-inline: var(--fkp-monitoring-inline-padding);
+}
+
+.fkp_monitoring-page .fkp_monitoring-page__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    width: auto;
+    margin: 0 var(--fkp-monitoring-inline-padding) 12px;
+    overflow: visible;
+}
+
+.fkp_monitoring-page__tabs > li > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
 }
 
 /* The free end of the tab bar, so showing it moves nothing; it is no tab, so the theme's tab
@@ -16490,7 +16505,7 @@ when the width runs short. */
     grid-template-columns: subgrid;
     align-items: center;
     min-height: 36px;
-    padding: 0 6px;
+    padding: 0 var(--fkp-monitoring-inline-padding);
     border-bottom: 1px solid var(--fkp-monitoring-divider-color);
     box-sizing: border-box;
 }
@@ -16709,7 +16724,7 @@ when the width runs short. */
         align-items: center;
         column-gap: 8px;
         row-gap: 2px;
-        padding: 8px 0;
+        padding: 8px var(--fkp-monitoring-inline-padding);
     }
 
     .fkp_monitoring-page__row--head {
@@ -16796,10 +16811,16 @@ when the width runs short. */
 }
 
 @container (max-width: 519px) {
-    .fkp_monitoring-page__filters,
-    .fkp_monitoring-page__actions {
+    .fkp_monitoring-page__filters {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        justify-self: stretch;
+    }
+
+    .fkp_monitoring-page__actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
         gap: 8px;
         justify-self: stretch;
     }
