@@ -4,6 +4,11 @@ import { callUbus } from '../../../../../helpers/callUbus';
 import { desyncApi } from '../api';
 import { validateDesync } from '../model';
 
+import {
+  desyncCapabilities as CORE,
+  desyncContract as CONTRACT,
+} from '../../../../../../tests/lib/desync.js';
+
 beforeEach(() => vi.mocked(callUbus).mockReset());
 describe('authenticated desync API', () => {
   it('normalizes the actual parameter support matrix without treating Linux pre-SYN requirements as refusals', async () => {
@@ -13,10 +18,11 @@ describe('authenticated desync API', () => {
         success: true,
         available: true,
         capabilities: {
+          ...CORE,
           supported: true,
           platform: 'linux',
-          modes: ['split', 'fake'],
           parameters: {
+            ...CORE.parameters,
             wscale: {
               supported: true,
               requirements: 'pre-SYN TCP_WINDOW_CLAMP; CAP_NET_ADMIN',
@@ -29,7 +35,8 @@ describe('authenticated desync API', () => {
             },
           },
           mode_support: {
-            split: { supported: true },
+            ...CORE.mode_support,
+            split: { supported: true, requirements: '' },
             fake: { supported: true, requirements: 'Linux CAP_NET_RAW' },
           },
         },
@@ -52,16 +59,19 @@ describe('authenticated desync API', () => {
         success: true,
         available: true,
         capabilities: {
+          ...CORE,
           supported: true,
           platform: 'darwin',
           parameters: {
-            preset: { supported: true },
+            ...CORE.parameters,
+            preset: { supported: true, requirements: '' },
             wscale: {
               supported: false,
               requirements: 'Linux pre-SYN required',
             },
           },
           mode_support: {
+            ...CORE.mode_support,
             fake: {
               supported: false,
               requirements: 'Linux CAP_NET_RAW required',
@@ -82,14 +92,13 @@ describe('authenticated desync API', () => {
       data: {
         success: true,
         available: true,
-        capabilities: { supported: true, modes: ['split'], protocols: ['tls'] },
-        modes: ['split', 'fake'],
+        capabilities: CORE,
       },
     });
     expect(await desyncApi.capabilities()).toMatchObject({
       supported: true,
-      modes: ['split'],
-      protocols: ['tls'],
+      modes: CORE.modes,
+      protocols: CORE.protocols,
     });
     expect(callUbus).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -98,6 +107,74 @@ describe('authenticated desync API', () => {
         params: { payload: '{}' },
       }),
     );
+  });
+  it.each([
+    undefined,
+    null,
+    {},
+    { supported: true },
+    { ...CORE, parameters: ['mode'] },
+    { ...CORE, mode_support: undefined },
+    { ...CORE, capability: 'unrelated' },
+    { ...CORE, version: 0 },
+  ])(
+    'refuses missing or obsolete capability contracts: %j',
+    async (capabilities) => {
+      vi.mocked(callUbus).mockResolvedValue({
+        success: true,
+        data: {
+          success: true,
+          available: true,
+          capabilities,
+          modes: ['split'],
+          presets: ['split'],
+        },
+      });
+      expect((await desyncApi.capabilities()).supported).toBe(false);
+    },
+  );
+  async function supportFor(capabilities: unknown) {
+    vi.mocked(callUbus).mockResolvedValue({
+      success: true,
+      data: { success: true, available: true, capabilities },
+    });
+    return desyncApi.capabilities();
+  }
+  it.each<Record<string, unknown>>(CONTRACT.capability_overrides_rejected)(
+    'refuses incomplete r20 contracts %j',
+    async (overrides) => {
+      expect((await supportFor({ ...CORE, ...overrides })).supported).toBe(
+        false,
+      );
+    },
+  );
+  it.each(['parameters', 'mode_support'])(
+    'requires every r20 %s entry with its actual schema',
+    async (table) => {
+      for (const key of Object.keys(CORE[table])) {
+        const entries = { ...CORE[table] };
+        delete entries[key];
+        expect(
+          (await supportFor({ ...CORE, [table]: entries })).supported,
+          key,
+        ).toBe(false);
+      }
+      for (const value of CONTRACT.capability_entries_rejected) {
+        expect(
+          (
+            await supportFor({
+              ...CORE,
+              [table]: { ...CORE[table], [Object.keys(CORE[table])[0]]: value },
+            })
+          ).supported,
+        ).toBe(false);
+      }
+    },
+  );
+  it('supports a complete core without compiled QUIC probes', async () => {
+    expect(
+      (await supportFor({ ...CORE, protocols: ['tls', 'http'] })).supported,
+    ).toBe(true);
   });
   it('unwraps actual active diagnostics instead of treating the RPC envelope as stats', async () => {
     const snapshot = {

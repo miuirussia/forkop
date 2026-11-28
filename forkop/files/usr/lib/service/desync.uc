@@ -51,9 +51,7 @@ function capabilities() {
     let reason = strategy.support_problem(features.version(), caps);
     return { available: reason == "", reason, required_version: strategy.REQUIRED_VERSION,
         version: features.version(), capabilities: caps,
-        presets: type(caps?.presets) == "array" ? caps.presets : strategy.PRESETS,
-        modes: type(caps?.modes) == "array" ? caps.modes : strategy.MODES,
-        unsupported: caps?.unsupported ?? {}, limits: LIMITS };
+        limits: LIMITS };
 }
 function api(method, request) {
     let path = "/desync";
@@ -267,12 +265,8 @@ function apply_custom(request, session) {
     let args = { config: "forkop", section: request.section, ubus_rpc_session: session };
     let current = bus.call("uci", "get", args)?.values;
     if (bus.error() || current?.[".type"] != "section" || current.action != "desync") die("The session no longer contains this Desync section");
-    let result = bus.call("uci", "set", { ...args, values: { desync_options: sprintf("%J", options), desync_strategy: "" } });
+    let result = bus.call("uci", "set", { ...args, values: { desync_options: sprintf("%J", options) } });
     if (result == null || bus.error()) die("Could not stage Desync strategy");
-    if (current.desync_strategy != null) {
-        result = bus.call("uci", "delete", { ...args, option: "desync_strategy" });
-        if (result == null || bus.error()) die("Could not remove imported Desync strategy");
-    }
     return { section: request.section, options, staged: true, apply_required: true };
 }
 

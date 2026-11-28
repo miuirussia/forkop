@@ -1,16 +1,69 @@
 import type { DesyncDiagnostics } from './diagnostics';
 import { callUbus } from '../../../../helpers/callUbus';
 import type { DesyncCapabilities, DesyncOptions } from './model';
+import { DESYNC_KEYS, DESYNC_MODES, DESYNC_PRESETS } from './model';
 
 type Reply<T> = T & { success: boolean; message?: string };
 type CapabilityMatrix = Record<
   string,
-  { supported: boolean; requirements?: string }
+  { supported: boolean; requirements: string }
 >;
-interface CoreDesyncCapabilities
-  extends Omit<DesyncCapabilities, 'parameters'> {
-  parameters?: string[] | CapabilityMatrix;
-  mode_support?: CapabilityMatrix;
+interface CoreDesyncCapabilities {
+  capability: string;
+  version: number;
+  supported: boolean;
+  platform: string;
+  active_api: string;
+  limits: { attempts: number; max_bytes: number; timeout: string };
+  modes: string[];
+  presets: string[];
+  protocols: string[];
+  parameters: CapabilityMatrix;
+  mode_support: CapabilityMatrix;
+}
+
+function object(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+function names(value: unknown, expected: string[]) {
+  return (
+    Array.isArray(value) &&
+    value.length === expected.length &&
+    expected.every((name) => value.includes(name))
+  );
+}
+function matrix(value: unknown, expected: string[]) {
+  return (
+    object(value) &&
+    names(Object.keys(value), expected) &&
+    Object.values(value).every(
+      (entry) =>
+        object(entry) &&
+        typeof entry.supported === 'boolean' &&
+        typeof entry.requirements === 'string',
+    )
+  );
+}
+function currentCapabilities(core?: CoreDesyncCapabilities) {
+  return (
+    object(core) &&
+    core.capability === 'forkop-desync-v1' &&
+    core.version === 1 &&
+    core.supported === true &&
+    typeof core.platform === 'string' &&
+    /^[a-z0-9]+$/.test(core.platform) &&
+    core.active_api === '/desync' &&
+    object(core.limits) &&
+    core.limits.attempts === 1 &&
+    core.limits.max_bytes === 1048576 &&
+    core.limits.timeout === '1s..15s' &&
+    matrix(core.parameters, DESYNC_KEYS) &&
+    matrix(core.mode_support, DESYNC_MODES) &&
+    names(core.modes, DESYNC_MODES) &&
+    names(core.presets, DESYNC_PRESETS) &&
+    (names(core.protocols, ['tls', 'http']) ||
+      names(core.protocols, ['tls', 'http', 'quic']))
+  );
 }
 export interface DesyncResult {
   options: DesyncOptions;
@@ -67,16 +120,16 @@ export const desyncApi = {
       available: boolean;
       reason?: string;
       capabilities?: CoreDesyncCapabilities;
-      modes?: string[];
-      presets?: string[];
     }>('desync_capabilities');
     const core = reply.capabilities;
-    const matrix =
-      core?.parameters && !Array.isArray(core.parameters)
-        ? core.parameters
-        : undefined;
+    if (!reply.available || !core || !currentCapabilities(core))
+      return {
+        supported: false,
+        reason: reply.reason || _('The installed core does not support Desync'),
+      };
+    const matrix = core.parameters;
     const unsupported = Object.fromEntries(
-      Object.entries(matrix || {})
+      Object.entries(matrix)
         .filter(([, value]) => value.supported === false)
         .map(([key, value]) => [
           key,
@@ -84,12 +137,12 @@ export const desyncApi = {
         ]),
     );
     const requirements = Object.fromEntries(
-      Object.entries(matrix || {})
+      Object.entries(matrix)
         .filter(([, value]) => value.requirements)
         .map(([key, value]) => [key, value.requirements!]),
     );
     const unsupportedModes = Object.fromEntries(
-      Object.entries(core?.mode_support || {})
+      Object.entries(core.mode_support)
         .filter(([, value]) => value.supported === false)
         .map(([key, value]) => [
           key,
@@ -98,18 +151,11 @@ export const desyncApi = {
     );
     return {
       ...core,
-      parameters: matrix
-        ? Object.keys(matrix)
-        : Array.isArray(core?.parameters)
-          ? core.parameters
-          : undefined,
-      unsupported: { ...core?.unsupported, ...unsupported },
-      requirements: { ...core?.requirements, ...requirements },
-      unsupported_modes: { ...core?.unsupported_modes, ...unsupportedModes },
-      supported: reply.available && core?.supported !== false,
-      reason: reply.reason,
-      modes: reply.capabilities?.modes || reply.modes,
-      presets: reply.capabilities?.presets || reply.presets,
+      parameters: Object.keys(matrix),
+      unsupported,
+      requirements,
+      unsupported_modes: unsupportedModes,
+      supported: true,
     };
   },
   diagnostics: async (section: string) => {

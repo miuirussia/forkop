@@ -1,0 +1,261 @@
+{
+  "active_api": "/desync",
+  "capability": "forkop-desync-v1",
+  "limits": {
+    "attempts": 1,
+    "max_bytes": 1048576,
+    "timeout": "1s..15s"
+  },
+  "mode_support": {
+    "disoob": {
+      "requirements": "Linux CAP_NET_RAW and CAP_NET_ADMIN",
+      "supported": true
+    },
+    "disorder": {
+      "requirements": "Linux CAP_NET_RAW and CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake": {
+      "requirements": "Linux CAP_NET_RAW and CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake_disorder": {
+      "requirements": "Linux CAP_NET_RAW and CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake_split": {
+      "requirements": "Linux CAP_NET_RAW and CAP_NET_ADMIN",
+      "supported": true
+    },
+    "hostfakesplit": {
+      "requirements": "Linux CAP_NET_RAW and CAP_NET_ADMIN",
+      "supported": true
+    },
+    "multi_disorder": {
+      "requirements": "Linux CAP_NET_RAW and CAP_NET_ADMIN",
+      "supported": true
+    },
+    "multi_split": {
+      "requirements": "",
+      "supported": true
+    },
+    "none": {
+      "requirements": "",
+      "supported": true
+    },
+    "oob": {
+      "requirements": "Linux CAP_NET_RAW and CAP_NET_ADMIN",
+      "supported": true
+    },
+    "split": {
+      "requirements": "",
+      "supported": true
+    },
+    "tlsrec": {
+      "requirements": "",
+      "supported": true
+    }
+  },
+  "modes": [
+    "none",
+    "split",
+    "disorder",
+    "tlsrec",
+    "fake",
+    "fake_split",
+    "oob",
+    "multi_split",
+    "fake_disorder",
+    "multi_disorder",
+    "disoob",
+    "hostfakesplit"
+  ],
+  "parameters": {
+    "adaptive": {
+      "requirements": "",
+      "supported": true
+    },
+    "auto_tune": {
+      "requirements": "",
+      "supported": true
+    },
+    "autottl": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "delay": {
+      "requirements": "",
+      "supported": true
+    },
+    "fake_delay": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake_host": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake_payload": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake_placement": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake_sni": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake_sni_pool": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake_tls_random": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake_tls_size": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fake_tls_template": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "fooling": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "hostfake_mode": {
+      "requirements": "hostfakesplit only; replace uses length-preserving host decoy at real sequence offsets with mandatory invalid TCP checksum",
+      "supported": true
+    },
+    "http_mod": {
+      "requirements": "",
+      "supported": true
+    },
+    "ipfrag": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "mode": {
+      "requirements": "",
+      "supported": true
+    },
+    "preset": {
+      "requirements": "",
+      "supported": true
+    },
+    "quic_desync": {
+      "requirements": "",
+      "supported": true
+    },
+    "quic_order": {
+      "requirements": "quic_split_pos required; packet number, CRYPTO offsets and coalesced tail preserved; no cross-packet reordering",
+      "supported": true
+    },
+    "quic_repeats": {
+      "requirements": "",
+      "supported": true
+    },
+    "quic_split_pos": {
+      "requirements": "authenticated Initial CRYPTO frames within one packet; numeric stream offsets or complete in-packet ClientHello for semantic markers",
+      "supported": true
+    },
+    "repeats": {
+      "requirements": "",
+      "supported": true
+    },
+    "segment_order": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "seqovl": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "split_pos": {
+      "requirements": "",
+      "supported": true
+    },
+    "strategy": {
+      "requirements": "",
+      "supported": true
+    },
+    "syndata": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "tlsrec_first": {
+      "requirements": "",
+      "supported": true
+    },
+    "tlsrec_pos": {
+      "requirements": "",
+      "supported": true
+    },
+    "ttl": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    },
+    "udp_fake_payload": {
+      "requirements": "",
+      "supported": true
+    },
+    "udp_keep_socket": {
+      "requirements": "false uses ephemeral raw UDP injector, Linux CAP_NET_RAW; true retains original socket",
+      "supported": true
+    },
+    "udp_mode": {
+      "requirements": "",
+      "supported": true
+    },
+    "udp_out_range": {
+      "requirements": "",
+      "supported": true
+    },
+    "udp_repeats": {
+      "requirements": "",
+      "supported": true
+    },
+    "udp_ttl": {
+      "requirements": "",
+      "supported": true
+    },
+    "udplen": {
+      "requirements": "STUN PADDING and protected QUIC Initial v1/v2/draft29; non-Initial packets unchanged",
+      "supported": true
+    },
+    "wscale": {
+      "requirements": "pre-SYN TCP_WINDOW_CLAMP; positive scale conflicts with exact small wsize; restored receive buffer remains socket-locked",
+      "supported": true
+    },
+    "wsize": {
+      "requirements": "Linux; raw/SYN features require CAP_NET_RAW and/or CAP_NET_ADMIN",
+      "supported": true
+    }
+  },
+  "platform": "linux",
+  "presets": [
+    "auto",
+    "custom",
+    "split",
+    "disorder",
+    "tlsrec",
+    "fake",
+    "fake_split",
+    "oob",
+    "GT1",
+    "GT2",
+    "GT3",
+    "GT4"
+  ],
+  "protocols": [
+    "tls",
+    "http",
+    "quic"
+  ],
+  "supported": true,
+  "version": 1
+}

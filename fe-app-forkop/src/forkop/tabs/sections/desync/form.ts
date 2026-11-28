@@ -38,18 +38,15 @@ export function addDesyncOptions(section: CBISection) {
     const saved = String(
       uci.get(FORKOP_UCI_PACKAGE, sectionId, 'desync_options') || '{}',
     );
-    const strategy = String(
-      uci.get(FORKOP_UCI_PACKAGE, sectionId, 'desync_strategy') || '',
-    );
     try {
-      const options = loadDesync(saved, strategy);
+      const options = loadDesync(saved);
       return JSON.stringify(
         Object.keys(options).length ? options : { preset: 'auto' },
         null,
         2,
       );
     } catch {
-      return strategy ? `${saved}\n${strategy}` : saved;
+      return saved;
     }
   };
   option.validate = required(function (sectionId: string, value: string) {
@@ -79,7 +76,6 @@ export function addDesyncOptions(section: CBISection) {
       'desync_options',
       JSON.stringify(options),
     );
-    uci.unset(FORKOP_UCI_PACKAGE, sectionId, 'desync_strategy');
   };
   // Hidden action changes must keep existing strategies.
   option.remove = function () {};

@@ -7,7 +7,7 @@ let exec = require("core.exec");
 let url = require("core.url");
 let singbox_constants = require("singbox.constants");
 let core_version = require("core.version");
-const DESYNC_REQUIRED_VERSION = "1.14.4-r19";
+const DESYNC_REQUIRED_VERSION = require("core.constants").SB_REQUIRED_VERSION;
 
 let paths = {
     binary: "/usr/bin/sing-box"
@@ -111,8 +111,7 @@ function desync_version_supported(current) {
         core_version.version_at_least(current, DESYNC_REQUIRED_VERSION);
 }
 
-// Older custom cores may not implement this CLI; their release is still checked.
-// An explicit capability response is authoritative, including a refusal.
+// The current core must implement this CLI and advertise the strategy contract.
 function desync_capabilities() {
     let report = report_of_binary();
     if (report == null || !desync_version_supported(report.version)) return null;
@@ -127,6 +126,31 @@ function desync_capabilities() {
     return value;
 }
 
+function desync_capabilities_supported(caps) {
+    function names(value, expected) {
+        return type(value) == "array" && length(value) == length(expected) &&
+            length(filter(expected, (name) => index(value, name) < 0)) == 0;
+    }
+    function matrix(value, expected) {
+        if (type(value) != "object" || !names(keys(value), expected)) return false;
+        for (let key in expected)
+            if (type(value[key]) != "object" || type(value[key].supported) != "bool" || type(value[key].requirements) != "string")
+                return false;
+        return true;
+    }
+    // Read the strategy schema after module initialization: config.desync also uses features.
+    let contract = require("config.desync");
+    let parameters = [ ...contract.STRINGS, ...contract.BOOLS, ...keys(contract.INTS), "fake_sni_pool", "adaptive" ];
+    return type(caps) == "object" && caps.capability == "forkop-desync-v1" &&
+        caps.version === 1 && caps.supported === true && type(caps.platform) == "string" &&
+        match(caps.platform, /^[a-z0-9]+$/) != null && caps.active_api == "/desync" &&
+        type(caps.limits) == "object" && caps.limits.attempts === 1 &&
+        caps.limits.max_bytes === 1048576 && caps.limits.timeout == "1s..15s" &&
+        matrix(caps.parameters, parameters) && matrix(caps.mode_support, contract.MODES) &&
+        names(caps.modes, contract.MODES) && names(caps.presets, contract.PRESETS) &&
+        (names(caps.protocols, [ "tls", "http" ]) || names(caps.protocols, [ "tls", "http", "quic" ]));
+}
+
 // The tags a feature needs that the given set, or the installed core, lacks.
 function missing_tags(feature, present) {
     let have = {};
@@ -139,7 +163,7 @@ function available(feature, present) {
     if (feature == "desync") {
         let caps = desync_capabilities();
         return desync_version_supported(version()) &&
-            (caps == null || (caps.capability == "forkop-desync-v1" && caps.supported === true));
+            desync_capabilities_supported(caps);
     }
     present ??= tags();
     return FEATURES[feature] != null && present != null && length(missing_tags(feature, present)) == 0;
@@ -305,7 +329,7 @@ function report(present) {
 
 return {
     paths, REQUIRED, FEATURES, OUTBOUND_TYPES, INBOUND_TYPES, ENDPOINT_TYPES,
-    DESYNC_REQUIRED_VERSION, desync_version_supported, desync_capabilities,
+    DESYNC_REQUIRED_VERSION, desync_version_supported, desync_capabilities, desync_capabilities_supported,
     parse_tags, tags, version, available, missing_tags, unavailable_reason, core_problem, type_feature, link_features,
     link_uses_xhttp_http3, report
 };

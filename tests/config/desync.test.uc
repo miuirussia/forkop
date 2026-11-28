@@ -3,11 +3,11 @@ let d = require("config.desync");
 let v = require("validation");
 let fixture = require("fixture");
 
-const CONTEXT = { sing_box_version: "1.14.4-r19" };
+const CONTEXT = { sing_box_version: "1.14.4-r20" };
 function section(options) { return { ".name": "dpi", action: "desync", desync_options: sprintf("%J", options ?? {}) }; }
 
-t.test("UCI import folds into canonical JSON with explicit false and zero taking precedence", () => {
-    t.eq(d.options({ desync_strategy: "mode=fake_split ttl=4 auto_tune=true", desync_options: '{"preset":"custom","auto_tune":false,"ttl":3,"seqovl":0}' }),
+t.test("Embedded strategy import folds into canonical JSON with explicit false and zero taking precedence", () => {
+    t.eq(d.options({ desync_options: '{"strategy":"mode=fake_split ttl=4 auto_tune=true","preset":"custom","auto_tune":false,"ttl":3,"seqovl":0}' }),
         { preset: "custom", mode: "fake_split", ttl: 3, auto_tune: false, seqovl: 0 });
     t.eq(d.options({}), { preset: "auto" });
     let options = { preset: "custom", mode: "multi_split", split_pos: "sni,host+1,endhost-1", tlsrec_first: false, auto_tune: false, seqovl: 0 };
@@ -17,8 +17,8 @@ t.test("UCI import folds into canonical JSON with explicit false and zero taking
     t.eq(d.import_strategy(d.export_strategy(adaptive)), adaptive);
     let quic = { preset: "GT2", quic_desync: false, quic_repeats: 0 };
     t.eq(d.import_strategy(d.export_strategy(quic)), quic);
-    t.eq(d.options({ desync_strategy: "udp_mode=quic", desync_options: '{"quic_desync":false,"quic_repeats":0}' }), { preset: "auto", udp_mode: "quic", quic_desync: false, quic_repeats: 0 });
-    t.eq(d.options({ desync_strategy: "auto_tune=true", desync_options: '{"preset":"custom","adaptive":{"max_attempts":2}}' }), { preset: "custom", auto_tune: true, adaptive: { max_attempts: 2 } });
+    t.eq(d.options({ desync_options: '{"strategy":"udp_mode=quic","quic_desync":false,"quic_repeats":0}' }), { preset: "auto", udp_mode: "quic", quic_desync: false, quic_repeats: 0 });
+    t.eq(d.options({ desync_options: '{"strategy":"auto_tune=true","preset":"custom","adaptive":{"max_attempts":2}}' }), { preset: "custom", auto_tune: true, adaptive: { max_attempts: 2 } });
 });
 
 t.test("unknown keys, socket fields, duplicate tokens and invalid values are refused", () => {
@@ -42,18 +42,19 @@ t.test("Desync durations keep form-supported units and zero while enforcing core
     for (let limits in [ { timeout: "1000000µs", ttl: "60000000µs" }, { timeout: "0.6s0.4s", ttl: "1m" },
         { timeout: "60s", ttl: "168h" }, { ttl: "1d" } ])
         t.eq(d.validate({ preset: "auto", adaptive: limits }), { preset: "auto", adaptive: limits });
-    for (let delay in [ "", "-1ns", "2s", "1s1ns", "1000001µs", "1d", "1s!", "1.s", 0 ])
+    for (let delay in [ "", "-1ns", "2s", "1s1ns", "1000001µs", "1d", "1s!", ".s", 0 ])
         t.contains(t.throws(() => d.validate({ delay })).message, "Desync:", sprintf("%J", delay));
     for (let limits in [ { timeout: "0s" }, { timeout: "0.1ns" }, { timeout: "0.9999999999s" },
         { timeout: "60s1ns" }, { ttl: "0ms" }, { ttl: "59s" }, { ttl: "168h1ns" } ])
         t.contains(t.throws(() => d.validate({ preset: "auto", adaptive: limits })).message, "Desync:", sprintf("%J", limits));
 });
 
-t.test("Desync requires r19 and respects an authoritative capability refusal", () => {
-    v.refuses({ section: [ section() ] }, "requires sing-box-forkop 1.14.4-r19", { sing_box_version: "1.14.4-r17" });
+t.test("Desync requires r20 and respects an authoritative capability refusal", () => {
+    v.refuses({ section: [ section() ] }, "requires sing-box-forkop 1.14.4-r20", { sing_box_version: "1.14.4-r19" });
     v.accepts({ section: [ section() ] }, CONTEXT);
     v.refuses({ section: [ section() ] }, "does not advertise", { ...CONTEXT, desync_capabilities: { supported: false } });
-    t.eq(d.support_problem("1.14.4-r19", { capability: "forkop-desync-v1", supported: true }), "");
+    t.eq(d.support_problem("1.14.4-r20", json(require("fs").readfile(require("repo").path("tests/fixtures/desync_capabilities.json")))), "");
+    v.refuses({ section: [ section() ] }, "does not advertise", { ...CONTEXT, desync_capabilities: null });
 });
 
 t.test("standalone Desync needs no server; links and subscriptions can use it as their direct exit", () => {

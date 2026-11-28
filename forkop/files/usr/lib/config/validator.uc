@@ -1134,8 +1134,7 @@ function validate_rule(section, sections, context) {
             length(connections.urltests(section)) || length(connections.fallback_groups(section)) ||
             option(section, "detour_section", "") != "" || option(section, "detour", "") != "")
             fail_validation("Desync section '" + section_label(section) + "' owns its direct socket and cannot contain connection sources or cascades");
-        if (capabilities != null)
-            desync.check_core(options);
+        desync.check_core(options);
     }
 
     if (action == "connection") {

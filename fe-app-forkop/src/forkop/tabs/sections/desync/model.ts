@@ -32,6 +32,15 @@ export const DESYNC_KEYS = [
   'preset',
   'mode',
   'split_pos',
+  'tlsrec_pos',
+  'segment_order',
+  'fake_placement',
+  'fake_delay',
+  'fake_tls_random',
+  'fake_tls_size',
+  'fake_tls_template',
+  'http_mod',
+  'hostfake_mode',
   'fake_sni',
   'fake_host',
   'fake_payload',
@@ -55,12 +64,15 @@ export const DESYNC_KEYS = [
   'udp_keep_socket',
   'quic_desync',
   'quic_repeats',
+  'quic_split_pos',
+  'quic_order',
   'udplen',
   'auto_tune',
   'adaptive',
   'strategy',
 ];
 const BOOLEAN_KEYS = new Set([
+  'fake_tls_random',
   'tlsrec_first',
   'autottl',
   'udp_keep_socket',
@@ -68,6 +80,7 @@ const BOOLEAN_KEYS = new Set([
   'auto_tune',
 ]);
 const NUMBER_LIMITS: Record<string, [number, number]> = {
+  fake_tls_size: [0, 60000],
   repeats: [1, 16],
   ttl: [1, 255],
   seqovl: [0, 65535],
@@ -93,7 +106,6 @@ export interface DesyncCapabilities {
   protocols?: string[];
   parameters?: string[];
   unsupported?: Record<string, string>;
-  unsupported_values?: Record<string, Record<string, string>>;
   platform?: string;
   requirements?: Record<string, string>;
   unsupported_modes?: Record<string, string>;
@@ -105,36 +117,103 @@ function object(value: unknown): value is DesyncOptions {
 function fail(key: string, reason: string): never {
   throw new Error(`${key}: ${reason}`);
 }
-function integer(key: string, value: unknown, [min, max]: [number, number]) {
+function integer(
+  key: string,
+  value: unknown,
+  [min, max]: [number, number],
+  incomplete = false,
+) {
   if (
     typeof value !== 'number' ||
     !Number.isInteger(value) ||
-    value < min ||
-    value > max
+    (!incomplete && (value < min || value > max))
   )
     fail(key, _('Expected an integer in range %s').format(`${min}–${max}`));
 }
 function duration(key: string, value: unknown, min = 0, max = Infinity) {
   if (
     typeof value !== 'string' ||
-    !/^(?:\d+(?:\.\d+)?(?:ns|us|µs|ms|s|m|h))+$/.test(value)
+    !/^[+-]?(?:0|(?:(?:\d+(?:\.\d*)?|\.\d+)(?:ns|us|µs|μs|ms|s|m|h|d))+)$/.test(
+      value,
+    )
   )
     fail(key, _('Expected a duration, for example 100ms or 5s'));
   const scales: Record<string, number> = {
-    ns: 1e-9,
-    us: 1e-6,
-    µs: 1e-6,
-    ms: 0.001,
-    s: 1,
-    m: 60,
-    h: 3600,
+    ns: 1,
+    us: 1000,
+    µs: 1000,
+    μs: 1000,
+    ms: 1000000,
+    s: 1000000000,
+    m: 60000000000,
+    h: 3600000000000,
+    d: 86400000000000,
   };
-  const seconds = [
-    ...value.matchAll(/(\d+(?:\.\d+)?)(ns|us|µs|ms|s|m|h)/g),
-  ].reduce((total, match) => total + Number(match[1]) * scales[match[2]], 0);
+  const nanoseconds = [
+    ...value.matchAll(/(\d+(?:\.\d*)?|\.\d+)(ns|us|µs|μs|ms|s|m|h|d)/g),
+  ].reduce((total, match) => {
+    const [whole, fraction = ''] = match[1].split('.');
+    const scale = scales[match[2]];
+    // Go truncates each component below one nanosecond before summing.
+    let remainder = 0;
+    for (let i = fraction.length - 1; i >= 0; i--)
+      remainder = Math.trunc((remainder + Number(fraction[i]) * scale) / 10);
+    return total + Number(whole) * scale + remainder;
+  }, 0);
+  if (
+    !Number.isFinite(nanoseconds) ||
+    nanoseconds > Number('9223372036854775807')
+  )
+    fail(key, _('Duration is outside the supported range'));
+  const seconds =
+    (value.startsWith('-') ? -nanoseconds : nanoseconds) / 1000000000;
   if (seconds < min || seconds > max)
     fail(key, _('Duration is outside the supported range'));
   return seconds;
+}
+
+// Parsing checks types before merging; only effective values must meet semantic bounds.
+function validateFields(options: DesyncOptions, incomplete = false) {
+  for (const [key, value] of Object.entries(options)) {
+    if (!DESYNC_KEYS.includes(key)) fail(key, _('Unknown desync parameter'));
+    if (BOOLEAN_KEYS.has(key)) {
+      if (typeof value !== 'boolean') fail(key, _('Expected true or false'));
+    } else if (key in NUMBER_LIMITS)
+      integer(key, value, NUMBER_LIMITS[key], incomplete);
+    else if (key === 'fake_sni_pool') {
+      if (
+        !Array.isArray(value) ||
+        (!incomplete && value.length > 64) ||
+        value.some((v) => typeof v !== 'string' || (!incomplete && !v.trim()))
+      )
+        fail(key, _('Expected an array of host names'));
+    } else if (key === 'adaptive') {
+      if (!object(value)) fail(key, _('Expected a JSON object'));
+      for (const [name, entry] of Object.entries(value)) {
+        if (name in ADAPTIVE_LIMITS)
+          integer(`adaptive.${name}`, entry, ADAPTIVE_LIMITS[name], incomplete);
+        else if (['ttl', 'timeout'].includes(name))
+          duration(
+            `adaptive.${name}`,
+            entry,
+            incomplete ? -Infinity : name === 'ttl' ? 60 : 1,
+            incomplete ? Infinity : name === 'ttl' ? 604800 : 60,
+          );
+        else if (
+          name !== 'network_id' ||
+          typeof entry !== 'string' ||
+          (!incomplete && entry.length > 256) ||
+          /[\r\n\0]/.test(entry)
+        )
+          fail(`adaptive.${name}`, _('Unknown or invalid Adaptive parameter'));
+      }
+    } else {
+      if (typeof value !== 'string') fail(key, _('Expected a string'));
+      if (/[\r\n\0]/.test(value)) fail(key, _('Expected a single-line string'));
+      if (incomplete && ['delay', 'fake_delay'].includes(key))
+        duration(key, value, -Infinity);
+    }
+  }
 }
 
 // A small key=value grammar: quoted strings and JSON arrays/objects permit spaces.
@@ -187,10 +266,21 @@ export function parseStrategy(text: string): DesyncOptions {
         fail(key, _('Invalid JSON value'));
       }
     } else result[key] = raw;
+    if (
+      typeof result[key] === 'string' &&
+      (BOOLEAN_KEYS.has(key) || key in NUMBER_LIMITS)
+    ) {
+      try {
+        result[key] = JSON.parse(String(result[key]));
+      } catch {
+        fail(key, _('Invalid JSON value'));
+      }
+    }
     if (key === 'fake_sni_pool' && typeof result[key] === 'string')
       result[key] = String(result[key]).split(',');
     rest = rest.slice(end).trimStart();
   }
+  validateFields(result, true);
   return result;
 }
 
@@ -206,13 +296,11 @@ export function importDesync(text: string): DesyncOptions {
   const { strategy, ...explicit } = value;
   if (strategy !== undefined && typeof strategy !== 'string')
     fail('strategy', _('Expected a string'));
+  if (strategy !== undefined) validateFields(value, true);
   return { ...(strategy ? parseStrategy(strategy) : {}), ...explicit };
 }
-export function loadDesync(options: string, strategy = ''): DesyncOptions {
-  return {
-    ...(strategy.trim() ? parseStrategy(strategy) : {}),
-    ...importDesync(options || '{}'),
-  };
+export function loadDesync(options: string): DesyncOptions {
+  return importDesync(options || '{}');
 }
 export function exportDesync(options: DesyncOptions): string {
   return Object.entries(options)
@@ -260,57 +348,23 @@ export function validateDesync(
       );
     if (JSON.stringify(options).length > 32768)
       throw new Error(_('Strategy exceeds 32 KiB'));
-    for (const [key, value] of Object.entries(options)) {
-      if (!DESYNC_KEYS.includes(key)) fail(key, _('Unknown desync parameter'));
+    validateFields(options);
+    for (const key of Object.keys(options)) {
       if (capabilities?.unsupported?.[key])
         fail(key, capabilities.unsupported[key]);
-      const unsupportedValue =
-        capabilities?.unsupported_values?.[key]?.[String(value)];
-      if (unsupportedValue) fail(key, unsupportedValue);
       if (capabilities?.parameters && !capabilities.parameters.includes(key))
         fail(key, _('Unsupported by the installed core'));
-      if (BOOLEAN_KEYS.has(key)) {
-        if (typeof value !== 'boolean') fail(key, _('Expected true or false'));
-      } else if (key in NUMBER_LIMITS) integer(key, value, NUMBER_LIMITS[key]);
-      else if (key === 'fake_sni_pool') {
-        if (
-          !Array.isArray(value) ||
-          value.length > 64 ||
-          value.some((v) => typeof v !== 'string' || !v.trim())
-        )
-          fail(key, _('Expected an array of host names'));
-      } else if (key === 'adaptive') {
-        if (!object(value)) fail(key, _('Expected a JSON object'));
-        for (const [name, entry] of Object.entries(value)) {
-          if (name in ADAPTIVE_LIMITS)
-            integer(`adaptive.${name}`, entry, ADAPTIVE_LIMITS[name]);
-          else if (['ttl', 'timeout'].includes(name))
-            duration(
-              `adaptive.${name}`,
-              entry,
-              name === 'ttl' ? 60 : 1,
-              name === 'ttl' ? 604800 : 60,
-            );
-          else if (
-            name !== 'network_id' ||
-            typeof entry !== 'string' ||
-            entry.length > 256 ||
-            /[\r\n\0]/.test(entry)
-          )
-            fail(
-              `adaptive.${name}`,
-              _('Unknown or invalid Adaptive parameter'),
-            );
-        }
-      } else if (typeof value !== 'string') fail(key, _('Expected a string'));
     }
     const choice = (key: string, choices: string[]) => {
       if (options[key] !== undefined && !choices.includes(String(options[key])))
         fail(key, _('Unsupported value'));
     };
-    choice('preset', capabilities?.presets || DESYNC_PRESETS);
+    choice('preset', ['', ...(capabilities?.presets || DESYNC_PRESETS)]);
     choice('mode', capabilities?.modes || DESYNC_MODES);
     choice('udp_mode', ['none', 'auto', 'quic', 'stun']);
+    choice('fake_placement', ['', 'before', 'between', 'before_between']);
+    choice('fake_tls_template', ['', 'original', 'compact']);
+    choice('hostfake_mode', ['', 'legacy', 'replace']);
     choice('fooling', [
       '',
       'none',
@@ -329,10 +383,10 @@ export function validateDesync(
     ]);
     if (options.delay !== undefined && options.delay !== '0')
       duration('delay', options.delay, 0, 1);
-    for (const [key, value] of Object.entries(options)) {
-      if (typeof value === 'string' && /[\r\n\0]/.test(value))
-        fail(key, _('Expected a single-line string'));
-    }
+    const fakeDelay =
+      options.fake_delay === undefined || options.fake_delay === '0'
+        ? 0
+        : duration('fake_delay', options.fake_delay, 0, 1);
     for (const key of ['fake_sni', 'fake_host']) {
       const value = options[key];
       if (
@@ -364,6 +418,7 @@ export function validateDesync(
       fail('split_pos', _('At most 16 split positions'));
     if (
       options.split_pos !== undefined &&
+      options.split_pos !== '' &&
       !String(options.split_pos)
         .split(',')
         .every((p) =>
@@ -373,7 +428,59 @@ export function validateDesync(
         )
     )
       fail('split_pos', _('Invalid split position'));
-    if (options.udp_out_range !== undefined) {
+    for (const key of ['tlsrec_pos', 'quic_split_pos']) {
+      const value = options[key];
+      if (
+        typeof value === 'string' &&
+        value !== '' &&
+        (value.length > 1024 ||
+          value.split(',').length > 16 ||
+          !value
+            .split(',')
+            .every((p) =>
+              /^(?:[1-9]\d*|(?:sni|sniext|host|midsld|endhost|extlen)(?:[+-]\d+)?)$/.test(
+                p,
+              ),
+            ))
+      )
+        fail(key, _('Invalid split position'));
+    }
+    for (const key of ['segment_order', 'quic_order']) {
+      const value = options[key];
+      if (
+        typeof value !== 'string' ||
+        ['', 'forward', 'reverse', 'sni_last'].includes(value)
+      )
+        continue;
+      const parts = value.split(',');
+      const numbers = parts.map(Number);
+      if (
+        parts.length > 17 ||
+        parts.some((p) => !/^\+?\d+$/.test(p)) ||
+        numbers.some((n) => n < 1 || n > parts.length) ||
+        new Set(numbers).size !== parts.length
+      )
+        fail(
+          key,
+          _(
+            'Expected forward, reverse, sni_last or a permutation such as 2,1,3',
+          ),
+        );
+    }
+    if (options.http_mod) {
+      const mods = String(options.http_mod).split(',');
+      if (
+        mods.some((mod) => !['hcsmix', 'dcsmix', 'rmspace'].includes(mod)) ||
+        new Set(mods).size !== mods.length
+      )
+        fail(
+          'http_mod',
+          _(
+            'Expected unique hcsmix, dcsmix, rmspace tokens separated by commas',
+          ),
+        );
+    }
+    if (options.udp_out_range !== undefined && options.udp_out_range !== '') {
       const range = /^(\d+):(\d+)$/.exec(String(options.udp_out_range));
       if (!range || +range[1] < 1 || +range[2] < +range[1] || +range[2] > 1024)
         fail(
@@ -420,6 +527,94 @@ export function validateDesync(
       'disoob',
     ].includes(mode);
     const quicEnabled = udpMode === 'quic' || udpMode === 'auto';
+    if (
+      options.split_pos === '' &&
+      mode !== 'none' &&
+      !(['fake', 'oob'].includes(mode) && options.tlsrec_first !== true)
+    )
+      fail('split_pos', _('Invalid split position'));
+
+    if (
+      enabled('tlsrec_pos') &&
+      mode !== 'tlsrec' &&
+      options.tlsrec_first !== true
+    )
+      fail(
+        'tlsrec_pos',
+        _('TLS record positions require mode=tlsrec or tlsrec_first=true'),
+      );
+    const recordPositions =
+      options.tlsrec_pos ||
+      (mode === 'tlsrec' || options.tlsrec_first === true
+        ? options.split_pos
+        : '');
+    if (
+      String(recordPositions || '')
+        .split(',')
+        .some((p) => /^\+?\d+$/.test(p) && Number(p) <= 5)
+    )
+      fail(
+        'tlsrec_pos',
+        _('TLS record positions must be after the first 5 header bytes'),
+      );
+    if (
+      enabled('segment_order') &&
+      ['none', 'fake', 'oob', 'tlsrec'].includes(mode)
+    )
+      fail(
+        'segment_order',
+        _('Segment order requires a TCP segmentation mode'),
+      );
+    if (
+      !fakeMode &&
+      ([
+        'fake_placement',
+        'fake_tls_random',
+        'fake_tls_size',
+        'fake_tls_template',
+      ].some(enabled) ||
+        fakeDelay > 0)
+    )
+      fail(
+        'mode',
+        _(
+          'Fake placement, delay and TLS transformations require a fake TCP mode',
+        ),
+      );
+    if (
+      ['between', 'before_between'].includes(String(options.fake_placement)) &&
+      ['fake', 'oob'].includes(mode)
+    )
+      fail(
+        'fake_placement',
+        _('Interleaved fake placement requires a TCP segmentation mode'),
+      );
+    if (enabled('hostfake_mode') && mode !== 'hostfakesplit')
+      fail('hostfake_mode', _('Host fake mode requires mode=hostfakesplit'));
+    if (
+      options.hostfake_mode === 'replace' &&
+      [
+        'fake_payload',
+        'fake_tls_random',
+        'fake_tls_size',
+        'fake_tls_template',
+      ].some(enabled)
+    )
+      fail(
+        'hostfake_mode',
+        _('Host replacement requires a length-preserving generated decoy'),
+      );
+    if (enabled('quic_split_pos') || enabled('quic_order')) {
+      if (!quicEnabled)
+        fail('udp_mode', _('QUIC parameters require UDP mode quic or auto'));
+      if (options.quic_desync === false)
+        fail(
+          'quic_desync',
+          _('QUIC CRYPTO transformations require quic_desync=true'),
+        );
+      if (enabled('quic_order') && !enabled('quic_split_pos'))
+        fail('quic_order', _('QUIC order requires quic_split_pos'));
+    }
     if (
       !quicEnabled &&
       (options.quic_desync !== undefined || options.quic_repeats !== undefined)

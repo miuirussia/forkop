@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: FORKOP\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-27 20:55+0300\n"
-"PO-Revision-Date: 2026-11-27 20:55+0300\n"
+"POT-Creation-Date: 2026-11-28 13:14+0300\n"
+"PO-Revision-Date: 2026-11-28 13:14+0300\n"
 "Last-Translator: Kirill Kuznetsov <kdevlab@yandex.ru>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "Language: \n"
@@ -598,8 +598,20 @@ msgstr ""
 msgid "Before a letter, write ${1} instead of $1"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Before and between real segments (before_between)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Before real segments (before)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/servers.ts
 msgid "behind the provider's NAT (%s), unreachable from the internet"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Between real segments (between)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/dns.ts
@@ -882,6 +894,10 @@ msgstr ""
 msgid "comp-lzo: unsupported mode %s"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Compact ClientHello (compact)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/settings/form/autodetect.ts
 msgid "Compare direct HTTPS access with access through this section"
 msgstr ""
@@ -1054,6 +1070,10 @@ msgstr ""
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
 #: fe-app-forkop/src/forkop/tabs/diagnostic/checks/service.ts
 msgid "Core"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Core defaults (empty preset)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/diagnostic/initController.ts
@@ -1589,6 +1609,10 @@ msgid "Expected an integer in range %s"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected forward, reverse, sni_last or a permutation such as 2,1,3"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
 msgid "Expected key=value"
 msgstr ""
 
@@ -1599,6 +1623,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
 msgid "Expected true or false"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Expected unique hcsmix, dcsmix, rmspace tokens separated by commas"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/tailscale.ts
@@ -1712,6 +1740,14 @@ msgid "Fake HTTP Host + segmentation (hostfakesplit)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake packet delay (for example 100ms)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake packet placement"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "Fake packet repetitions"
 msgstr ""
 
@@ -1735,6 +1771,14 @@ msgstr ""
 msgid "Fake parameters require a fake TCP mode"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Fake placement, delay and TLS transformations require a fake TCP mode"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake settings require a fake TCP mode. Interleaving requires segmentation. An explicit fake delay of 0s disables the inherited delay. Host replacement requires hostfakesplit and cannot use a custom payload or fake TLS transformations."
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "Fake SNI"
 msgstr ""
@@ -1745,6 +1789,14 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "Fake TCP payload (base64)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake TLS size (bytes, 0 keeps original)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Fake TLS template"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
@@ -2048,6 +2100,18 @@ msgstr ""
 msgid "Host and port. Put tcp:// or udp:// before a server on the other transport"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Host fake mode"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Host fake mode requires mode=hostfakesplit"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Host replacement requires a length-preserving generated decoy"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
 msgid "Host, with a port and a group path if the server has them: vpn.example.com:8443/staff"
 msgstr ""
@@ -2079,6 +2143,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/api.ts
 msgid "HTTP error"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "HTTP modifications"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/autodetect/index.ts
@@ -2216,6 +2284,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/interfaces.ts
 msgid "Interface name"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Interleaved fake placement requires a TCP segmentation mode"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/initController.ts
@@ -2521,6 +2593,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/desync.ts
 msgid "Learning results cleared"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Legacy decoy (legacy)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -3182,6 +3258,10 @@ msgstr ""
 msgid "Operation timed out"
 msgstr ""
 
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Original ClientHello (original)"
+msgstr ""
+
 #: fe-app-forkop/src/forkop/tabs/diagnostic/initController.ts
 msgid "OS"
 msgstr ""
@@ -3441,6 +3521,22 @@ msgid "QUIC and STUN (auto)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "QUIC CRYPTO frame order"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "QUIC CRYPTO split positions"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "QUIC CRYPTO transformations require quic_desync=true"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "QUIC CRYPTO transformations require UDP mode quic or auto and enabled QUIC desync. Positions use CRYPTO stream offsets or semantic markers. Order accepts forward, reverse, sni_last or a permutation and requires split positions. Frames are reordered within one Initial packet."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "QUIC desync is enabled by default in UDP modes quic and auto. False skips QUIC fake packets and resizing while auto mode still handles STUN. QUIC repetitions 1–16 override only QUIC series; 0 uses UDP repetitions."
 msgstr ""
 
@@ -3450,6 +3546,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "QUIC only (quic)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "QUIC order requires quic_split_pos"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
@@ -3466,6 +3566,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openvpnForm.ts
 msgid "Random server order"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Randomize fake TLS"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/dashboard/desync.ts
@@ -3572,6 +3676,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/tools.ts
 msgid "Repetitions"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "Replace host (replace)"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts
@@ -3797,6 +3905,10 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/servers/form/security.ts
 msgid "Security"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "Segment order requires a TCP segmentation mode"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/dialog.ts
@@ -4358,6 +4470,10 @@ msgid "TCP ports to monitor, one per entry. Default: 443."
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "TCP segment order"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "TCP segmentation (split)"
 msgstr ""
 
@@ -4470,6 +4586,7 @@ msgid "The group, realm or gateway the server offers at sign-in"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/services/coreFeatures.service.ts
+#: fe-app-forkop/src/forkop/tabs/sections/desync/api.ts
 #: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
 msgid "The installed core does not support Desync"
 msgstr ""
@@ -4650,6 +4767,22 @@ msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
 msgid "TLS record fragmentation (tlsrec)"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "TLS record positions must be after the first 5 header bytes"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/model.ts
+msgid "TLS record positions require mode=tlsrec or tlsrec_first=true"
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "TLS record positions require tlsrec or splitting TLS records first. Segment order accepts forward, reverse, sni_last or a permutation such as 2,1,3 and requires Linux raw TCP. HTTP modifications accept unique hcsmix, dcsmix, rmspace tokens separated by commas."
+msgstr ""
+
+#: fe-app-forkop/src/forkop/tabs/sections/desync/widget.ts
+msgid "TLS record split positions"
 msgstr ""
 
 #: fe-app-forkop/src/forkop/tabs/sections/tunnels/openconnectForm.ts

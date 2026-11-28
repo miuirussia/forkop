@@ -59,6 +59,13 @@ export function renderDesyncEditor(
     GT4: _('Game traffic profile 4 (GT4)'),
     true: _('Enabled'),
     false: _('Disabled'),
+    before: _('Before real segments (before)'),
+    between: _('Between real segments (between)'),
+    before_between: _('Before and between real segments (before_between)'),
+    original: _('Original ClientHello (original)'),
+    compact: _('Compact ClientHello (compact)'),
+    legacy: _('Legacy decoy (legacy)'),
+    replace: _('Replace host (replace)'),
   };
   const controls = new Map<
     string,
@@ -131,7 +138,7 @@ export function renderDesyncEditor(
       choices || kind === 'boolean'
         ? E('select', { class: 'cbi-input-select' }, [
             ...(key === 'preset'
-              ? []
+              ? [E('option', { value: '' }, _('Core defaults (empty preset)'))]
               : [E('option', { value: '' }, _('Inherit preset'))]),
             ...(choices || ['true', 'false']).map((value) =>
               E(
@@ -161,7 +168,8 @@ export function renderDesyncEditor(
         )
           throw new Error(_('%s: needs a whole number').format(key));
         const value = control.value.trim();
-        if (!value) delete options[key];
+        if (!value && !['preset', 'udp_out_range'].includes(key))
+          delete options[key];
         else
           options[key] =
             kind === 'boolean'
@@ -247,6 +255,26 @@ export function renderDesyncEditor(
     fields([
       row('fooling', _('Fooling methods')),
       row('tlsrec_first', _('Split TLS records first'), 'boolean'),
+      row('tlsrec_pos', _('TLS record split positions')),
+      row('segment_order', _('TCP segment order')),
+      row('http_mod', _('HTTP modifications')),
+      row('fake_placement', _('Fake packet placement'), 'text', [
+        'before',
+        'between',
+        'before_between',
+      ]),
+      row('fake_delay', _('Fake packet delay (for example 100ms)')),
+      row('fake_tls_random', _('Randomize fake TLS'), 'boolean'),
+      row(
+        'fake_tls_size',
+        _('Fake TLS size (bytes, 0 keeps original)'),
+        'number',
+      ),
+      row('fake_tls_template', _('Fake TLS template'), 'text', [
+        'original',
+        'compact',
+      ]),
+      row('hostfake_mode', _('Host fake mode'), 'text', ['legacy', 'replace']),
       row('seqovl', _('Sequence overlap (bytes)'), 'number'),
       row('autottl', _('Automatic TTL'), 'boolean'),
       row('fake_payload', _('Fake TCP payload (base64)')),
@@ -256,6 +284,20 @@ export function renderDesyncEditor(
       row('wsize', _('TCP window size'), 'number'),
       row('wscale', _('TCP window scale'), 'number'),
     ]),
+    E(
+      'p',
+      {},
+      _(
+        'TLS record positions require tlsrec or splitting TLS records first. Segment order accepts forward, reverse, sni_last or a permutation such as 2,1,3 and requires Linux raw TCP. HTTP modifications accept unique hcsmix, dcsmix, rmspace tokens separated by commas.',
+      ),
+    ),
+    E(
+      'p',
+      {},
+      _(
+        'Fake settings require a fake TCP mode. Interleaving requires segmentation. An explicit fake delay of 0s disables the inherited delay. Host replacement requires hostfakesplit and cannot use a custom payload or fake TLS transformations.',
+      ),
+    ),
   ]);
   const udp = desyncGroup(_('UDP and QUIC'), [
     fields([
@@ -293,12 +335,21 @@ export function renderDesyncEditor(
       row('udp_fake_payload', _('Fake UDP payload (base64)')),
       row('udp_out_range', _('UDP packet range (inclusive)')),
       row('udp_keep_socket', _('Keep UDP socket'), 'boolean'),
+      row('quic_split_pos', _('QUIC CRYPTO split positions')),
+      row('quic_order', _('QUIC CRYPTO frame order')),
     ]),
     E(
       'p',
       {},
       _(
         'True sends fake packets through the retained UDP session socket. False opens a temporary raw injector for each fake series on Linux with CAP_NET_RAW. Both preserve the same source address and port; the session socket receives replies.',
+      ),
+    ),
+    E(
+      'p',
+      {},
+      _(
+        'QUIC CRYPTO transformations require UDP mode quic or auto and enabled QUIC desync. Positions use CRYPTO stream offsets or semantic markers. Order accepts forward, reverse, sni_last or a permutation and requires split positions. Frames are reordered within one Initial packet.',
       ),
     ),
   ]);

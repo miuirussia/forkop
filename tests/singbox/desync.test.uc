@@ -11,7 +11,7 @@ function build(extra, settings) {
 }
 
 t.test("a standalone strategy becomes a marked flat desync outbound with bootstrap resolution", () => {
-    let config = build({ desync_options: '{"preset":"custom","mode":"multi_split","split_pos":"sni,host+1","auto_tune":false,"tlsrec_first":false}', desync_strategy: "mode=split" });
+    let config = build({ desync_options: '{"preset":"custom","mode":"multi_split","split_pos":"sni,host+1","auto_tune":false,"tlsrec_first":false}' });
     t.eq(sb.outbound(config, "DPI exit"), { type: "desync", tag: "DPI exit", preset: "custom", mode: "multi_split", split_pos: "sni,host+1", auto_tune: false, tlsrec_first: false, routing_mark: c.OUTBOUND_MARK, domain_resolver: c.BOOTSTRAP_DNS_SERVER_TAG });
     t.ok(sb.no_internal_fields(config));
     t.ok(generator.runnable());
@@ -27,6 +27,19 @@ t.test("QUIC blocking precedes Desync and UDP options survive generation", () =>
     let route = sb.route_rule_index(config, (r) => r.outbound == "DPI exit");
     t.ok(reject >= 0 && reject < route);
     for (let key, value in options) t.eq(sb.outbound(config, "DPI exit")[key], value);
+});
+
+t.test("all extended strategies reach the outbound without losing explicit overrides", () => {
+    let fs = require("fs"), repo = require("repo");
+    let contract = json(fs.readfile(repo.path("tests/fixtures/desync_extensions.json")));
+    for (let options in contract.accepted) {
+        let config = build({ desync_options: sprintf("%J", options) });
+        let outbound = sb.outbound(config, "DPI exit");
+        for (let key, value in options) t.eq(outbound[key], value, key);
+        t.eq(outbound.type, "desync");
+        t.eq(outbound.routing_mark, c.OUTBOUND_MARK);
+        t.eq(outbound.domain_resolver, c.BOOTSTRAP_DNS_SERVER_TAG);
+    }
 });
 
 t.test("Desync captures IPv4/IPv6 TCP and UDP and preserves the core bypass mark", () => {

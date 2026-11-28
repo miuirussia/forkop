@@ -8,7 +8,7 @@ import {
 } from '../model';
 
 describe('canonical desync strategies', () => {
-  it('folds legacy and embedded strings, retaining explicit false/zero and advanced fields', () => {
+  it('folds embedded strings, retaining explicit false/zero and advanced fields', () => {
     const value = loadDesync(
       JSON.stringify({
         preset: 'auto',
@@ -19,13 +19,11 @@ describe('canonical desync strategies', () => {
         tlsrec_first: false,
         fake_sni_pool: ['a.example'],
       }),
-      'mode=split ttl=3 repeats=2',
     );
     expect(value).toEqual({
       preset: 'auto',
       mode: 'fake_split',
       ttl: 8,
-      repeats: 2,
       auto_tune: false,
       seqovl: 0,
       tlsrec_first: false,
@@ -227,12 +225,7 @@ describe('canonical desync strategies', () => {
       ).toBe(true);
       expect(importDesync(exportDesync(value))).toEqual(value);
       expect(importDesync(JSON.stringify(value))).toEqual(value);
-      expect(
-        loadDesync(
-          JSON.stringify(value),
-          'udp_mode=quic quic_desync=true quic_repeats=5',
-        ),
-      ).toEqual(value);
+      expect(loadDesync(JSON.stringify(value))).toEqual(value);
     },
   );
   it('keeps QUIC defaults absent until explicitly set, and supports GT presets', () => {
@@ -347,26 +340,14 @@ describe('canonical desync strategies', () => {
     expect(
       validateDesync({ wscale: 0 }, { supported: true, platform: 'darwin' }),
     ).toContain('Linux');
-    const support = {
-      supported: true,
-      unsupported_values: {
-        udp_keep_socket: { false: 'CAP_NET_RAW unavailable' },
-      },
-    };
-    expect(
-      validateDesync({ udp_mode: 'auto', udp_keep_socket: false }, support),
-    ).toContain('CAP_NET_RAW unavailable');
-    expect(
-      validateDesync({ udp_mode: 'auto', udp_keep_socket: true }, support),
-    ).toBe(true);
   });
   it('uses installed core support and explicit unsupported reasons', () => {
     expect(
       validateDesync(
         { preset: 'split' },
-        { supported: false, reason: 'requires r18' },
+        { supported: false, reason: 'requires r20' },
       ),
-    ).toBe('requires r18');
+    ).toBe('requires r20');
     expect(
       validateDesync(
         { wscale: 2 },

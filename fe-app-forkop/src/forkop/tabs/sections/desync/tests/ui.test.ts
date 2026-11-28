@@ -152,6 +152,88 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe('Desync editor and tuner', () => {
+  it('keeps empty preset and UDP range through imports, edits and exports', () => {
+    const { root, source } = editor();
+    const options = {
+      preset: '',
+      mode: 'fake_split',
+      udp_mode: 'auto',
+      udp_out_range: '',
+    };
+    control(root, 'Strategy import or export').value = JSON.stringify(options);
+    button(root, 'Import strategy').click();
+    expect(JSON.parse(source.value)).toEqual(options);
+    const profile = control(root, 'Strategy profile');
+    expect(profile.value).toBe('');
+    expect(
+      nodes(profile).find((node) => node.tag === 'option' && node.value === '')
+        ?.textContent,
+    ).toBe('Core defaults (empty preset)');
+    profile.change('');
+    control(root, 'UDP packet range (inclusive)').change('1:4');
+    control(root, 'UDP packet range (inclusive)').change('');
+    control(root, 'HTTP modifications').change('hcsmix');
+    const edited = { ...options, http_mod: 'hcsmix' };
+    expect(JSON.parse(source.value)).toEqual(edited);
+    expect(
+      nodes(root).find((node) => node.attrs.role === 'alert')?.textContent,
+    ).toBe('');
+    for (const label of ['Export JSON', 'Export string']) {
+      button(root, label).click();
+      control(root, 'HTTP modifications').change('');
+      button(root, 'Import strategy').click();
+      expect(JSON.parse(source.value)).toEqual(edited);
+    }
+    profile.change('split');
+    profile.change('');
+    expect(JSON.parse(source.value).preset).toBe('');
+  });
+  it('edits, exports and imports all extended strategy controls including false and zero', () => {
+    const { root, source } = editor();
+    const changes: Array<[string, string, string, unknown]> = [
+      ['TCP mode', 'fake_split', 'mode', 'fake_split'],
+      ['Split TLS records first', 'true', 'tlsrec_first', true],
+      ['TLS record split positions', 'midsld', 'tlsrec_pos', 'midsld'],
+      ['TCP segment order', 'reverse', 'segment_order', 'reverse'],
+      ['HTTP modifications', 'hcsmix,rmspace', 'http_mod', 'hcsmix,rmspace'],
+      [
+        'Fake packet placement',
+        'before_between',
+        'fake_placement',
+        'before_between',
+      ],
+      ['Fake packet delay (for example 100ms)', '0s', 'fake_delay', '0s'],
+      ['Randomize fake TLS', 'false', 'fake_tls_random', false],
+      ['Fake TLS size (bytes, 0 keeps original)', '0', 'fake_tls_size', 0],
+      ['Fake TLS template', 'compact', 'fake_tls_template', 'compact'],
+      ['UDP mode', 'quic', 'udp_mode', 'quic'],
+      ['QUIC CRYPTO split positions', 'sni+1', 'quic_split_pos', 'sni+1'],
+      ['QUIC CRYPTO frame order', 'reverse', 'quic_order', 'reverse'],
+    ];
+    for (const [label, value, key, expected] of changes) {
+      control(root, label).change(value);
+      expect(JSON.parse(source.value)[key]).toEqual(expected);
+    }
+    const saved = JSON.parse(source.value);
+    expect(
+      nodes(root).find((node) => node.attrs.role === 'alert')?.textContent,
+    ).toBe('');
+    button(root, 'Export string').click();
+    control(root, 'Randomize fake TLS').change('true');
+    button(root, 'Import strategy').click();
+    expect(JSON.parse(source.value)).toEqual(saved);
+    expect(control(root, 'Randomize fake TLS').value).toBe('false');
+    expect(control(root, 'Fake TLS size (bytes, 0 keeps original)').value).toBe(
+      '0',
+    );
+    control(root, 'TCP mode').change('hostfakesplit');
+    control(root, 'Fake TLS template').change('');
+    control(root, 'Host fake mode').change('replace');
+    expect(JSON.parse(source.value).hostfake_mode).toBe('replace');
+    expect(
+      nodes(root).find((node) => node.attrs.role === 'alert')?.textContent,
+    ).toBe('');
+  });
   it.each([
     {
       protocols: ['tls', 'http', 'quic'],

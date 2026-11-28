@@ -2,7 +2,7 @@
 
 Действие **Desync** отправляет трафик напрямую через встроенный движок sing-box-forkop, меняя начальный TCP/TLS/HTTP-обмен или добавляя UDP fake-пакеты. Прокси-сервер для этой секции не нужен. Desync не скрывает IP-адрес назначения и сам по себе не шифрует HTTP.
 
-Нужен sing-box-forkop **1.14.4-r19 или новее**. Forkop читает версию из установленного бинарного файла и, если доступна команда `sing-box desync capabilities`, проверяет маркер `forkop-desync-v1` и её ответ о поддержке. Перед применением параметры проверяет тот же core. Ошибки неподдерживаемых сочетаний, платформы или прав показываются с причиной.
+Нужен sing-box-forkop **1.14.4-r20 или новее**. Forkop читает версию из установленного бинарного файла и требует корректный ответ `sing-box desync capabilities`: маркер `forkop-desync-v1`, версию контракта 1, подтверждение поддержки и таблицы возможностей. Отсутствие команды или неполный ответ отклоняются. Перед применением параметры проверяет тот же core. Ошибки неподдерживаемых сочетаний, платформы или прав показываются с причиной.
 
 ## Маршрутизация и DNS
 
@@ -31,7 +31,7 @@ config section 'desync_web'
     option desync_options '{"preset":"custom","mode":"multi_split","split_pos":"sni,midsld+1","auto_tune":false}'
 ```
 
-`desync_strategy` — необязательная импортированная строка. Она объединяется с JSON; явные поля JSON имеют приоритет. Например:
+Стратегия хранится только в `desync_options`. В форме можно импортировать JSON или строку `key=value`, например:
 
 ```text
 preset=custom mode=fake_split split_pos=midsld ttl=3 fooling=badseq auto_tune=false
@@ -42,6 +42,12 @@ preset=custom mode=fake_split split_pos=midsld ttl=3 fooling=badseq auto_tune=fa
 | Поля | Назначение и ограничения |
 | --- | --- |
 | `split_pos`, `tlsrec_first`, `delay` | Позиции, предварительное преобразование TLS records и задержка до 1 секунды |
+| `tlsrec_pos` | Независимые границы TLS records при `mode: tlsrec` или `tlsrec_first: true`; без них используется `split_pos`. Числовая граница должна быть больше 5 |
+| `segment_order` | Порядок TCP-сегментов: `forward`, `reverse`, `sni_last` либо перестановка с 1, например `2,1,3`. Требует сегментации и Linux raw TCP |
+| `fake_placement`, `fake_delay` | Fake перед сегментами (`before`), между ними (`between`) или в обоих местах (`before_between`). Пауза после каждого fake — до 1 секунды; без неё наследуется `delay`, явный `0s` отключает паузу fake |
+| `fake_tls_random`, `fake_tls_size`, `fake_tls_template` | Обновление Random/SessionID/key shares fake, точный размер ClientHello с заголовками (0 отключает, максимум 60000), шаблон `original` или `compact` |
+| `http_mod` | Уникальные токены `hcsmix,dcsmix,rmspace`: регистр Host, регистр домена и перенос начальных пробелов в конец значения. Работает и при TCP `none` |
+| `hostfake_mode` | Для `hostfakesplit`: `legacy` или подмена имени той же длины `replace`. Подмена несовместима с custom payload и преобразованиями fake TLS |
 | `fake_sni`, `fake_host`, `fake_payload`, `fake_sni_pool` | Имя или payload fake; payload — base64, пул до 64 имён |
 | `repeats`, `ttl`, `fooling`, `seqovl`, `autottl` | Повторы 1–16, TTL 1–255, метод fake, overlap и оценка TTL |
 | `ipfrag`, `syndata`, `wsize`, `wscale` | Начальные IP/TCP-механизмы Linux; реальные ограничения проверяет core, `syndata` — base64 |
@@ -50,9 +56,20 @@ preset=custom mode=fake_split split_pos=midsld ttl=3 fooling=badseq auto_tune=fa
 | `udp_out_range` | Диапазон исходящих пакетов одного потока и назначения, начиная с 1, включительно, не выше 1024 |
 | `udp_keep_socket`, `udplen` | Жизненный цикл UDP-сокета и протокольно допустимое изменение длины; неподдерживаемое значение даёт ошибку |
 | `quic_desync`, `quic_repeats` | Отдельное включение QUIC и 0–16 повторов; 0 наследует `udp_repeats`. Требуется UDP `quic` или `auto`; положительное число повторов несовместимо с `quic_desync: false` |
+| `quic_split_pos`, `quic_order` | Разрезы и порядок CRYPTO frames внутри одного QUIC Initial: смещения в CRYPTO stream или семантические маркеры; порядок как в `segment_order`. Требуются UDP `quic`/`auto`, включённый QUIC desync и разрезы для явного порядка |
 | `auto_tune`, `adaptive` | Adaptive и его лимиты: `max_attempts`, `max_concurrent`, `max_entries`, `ttl`, `timeout`, `max_buffer`, `network_id` |
 
 Нельзя задавать `detour`, `routing_mark` и другие dialer-поля внутри стратегии: ими управляет Forkop. JSON секции ограничен 32 КиБ. Параметры fake применимы к fake-режимам, UDP-параметры требуют включённого `udp_mode`. При несовместимости core выдаёт ошибку, а не игнорирует настройку.
+
+Новые поля доступны в **Расширенных настройках**, в группах TCP и UDP. Их поддержку Forkop проверяет по обязательному ответу `desync capabilities` установленного ядра. Пустое поле формы наследует профиль; явные `false`, `0`, `0s` и пустые строки в импортированном JSON сохраняются при загрузке, экспорте и генерации конфигурации.
+
+Например, независимые разрезы TLS records и TCP с заданным порядком сегментов:
+
+```text
+preset=custom auto_tune=false mode=multi_split tlsrec_first=true tlsrec_pos=midsld split_pos=sniext+1,endhost-1 segment_order=2,1,3
+```
+
+Количество сегментов для перестановки проверяется ядром по конкретному первому сообщению. QUIC-преобразования сохраняют номер пакета и handshake-байты и не переставляют разные дейтаграммы.
 
 Единый список `fooling` для core, UCI и формы: пустая строка, `none`, `badseq`, `badack`, `badsum`, `md5`, `md5_badack`, `badseq_badack_badsum`, `datanoack`, `hopbyhop`, `destopt`, `ipfrag`, `ts`, `badtimestamp`. Произвольные другие комбинации отклоняются. `badtimestamp` — синоним `ts` с сохранением исходного написания при импорте/экспорте; оба требуют согласованных TCP timestamps. `ipfrag` фрагментирует fake с размером 48 байт, если размер не задан отдельным параметром `ipfrag`. Пустая строка и `none` сохраняют обязательную защиту sequence range, отключая дополнительные методы fooling.
 
@@ -106,7 +123,7 @@ Connection может выбрать самостоятельную секцию
 | `desync_apply_custom` | `{ "section": "desync_web", "options": {...} }` | write + UCI-сессия |
 | `desync_clear_cache` | `{ "section": "desync_web" }`, секция необязательна | write |
 
-`desync_apply_custom` предназначен для API-клиентов: переводит стратегию в `custom`, задаёт `auto_tune: false`, убирает Adaptive и `desync_strategy`, сохраняет изменения в UCI-сессии вызывающего. Он не вызывает commit, apply или restart. Интерфейс может заполнить форму локально и использовать обычный путь сохранения.
+`desync_apply_custom` предназначен для API-клиентов: переводит стратегию в `custom`, задаёт `auto_tune: false`, убирает Adaptive и сохраняет `desync_options` в UCI-сессии вызывающего. Он не вызывает commit, apply или restart. Интерфейс может заполнить форму локально и использовать обычный путь сохранения.
 
 Секция для `desync_apply_custom` проверяется в UCI-сессии вызывающего: можно использовать новую секцию с типом `section` и действием `desync`, которая ещё не сохранена в общей конфигурации.
 
@@ -120,6 +137,6 @@ CLI использует те же имена методов и один JSON-а
 
 `python3 tests/service/desync-runtime.py --core /path/to/sing-box` на Linux проверяет настоящий worker, процессы и таймеры uloop, HTTP-пробы, повторения, ограничение тела, отмену с завершением дочернего core, тайм-аут, неизменность отдельного работающего core и авторизацию диагностики/очистки. Нужен ucode, собранный с `ULOOP_SUPPORT=ON`; подменяется только UCI. Скрипт создаёт собственные временные файлы, HTTP-сервер и экземпляр core и завершает их после проверки.
 
-`python3 tests/service/desync-conformance.py --core /path/to/sing-box` проверяет все значения `fooling` из общего с тестами формы и UCI файла `tests/fixtures/desync_fooling.json` через настоящий core CLI, UCI import/export и канонический JSON. Проверяются также неизвестные комбинации и сохранение явных `false`/`0`.
+`python3 tests/service/desync-conformance.py --core /path/to/sing-box` проверяет значения `fooling` и новые настройки из общих с тестами формы и UCI файлов `tests/fixtures/desync_fooling.json` и `tests/fixtures/desync_extensions.json` через настоящий core CLI, UCI import/export и канонический JSON. Проверяются также неизвестные и несовместимые комбинации, нормализация длительностей и сохранение явных `false`/`0`.
 
 Эти проверки не заменяют пакетные испытания ядра. Порядок TCP-сегментов, отсутствие fake в прикладном потоке, точные SYN/window-параметры, IPv6/NAT/MTU, QUIC/STUN, восстановление сокетов и гонки проверяются Linux-стендом и тестами sing-box-forkop. Прошедшая валидация не обещает, что Linux разрешит raw socket или TCP_REPAIR во время соединения: конкретная ошибка прав или ядра возвращается при сетевой операции.

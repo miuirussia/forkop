@@ -32,10 +32,27 @@ beforeEach(() => {
   } as unknown as CBISection);
 });
 describe('section desync form storage', () => {
-  it('loads legacy strategy and saves canonical JSON without writing the active runtime', async () => {
-    data.desync_strategy = 'mode=fake_split ttl=2';
+  it('keeps empty preset and UDP range overrides when loading and saving', async () => {
+    data.desync_options = JSON.stringify({
+      strategy: 'preset=GT2 udp_out_range=1:4',
+      preset: '',
+      mode: 'fake_split',
+      udp_mode: 'auto',
+      udp_out_range: '',
+    });
+    const value = (await option.load('s1')) as string;
+    expect(option.validate('s1', value)).toBe(true);
+    option.write('s1', value);
+    expect(JSON.parse(data.desync_options)).toEqual({
+      preset: '',
+      mode: 'fake_split',
+      udp_mode: 'auto',
+      udp_out_range: '',
+    });
+  });
+  it('loads embedded strategy and saves canonical JSON without writing the active runtime', async () => {
     data.desync_options =
-      '{"auto_tune":false,"seqovl":0,"tlsrec_first":false,"fake_sni_pool":["a.example"]}';
+      '{"strategy":"mode=fake_split ttl=2","auto_tune":false,"seqovl":0,"tlsrec_first":false,"fake_sni_pool":["a.example"]}';
     const value = (await option.load('s1')) as string;
     expect(option.validate('s1', value)).toBe(true);
     expect(writes).not.toHaveBeenCalled();
@@ -48,11 +65,7 @@ describe('section desync form storage', () => {
       tlsrec_first: false,
       fake_sni_pool: ['a.example'],
     });
-    expect(removes).toHaveBeenCalledExactlyOnceWith(
-      'forkop',
-      's1',
-      'desync_strategy',
-    );
+    expect(removes).not.toHaveBeenCalled();
     expect(writes).toHaveBeenCalledTimes(1);
   });
   it('preserves JSON when the action hides its field', async () => {
@@ -66,9 +79,8 @@ describe('section desync form storage', () => {
     expect(option.retain).toBe(true);
   });
   it('saves separate QUIC false/zero overrides and raw fake socket choice through ordinary UCI', async () => {
-    data.desync_strategy = 'udp_mode=auto quic_desync=true quic_repeats=4';
     data.desync_options =
-      '{"quic_desync":false,"quic_repeats":0,"udp_keep_socket":false}';
+      '{"strategy":"udp_mode=auto quic_desync=true quic_repeats=4","quic_desync":false,"quic_repeats":0,"udp_keep_socket":false}';
     const value = (await option.load('s1')) as string;
     expect(option.validate('s1', value)).toBe(true);
     option.write('s1', value);
@@ -78,18 +90,18 @@ describe('section desync form storage', () => {
       quic_repeats: 0,
       udp_keep_socket: false,
     });
-    expect(data.desync_strategy).toBeUndefined();
+    expect(removes).not.toHaveBeenCalled();
   });
   it('blocks unsupported installed cores and keeps invalid saved content available to repair', async () => {
     data.desync_options = '{"unknown":true}';
     vi.mocked(desyncApi.capabilities).mockResolvedValue({
       supported: false,
-      reason: 'upgrade to r18',
+      reason: 'upgrade to r20',
     });
     const value = (await option.load('s1')) as string;
     expect(value).toContain('unknown');
-    expect(option.validate('s1', value)).toBe('upgrade to r18');
-    expect(() => option.write('s1', value)).toThrow('upgrade to r18');
+    expect(option.validate('s1', value)).toBe('upgrade to r20');
+    expect(() => option.write('s1', value)).toThrow('upgrade to r20');
     expect(writes).not.toHaveBeenCalled();
   });
   it('deduplicates support checks across section rows', async () => {

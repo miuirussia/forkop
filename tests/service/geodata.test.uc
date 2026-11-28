@@ -386,7 +386,7 @@ t.test("an eligible Desync exit validates and streams a real Geodata download", 
     t.contains(service.status().sources[0].error, "HTTP 502: selected outbound unavailable");
     t.eq(fs.readfile(sources.resolve("dat:sites:youtube")), "SRS-a");
     stub.restore();
-    validation.accepts(run.config, { sing_box_version: "1.14.4-r19", core_tags: [ "with_clash_api" ] });
+    validation.accepts(run.config, { sing_box_version: "1.14.4-r20", core_tags: [ "with_clash_api" ] });
 });
 
 t.test("Geodata continues rejecting missing, disabled and non-routing download exits", () => {
@@ -401,7 +401,7 @@ t.test("Geodata continues rejecting missing, disabled and non-routing download e
         t.eq(run.state.fetches, 0);
         t.eq(sources.active("sites"), null);
         stub.restore();
-        t.ok(validation.run(run.config, { sing_box_version: "1.14.4-r19", core_tags: [ "with_clash_api" ] }).error != null);
+        t.ok(validation.run(run.config, { sing_box_version: "1.14.4-r20", core_tags: [ "with_clash_api" ] }).error != null);
     }
 });
 

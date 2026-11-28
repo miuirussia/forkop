@@ -14,9 +14,9 @@ let c = require("singbox.constants");
 function setup() {
     d.paths.jobs = stub.tmpdir() + "/jobs";
     fixture.seed({ settings: fixture.settings({ output_network_interface: "wan0" }),
-        section: [ { ".name": "dpi", label: "DPI exit", action: "desync", desync_options: '{"preset":"split"}', desync_strategy: "mode=split" } ] });
-    features.version = () => "1.14.4-r19";
-    features.desync_capabilities = () => ({ capability: "forkop-desync-v1", supported: true });
+        section: [ { ".name": "dpi", label: "DPI exit", action: "desync", desync_options: '{"preset":"split"}' } ] });
+    features.version = () => "1.14.4-r20";
+    features.desync_capabilities = () => json(fs.readfile(require("repo").path("tests/fixtures/desync_capabilities.json")));
     features.paths.binary = "/test/sing-box";
     uloop.__reset();
     ubus.__reset();
@@ -149,11 +149,10 @@ t.test("a hung probe is terminated by a deadline and is recorded as a failure", 
     stub.restore();
 });
 
-t.test("apply custom stages only the selected strategy in the caller session, clears import and never commits", () => {
+t.test("apply custom stages only the selected strategy in the caller session, never commits", () => {
     setup();
-    ubus.__on("uci.get", { values: { ".type": "section", action: "desync", desync_strategy: "mode=split" } });
+    ubus.__on("uci.get", { values: { ".type": "section", action: "desync" } });
     ubus.__on("uci.set", {});
-    ubus.__on("uci.delete", {});
     let result = call("apply_custom", { section: "dpi", options: { preset: "split", mode: "split", auto_tune: true, adaptive: { max_attempts: 2 } } }, "session");
     t.eq(result.success, true, result.message);
     t.eq(result.options, { preset: "custom", mode: "split", auto_tune: false });
@@ -162,7 +161,7 @@ t.test("apply custom stages only the selected strategy in the caller session, cl
         t.eq(request.args.ubus_rpc_session, "session");
         t.ok(request.method != "commit" && request.method != "apply");
     }
-    t.eq(ubus.__calls()[2].args.option, "desync_strategy");
+    t.eq(length(ubus.__calls()), 2);
     t.eq(uci.__commits(), []);
     stub.restore();
 });
@@ -215,9 +214,8 @@ t.test("draft diagnostics stay empty and scoped while cache clearing and invalid
 t.test("apply custom stages a session-created draft and validates the session section type and action", () => {
     setup();
     let before = sprintf("%J", uci.__sections("forkop"));
-    ubus.__on("uci.get", { values: { ".type": "section", action: "desync", desync_strategy: "mode=split" } });
+    ubus.__on("uci.get", { values: { ".type": "section", action: "desync" } });
     ubus.__on("uci.set", {});
-    ubus.__on("uci.delete", {});
     let result = call("apply_custom", { section: "draft_section", options: { preset: "split" } }, "session");
     t.eq(result.success, true, result.message);
     t.eq([ result.section, result.staged, result.apply_required ], [ "draft_section", true, true ]);

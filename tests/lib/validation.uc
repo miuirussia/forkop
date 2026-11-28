@@ -5,6 +5,7 @@ let stub = require("stub");
 let fixture = require("fixture");
 let validator = require("config.validator");
 let features = require("singbox.features");
+let desync_capabilities = json(require("fs").readfile(require("repo").path("tests/fixtures/desync_capabilities.json")));
 
 // Config tests supply core_tags when needed; requirement tests probe a core separately.
 let absent_binary = stub.tmpdir() + "/sing-box";
@@ -25,12 +26,13 @@ function with_dns(data) {
 function run(data, overrides) {
     fixture.seed(with_dns(data));
     let logs = [];
-    stub.commands([ stub.logger(logs) ]);
+    stub.commands([ stub.logger(logs),
+        [ (argv) => argv[1] == "desync" && argv[2] == "check", (argv) => ({ stdout: argv[3] }) ] ]);
     let binary = features.paths.binary;
     features.paths.binary = absent_binary;
     let error = null;
     try {
-        validator.validate(overrides);
+        validator.validate({ desync_capabilities, ...(type(overrides) == "object" ? overrides : {}) });
     }
     catch (e) {
         error = e.message;
